@@ -461,17 +461,16 @@ struct device_node *of_get_next_child(const struct device_node *node,
 }
 EXPORT_SYMBOL(of_get_next_child);
 
-
 /**
- *of_get_next_childof_get_next_available_child - Find the next available child node
- *node <at> node:nodeparent node
- *node <at> prev:prevprevious child of the parent node, or NULL to get first
+ *	of_get_next_available_child - Find the next available child node
+ *	@node:	parent node
+ *	@prev:	previous child of the parent node, or NULL to get first
  *
  *      This function is like of_get_next_child(), except that it
  *      automatically skips any disabled nodes (i.e. status = "disabled").
  */
 struct device_node *of_get_next_available_child(const struct device_node *node,
-		struct device_node *prev)
+	struct device_node *prev)
 {
 	struct device_node *next;
 
