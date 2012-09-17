@@ -432,6 +432,16 @@ static int snd_compr_allocate_buffer(struct snd_compr_stream *stream,
 	return 0;
 }
 
+static int snd_compress_check_input(struct snd_compr_params *params)
+{
+	/* first let's check the buffer parameter's */
+	if (params->buffer.fragment_size == 0 ||
+			params->buffer.fragments > SIZE_MAX / params->buffer.fragment_size)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int
 snd_compr_set_params(struct snd_compr_stream *stream, unsigned long arg)
 {
@@ -450,11 +460,17 @@ snd_compr_set_params(struct snd_compr_stream *stream, unsigned long arg)
 			retval = -EFAULT;
 			goto out;
 		}
+
+		retval = snd_compress_check_input(params);
+		if (retval)
+			goto out;
+
 		retval = snd_compr_allocate_buffer(stream, params);
 		if (retval) {
 			retval = -ENOMEM;
 			goto out;
 		}
+
 		retval = stream->ops->set_params(stream, params);
 		if (retval)
 			goto out;
