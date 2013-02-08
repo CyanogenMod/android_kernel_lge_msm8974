@@ -185,6 +185,35 @@ fail_pt:
 	return ret;
 }
 
+static unsigned int kgsl_sync_get_timestamp(
+	struct kgsl_sync_timeline *ktimeline, enum kgsl_timestamp_type type)
+{
+	struct kgsl_context *context = idr_find(&ktimeline->device->context_idr,
+						ktimeline->context_id);
+	if (context == NULL)
+		return 0;
+
+	return kgsl_readtimestamp(ktimeline->device, context, type);
+}
+
+static void kgsl_sync_timeline_value_str(struct sync_timeline *sync_timeline,
+					 char *str, int size)
+{
+	struct kgsl_sync_timeline *ktimeline =
+		(struct kgsl_sync_timeline *) sync_timeline;
+	unsigned int timestamp_retired = kgsl_sync_get_timestamp(ktimeline,
+		KGSL_TIMESTAMP_RETIRED);
+	snprintf(str, size, "%u retired:%u", ktimeline->last_timestamp,
+		timestamp_retired);
+}
+
+static void kgsl_sync_pt_value_str(struct sync_pt *sync_pt,
+				   char *str, int size)
+{
+	struct kgsl_sync_pt *kpt = (struct kgsl_sync_pt *) sync_pt;
+	snprintf(str, size, "%u", kpt->timestamp);
+}
+
 static void kgsl_sync_timeline_release_obj(struct sync_timeline *sync_timeline)
 {
 	/*
@@ -194,11 +223,14 @@ static void kgsl_sync_timeline_release_obj(struct sync_timeline *sync_timeline)
 	 */
 	BUG_ON(sync_timeline && (sync_timeline->destroyed != true));
 }
+
 static const struct sync_timeline_ops kgsl_sync_timeline_ops = {
 	.driver_name = "kgsl-timeline",
 	.dup = kgsl_sync_pt_dup,
 	.has_signaled = kgsl_sync_pt_has_signaled,
 	.compare = kgsl_sync_pt_compare,
+	.timeline_value_str = kgsl_sync_timeline_value_str,
+	.pt_value_str = kgsl_sync_pt_value_str,
 	.release_obj = kgsl_sync_timeline_release_obj,
 };
 
@@ -213,6 +245,8 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 
 	ktimeline = (struct kgsl_sync_timeline *) context->timeline;
 	ktimeline->last_timestamp = 0;
+	ktimeline->device = context->dev_priv->device;
+	ktimeline->context_id = context->id;
 
 	return 0;
 }
