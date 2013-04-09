@@ -119,6 +119,7 @@
 				1 &intc 0 220 0
 				2 &msmgpio 74 0x3>;
 		interrupt-names = "core_irq", "bam_irq", "wlan_oob_irq";
+		qcom,wifi-control-func;
 
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_l13>;
@@ -176,6 +177,7 @@
 				1 &intc 0 220 0
 				2 &msmgpio 44 0x3>;
 		interrupt-names = "core_irq", "bam_irq", "wlan_oob_irq";
+		qcom,wifi-control-func;
 
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_l13>;
@@ -233,6 +235,7 @@
 				1 &intc 0 220 0
 				2 &msmgpio 44 0x3>;
 		interrupt-names = "core_irq", "bam_irq", "wlan_oob_irq";
+		qcom,wifi-control-func;
 
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_s3>;
