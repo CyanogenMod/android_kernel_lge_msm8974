@@ -47,7 +47,7 @@
 #include "../devices.h"
 #include "../spm.h"
 #include "../modem_notifier.h"
-#include "../lpm_resources.h"
+#include "../pm.h"
 #include "../platsmp.h"
 #include <mach/board_lge.h>
 
@@ -197,7 +197,7 @@ void __init msm8974_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
-	msm_lpmrs_module_init();
+	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	krait_power_init();
