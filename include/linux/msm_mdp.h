@@ -78,11 +78,13 @@
 #define MSMFB_METADATA_GET  _IOW(MSMFB_IOCTL_MAGIC, 166, struct msmfb_metadata)
 #define MSMFB_WRITEBACK_SET_MIRRORING_HINT _IOW(MSMFB_IOCTL_MAGIC, 167, \
 						unsigned int)
-#define MSMFB_INVERT_PANEL  _IOW(MSMFB_IOCTL_MAGIC, 168, unsigned int)
+#define MSMFB_ASYNC_BLIT              _IOW(MSMFB_IOCTL_MAGIC, 168, unsigned int)
+
+#define MSMFB_INVERT_PANEL  _IOW(MSMFB_IOCTL_MAGIC, 169, unsigned int)
 
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG) || defined (LGE_BROADCAST_ONESEG)
-#define MSMFB_DMB_SET_FLAG        _IOW(MSMFB_IOCTL_MAGIC, 169, int)
-#define MSMFB_DMB_SET_CSC_MATRIX  _IOW(MSMFB_IOCTL_MAGIC, 170, struct mdp_csc_cfg)
+#define MSMFB_DMB_SET_FLAG        _IOW(MSMFB_IOCTL_MAGIC, 170, int)
+#define MSMFB_DMB_SET_CSC_MATRIX  _IOW(MSMFB_IOCTL_MAGIC, 171, struct mdp_csc_cfg)
 #endif /* LGE_BROADCAST */
 
 #define FB_TYPE_3D_PANEL 0x10101010
@@ -835,6 +837,12 @@ struct mdp_buf_sync {
 	int *acq_fen_fd;
 	int *rel_fen_fd;
 	int *retire_fen_fd;
+};
+
+struct mdp_async_blit_req_list {
+	struct mdp_buf_sync sync;
+	uint32_t count;
+	struct mdp_blit_req req[];
 };
 
 #define MDP_DISPLAY_COMMIT_OVERLAY	1
