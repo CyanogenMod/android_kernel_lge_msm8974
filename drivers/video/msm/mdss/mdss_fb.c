@@ -218,9 +218,11 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	if (!bl_lvl && value)
 		bl_lvl = 1;
 
-	mutex_lock(&mfd->bl_lock);
-	mdss_fb_set_backlight(mfd, bl_lvl);
-	mutex_unlock(&mfd->bl_lock);
+	if (!IS_CALIB_MODE_BL(mfd)) {
+		mutex_lock(&mfd->bl_lock);
+		mdss_fb_set_backlight(mfd, bl_lvl);
+		mutex_unlock(&mfd->bl_lock);
+	}
 }
 
 static struct led_classdev backlight_led = {
@@ -916,7 +918,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	}
 #endif
 
-	if (!mfd->panel_power_on || !bl_updated) {
+	if ((!mfd->panel_power_on || !bl_updated) && !IS_CALIB_MODE_BL(mfd)) {
 		unset_bl_level = bkl_lvl;
 		return;
 	} else {
@@ -926,9 +928,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
 	if ((pdata) && (pdata->set_backlight)) {
-#if defined(CONFIG_MACH_LGE)
-		if (temp != -BOOT_BRIGHTNESS)
-#endif
+		if (!IS_CALIB_MODE_BL(mfd))
 			mdss_fb_scale_bl(mfd, &temp);
 		/*
 		 * Even though backlight has been scaled, want to show that
