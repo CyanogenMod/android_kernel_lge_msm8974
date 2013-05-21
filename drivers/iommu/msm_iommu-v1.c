@@ -43,15 +43,18 @@ struct dump_regs_tbl dump_regs_tbl[MAX_DUMP_REGS];
 
 static int __enable_regulators(struct msm_iommu_drvdata *drvdata)
 {
-	int ret = regulator_enable(drvdata->gdsc);
-	if (ret)
-		goto fail;
+	int ret = 0;
+	if (drvdata->gdsc) {
+		ret = regulator_enable(drvdata->gdsc);
+		if (ret)
+			goto fail;
 
-	if (drvdata->alt_gdsc)
-		ret = regulator_enable(drvdata->alt_gdsc);
+		if (drvdata->alt_gdsc)
+			ret = regulator_enable(drvdata->alt_gdsc);
 
-	if (ret)
-		regulator_disable(drvdata->gdsc);
+		if (ret)
+			regulator_disable(drvdata->gdsc);
+	}
 fail:
 	return ret;
 }
@@ -61,7 +64,8 @@ static void __disable_regulators(struct msm_iommu_drvdata *drvdata)
 	if (drvdata->alt_gdsc)
 		regulator_disable(drvdata->alt_gdsc);
 
-	regulator_disable(drvdata->gdsc);
+	if (drvdata->gdsc)
+		regulator_disable(drvdata->gdsc);
 }
 
 static int apply_bus_vote(struct msm_iommu_drvdata *drvdata, unsigned int vote)
