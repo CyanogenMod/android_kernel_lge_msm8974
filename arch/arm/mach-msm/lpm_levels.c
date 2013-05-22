@@ -71,11 +71,11 @@ static ssize_t msm_lpm_levels_attr_show(
 static ssize_t msm_lpm_levels_attr_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count);
 
-#ifdef CONFIG_MACH_MSM8974_VU3_KR
-static int msm_lpm_lvl_dbg_msk = 1;
-#else
+#define ADJUST_LATENCY(x)	\
+	((x == MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE) ?\
+		(num_online_cpus()) / 2 : 0)
+
 static int msm_lpm_lvl_dbg_msk;
-#endif
 
 module_param_named(
 	debug_mask, msm_lpm_lvl_dbg_msk, int, S_IRUGO | S_IWUSR | S_IWGRP
@@ -350,6 +350,9 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 	int i;
 	bool modify_event_timer;
 	uint32_t next_wakeup_us = time_param->sleep_us;
+	uint32_t lvl_latency_us = 0;
+	uint32_t lvl_overhead_us = 0;
+	uint32_t lvl_overhead_energy = 0;
 
 	if (!msm_lpm_levels)
 		return NULL;
@@ -365,24 +368,36 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 		if (sleep_mode != level->sleep_mode)
 			continue;
 
-		if (time_param->latency_us < level->latency_us)
+		lvl_latency_us =
+			level->latency_us + (level->latency_us *
+						ADJUST_LATENCY(sleep_mode));
+
+		lvl_overhead_us =
+			level->time_overhead_us + (level->time_overhead_us *
+						ADJUST_LATENCY(sleep_mode));
+
+		lvl_overhead_energy =
+			level->energy_overhead + level->energy_overhead *
+						ADJUST_LATENCY(sleep_mode);
+
+		if (time_param->latency_us < lvl_latency_us)
 			continue;
 
 		if (time_param->next_event_us &&
-			time_param->next_event_us < level->latency_us)
+			time_param->next_event_us < lvl_latency_us)
 			continue;
 
 		if (time_param->next_event_us) {
 			if ((time_param->next_event_us < time_param->sleep_us)
-			|| ((time_param->next_event_us - level->latency_us) <
+			|| ((time_param->next_event_us - lvl_latency_us) <
 				time_param->sleep_us)) {
 				modify_event_timer = true;
 				next_wakeup_us = time_param->next_event_us -
-						level->latency_us;
+						lvl_latency_us;
 			}
 		}
 
-		if (next_wakeup_us <= level->time_overhead_us)
+		if (next_wakeup_us <= lvl_overhead_us)
 			continue;
 
 		if ((MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE == sleep_mode)
@@ -391,22 +406,21 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 					break;
 
 		if (next_wakeup_us <= 1) {
-			pwr = level->energy_overhead;
-		} else if (next_wakeup_us <= level->time_overhead_us) {
-			pwr = level->energy_overhead / next_wakeup_us;
+			pwr = lvl_overhead_energy;
+		} else if (next_wakeup_us <= lvl_overhead_us) {
+			pwr = lvl_overhead_energy / next_wakeup_us;
 		} else if ((next_wakeup_us >> 10)
-				> level->time_overhead_us) {
+				> lvl_overhead_us) {
 			pwr = level->steady_state_power;
 		} else {
 			pwr = level->steady_state_power;
-			pwr -= (level->time_overhead_us *
+			pwr -= (lvl_overhead_us *
 				level->steady_state_power) /
 						next_wakeup_us;
-			pwr += level->energy_overhead / next_wakeup_us;
+			pwr += lvl_overhead_energy / next_wakeup_us;
 		}
 
 		if (!best_level || (best_level_pwr >= pwr)) {
-
 			best_level = level;
 			best_level_pwr = pwr;
 			if (power)
@@ -416,7 +430,7 @@ static void *msm_lpm_lowest_limits(bool from_idle,
 					MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT))
 				time_param->modified_time_us =
 					time_param->next_event_us -
-						best_level->latency_us;
+						lvl_latency_us;
 			else
 				time_param->modified_time_us = 0;
 		}
