@@ -50,6 +50,7 @@ struct disp_info_notify {
 	struct timer_list timer;
 	struct completion comp;
 	struct mutex lock;
+	int value;
 };
 
 struct msm_fb_data_type;
@@ -148,6 +149,19 @@ struct msm_fb_backup_type {
 #ifdef CONFIG_MACH_LGE
 int mdss_dsi_panel_invert(u32 enable);
 #endif
+
+static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
+{
+	mfd->update.value = NOTIFY_TYPE_UPDATE;
+	complete(&mfd->update.comp);
+	mutex_lock(&mfd->no_update.lock);
+	if (mfd->no_update.timer.function)
+		del_timer(&(mfd->no_update.timer));
+
+	mfd->no_update.timer.expires = jiffies + (2 * HZ);
+	add_timer(&mfd->no_update.timer);
+	mutex_unlock(&mfd->no_update.lock);
+}
 
 int mdss_fb_get_phys_info(unsigned long *start, unsigned long *len, int fb_num);
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl);
