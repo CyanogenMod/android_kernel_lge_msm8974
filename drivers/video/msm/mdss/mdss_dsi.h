@@ -408,6 +408,8 @@ int mdss_dsi_panel_img_tune_apply(unsigned int screen_mode);
 #endif
 void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 				struct mdss_panel_data *pdata);
+void mdss_dsi_set_tear_on(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_set_tear_off(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_op_mode_config(int mode,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_cmd_mode_ctrl(int enable);
