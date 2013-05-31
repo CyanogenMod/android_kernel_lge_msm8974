@@ -1779,7 +1779,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED:
 			vui_timing_info.enable = 1;
 			vui_timing_info.fixed_frame_rate = cfr;
-		//	vui_timing_info.time_scale = inst->prop.fps;
 			vui_timing_info.time_scale = NSEC_PER_SEC;
 		}
 
@@ -1896,7 +1895,6 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->fmts[OUTPUT_PORT] = &venc_formats[0];
 	inst->prop.height = DEFAULT_HEIGHT;
 	inst->prop.width = DEFAULT_WIDTH;
-	//inst->prop.fps = 30;
 	inst->prop.fps = 15;
 	return rc;
 }
@@ -1999,7 +1997,6 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 {
 	u32 property_id = 0, us_per_frame = 0;
 	void *pdata;
-	//int rc = 0, fps = 0, rem = 0;
 	int rc = 0, fps = 0;
 	struct hal_frame_rate frame_rate;
 	struct hfi_device *hdev;
@@ -2037,12 +2034,6 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	}
 
 	fps = USEC_PER_SEC;
-//	rem = do_div(fps, us_per_frame);
-//	if (rem) {
-		/* Effectively fps = ceil((float)USEC_PER_SEC/us_per_frame) */
-//		fps++;
-//	}
-
 	do_div(fps, us_per_frame);
 
 	if ((fps % 15 == 14) || (fps % 24 == 23))
