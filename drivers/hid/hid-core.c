@@ -1141,7 +1141,7 @@ nomem:
 
 	if (hdrv && hdrv->raw_event && hid_match_report(hid, report)) {
 		ret = hdrv->raw_event(hid, report, data, size);
-		if (ret != 0) {
+		if (ret < 0) {
 			ret = ret < 0 ? ret : 0;
 			goto unlock;
 		}
