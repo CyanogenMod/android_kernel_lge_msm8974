@@ -1063,10 +1063,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			rc = call_hfi_op(hdev, session_set_property,
 				inst->session, property_id, &new_buf_count);
 		}
-		if (bufreq->buffer_count_actual > *num_buffers)
-			*num_buffers =  bufreq->buffer_count_actual;
-		else
-			bufreq->buffer_count_actual = *num_buffers;
 		mutex_unlock(&inst->lock);
 		dprintk(VIDC_DBG, "count =  %d, size = %d, alignment = %d\n",
 				inst->buff_req.buffer[1].buffer_count_actual,
