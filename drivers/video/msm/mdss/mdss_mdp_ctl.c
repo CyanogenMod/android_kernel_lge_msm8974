@@ -183,7 +183,7 @@ static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 
 #ifdef QCT_UNDERRUN_PATCH
 /**
- * mdss_mdp_perf_calc_pipe - calculate performance numbers required by pipe
+ * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
  * @perf:	Structure containing values that should be updated for
  *		performance tuning
@@ -197,20 +197,24 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		struct mdss_mdp_perf_params *perf)
 {
 	struct mdss_mdp_mixer *mixer;
-	const int fps = 60;
+	int fps = DEFAULT_FRAME_RATE;
 	u32 quota, rate, v_total, src_h;
 
 	if (!pipe || !perf || !pipe->mixer)
 		return -EINVAL;
 
 	mixer = pipe->mixer;
-	if (mixer->rotator_mode)
+	if (mixer->rotator_mode) {
 		v_total = pipe->flags & MDP_ROT_90 ? pipe->dst.w : pipe->dst.h;
-	else if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
-		v_total = mdss_panel_get_vtotal(
-				&mixer->ctl->panel_data->panel_info);
-	else
+	} else if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+		struct mdss_panel_info *pinfo;
+
+		pinfo = &mixer->ctl->panel_data->panel_info;
+		fps = mdss_panel_get_framerate(pinfo);
+		v_total = mdss_panel_get_vtotal(pinfo);
+	} else {
 		v_total = mixer->height;
+	}
 
 	/*
 	 * when doing vertical decimation lines will be skipped, hence there is
@@ -258,11 +262,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 				       u32 *clk_rate)
 {
 	struct mdss_mdp_pipe *pipe;
-	const int fps = 60;
-#ifndef QCT_UNDERRUN_PATCH
-/*maintain QMC original code */
-	u32 quota, rate;
-#endif
+	int fps = DEFAULT_FRAME_RATE;
 	u32 v_total;
 	int i;
 	u32 max_clk_rate = 0, ab_total = 0, ib_total = 0;
@@ -277,6 +277,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 			struct mdss_panel_info *pinfo;
 			pinfo = &mixer->ctl->panel_data->panel_info;
+			fps = mdss_panel_get_framerate(pinfo);
 			v_total = mdss_panel_get_vtotal(pinfo);
 
 			if (pinfo->type == WRITEBACK_PANEL)
@@ -303,6 +304,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 			struct mdss_panel_info *pinfo;
 			pinfo = &mixer->ctl->panel_data->panel_info;
+			fps = mdss_panel_get_framerate(pinfo);
 #ifdef CONFIG_OLED_SUPPORT
 		     if(ctl->intf_num == MDSS_MDP_INTF1) {
 			    v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
