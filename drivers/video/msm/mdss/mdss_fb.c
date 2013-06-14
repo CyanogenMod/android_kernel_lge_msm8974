@@ -1419,6 +1419,8 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 
 	mdss_fb_parse_dt_split(mfd);
 
+	mdss_fb_parse_dt_split(mfd);
+
 	if (mdss_fb_alloc_fbmem(mfd)) {
 		pr_err("unable to allocate framebuffer memory\n");
 		return -ENOMEM;
