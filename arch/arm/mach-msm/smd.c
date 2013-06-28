@@ -3463,8 +3463,9 @@ static int msm_smsm_probe(struct platform_device *pdev)
 	parent_pdev = to_platform_device(pdev->dev.parent);
 
 	key = "irq-reg-base";
-	/* existance check verified in smem driver */
 	r = platform_get_resource_byname(parent_pdev, IORESOURCE_MEM, key);
+	if (!r)
+		goto missing_key;
 	irq_out_size = resource_size(r);
 	irq_out_base = ioremap_nocache(r->start, irq_out_size);
 	if (!irq_out_base) {
@@ -3558,8 +3559,9 @@ static int msm_smd_probe(struct platform_device *pdev)
 	parent_pdev = to_platform_device(pdev->dev.parent);
 
 	key = "irq-reg-base";
-	/* existance check verified in smem driver */
 	r = platform_get_resource_byname(parent_pdev, IORESOURCE_MEM, key);
+	if (!r)
+		goto missing_key;
 	irq_out_size = resource_size(r);
 	irq_out_base = ioremap_nocache(r->start, irq_out_size);
 	if (!irq_out_base) {
