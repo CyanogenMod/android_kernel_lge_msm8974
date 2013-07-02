@@ -587,6 +587,10 @@ int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, int dst_format);
 int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
 					struct mdp_mixer_cfg *mixer_cfg);
 
+int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, int dst_format);
+int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
+					struct mdp_mixer_cfg *mixer_cfg);
+
 #define mfd_to_mdp5_data(mfd) (mfd->mdp.private1)
 #define mfd_to_mdata(mfd) (((struct mdss_overlay_private *)\
 				(mfd->mdp.private1))->mdata)
