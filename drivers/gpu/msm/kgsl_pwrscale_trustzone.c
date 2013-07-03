@@ -235,10 +235,8 @@ static int tz_init(struct kgsl_device *device, struct kgsl_pwrscale *pwrscale)
 	tz_pwrlevels[0] = j;
 	ret = scm_call(SCM_SVC_DCVS, TZ_INIT_ID, tz_pwrlevels,
 				sizeof(tz_pwrlevels), NULL, 0);
-	if (ret) {
-		KGSL_DRV_ERR(device, "Fall back to idle based GPU DCVS algo");
+	if (ret)
 		priv->idle_dcvs = 1;
-	}
 	return 0;
 }
 #else
