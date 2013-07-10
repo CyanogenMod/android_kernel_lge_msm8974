@@ -522,14 +522,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
 				   NULL, NULL);
 
-#ifdef CONFIG_MACH_LGE
-	/* LGE_CHANGE
-	 * Since unfinished work queue leads to panic
-	 * we force to flush work queue
-	 * 2013-06-07, baryun.hwang@lge.com
-	 */
 	flush_work_sync(&ctx->clk_work);
-#endif
 
 	memset(ctx, 0, sizeof(*ctx));
 	ctl->priv_data = NULL;
