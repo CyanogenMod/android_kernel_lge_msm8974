@@ -36,6 +36,7 @@
 #define QPNP_PON_DBC_CTL(base)			(base + 0x71)
 
 /* PON/RESET sources register addresses */
+#define QPNP_PON_REASON1(base)			(base + 0x8)
 #define QPNP_PON_WARM_RESET_REASON1(base)	(base + 0xA)
 #define QPNP_PON_WARM_RESET_REASON2(base)	(base + 0xB)
 #define QPNP_PON_KPDPWR_S1_TIMER(base)		(base + 0x40)
@@ -75,6 +76,7 @@
 #define QPNP_PON_S2_TIMER_MAX			2000
 #define QPNP_PON_RESET_TYPE_MAX			0xF
 #define PON_S1_COUNT_MAX			0xF
+#define PON_REASON_MAX				8
 
 #define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
 
@@ -115,6 +117,17 @@ static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
 #ifdef CONFIG_MACH_LGE
 struct wake_lock kpdpwr_irq_wake_lock;
 #endif
+
+static const char * const qpnp_pon_reason[] = {
+	[0] = "Triggered from Hard Reset",
+	[1] = "Triggered from SMPL (sudden momentary power loss)",
+	[2] = "Triggered from RTC (RTC alarm expiry)",
+	[3] = "Triggered from DC (DC charger insertion)",
+	[4] = "Triggered from USB (USB charger insertion)",
+	[5] = "Triggered from PON1 (secondary PMIC)",
+	[6] = "Triggered from CBL (external power supply)",
+	[7] = "Triggered from KPD (power key press)",
+};
 
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
@@ -887,10 +900,11 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	struct resource *pon_resource;
 	struct device_node *itr = NULL;
 	u32 delay = 0;
-	int rc, sys_reset;
+	int rc, sys_reset, index;
 #ifdef CONFIG_MACH_LGE
 	int disable = 0;
 #endif
+	u8 pon_sts = 0;
 
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
@@ -941,6 +955,19 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 		return -ENXIO;
 	}
 	pon->base = pon_resource->start;
+
+	/* PON reason */
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+				QPNP_PON_REASON1(pon->base), &pon_sts, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to read PON_RESASON1 reg\n");
+		return rc;
+	}
+	index = ffs(pon_sts);
+	if ((index > PON_REASON_MAX) || (index < 0))
+		index = 0;
+	pr_info("PMIC@SID%d Power-on reason: %s\n", pon->spmi->sid,
+			index ? qpnp_pon_reason[index - 1] : "Unknown");
 
 	rc = of_property_read_u32(pon->spmi->dev.of_node,
 				"qcom,pon-dbc-delay", &delay);
