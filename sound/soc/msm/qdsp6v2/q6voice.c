@@ -88,6 +88,40 @@ static int voice_send_set_pp_enable_cmd(struct voice_data *v,
 static struct voice_data *voice_get_session_by_idx(int idx);
 static int voice_get_idx_for_session(u32 session_id);
 
+static void voice_itr_init(struct voice_session_itr *itr,
+			   u32 session_id)
+{
+	if (itr == NULL)
+		return;
+	itr->session_idx = voice_get_idx_for_session(session_id);
+	if (session_id == ALL_SESSION_VSID)
+		itr->cur_idx = 0;
+	else
+		itr->cur_idx = itr->session_idx;
+
+}
+
+static bool voice_itr_get_next_session(struct voice_session_itr *itr,
+					struct voice_data **voice)
+{
+	bool ret = false;
+
+	if (itr == NULL)
+		return false;
+	pr_debug("%s : cur idx = %d session idx = %d",
+			 __func__, itr->cur_idx, itr->session_idx);
+
+	if (itr->cur_idx <= itr->session_idx) {
+		ret = true;
+		*voice = voice_get_session_by_idx(itr->cur_idx);
+		itr->cur_idx++;
+	} else {
+		*voice = NULL;
+	}
+
+	return ret;
+}
+
 static u16 voice_get_mvm_handle(struct voice_data *v)
 {
 	if (v == NULL) {
@@ -3069,56 +3103,6 @@ fail:
 	return -EINVAL;
 }
 
-//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [START]
-static int voice_send_phonememo_mute_cmd(struct voice_data *v)
-{
-	struct cvp_set_mute_cmd cvp_mute_cmd;
-	int ret = 0;
-
-	if (v == NULL) {
-		pr_err("%s: v is NULL\n", __func__);
-		goto fail;
-	}
-
-	if (!common.apr_q6_cvp) {
-		pr_err("%s: apr_cvp is NULL.\n", __func__);
-		goto fail;
-	}
-
-	cvp_mute_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-						APR_HDR_LEN(APR_HDR_SIZE),
-						APR_PKT_VER);
-	cvp_mute_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-					sizeof(cvp_mute_cmd) - APR_HDR_SIZE);
-	cvp_mute_cmd.hdr.src_port = v->session_id;
-	cvp_mute_cmd.hdr.dest_port = voice_get_cvp_handle(v);
-	cvp_mute_cmd.hdr.token = 0;
-	cvp_mute_cmd.hdr.opcode = VSS_IVOLUME_CMD_MUTE_V2;
-	cvp_mute_cmd.cvp_set_mute.direction = VSS_IVOLUME_DIRECTION_TX;
-	cvp_mute_cmd.cvp_set_mute.mute_flag = v->stream_tx.stream_mute;
-	cvp_mute_cmd.cvp_set_mute.ramp_duration_ms = DEFAULT_MUTE_RAMP_DURATION;
-
-	v->cvp_state = CMD_STATUS_FAIL;
-	ret = apr_send_pkt(common.apr_q6_cvp, (uint32_t *) &cvp_mute_cmd);
-	if (ret < 0) {
-		pr_err("%s: Error %d sending rx device cmd\n", __func__, ret);
-		goto fail;
-	}
-	ret = wait_event_timeout(v->cvp_wait,
-				(v->cvp_state == CMD_STATUS_SUCCESS),
-				msecs_to_jiffies(TIMEOUT_MS));
-	if (!ret) {
-		pr_err("%s: Command timeout\n", __func__);
-		goto fail;
-	}
-
-	return 0;
-
-fail:
-	return -EINVAL;
-}
-//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [END]
-
 static int voice_send_stream_mute_cmd(struct voice_data *v)
 {
 	struct cvs_set_mute_cmd cvs_mute_cmd;
@@ -3781,6 +3765,8 @@ int voc_enable_cvp(uint32_t session_id)
 						   VSS_IVOLUME_MUTE_OFF);
 			/* Reset lch mode when VOICE_LCH_STOP is recieved */
 			v->lch_mode = 0;
+			/* Apply cached mute setting */
+			voice_send_stream_mute_cmd(v);
 		} else {
 			pr_debug("%s: Mute commands not sent for lch_mode=%d\n",
 				 __func__, v->lch_mode);
@@ -3846,77 +3832,57 @@ fail:
 
 int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute)
 {
-	struct voice_data *v = voice_get_session(session_id);
+	struct voice_data *v = NULL;
 	int ret = 0;
+	struct voice_session_itr itr;
 
-	if (v == NULL) {
-		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+	voice_itr_init(&itr, session_id);
+	while (voice_itr_get_next_session(&itr, &v)) {
+		if (v != NULL) {
+			mutex_lock(&v->lock);
+			v->stream_tx.stream_mute = mute;
+			if (is_voc_state_active(v->voc_state) &&
+				(v->lch_mode == 0))
+				ret = voice_send_stream_mute_cmd(v);
+			mutex_unlock(&v->lock);
+		} else {
+			pr_err("%s: invalid session_id 0x%x\n", __func__,
+				session_id);
 
-		return -EINVAL;
+			ret = -EINVAL;
+			break;
+		}
 	}
-
-	mutex_lock(&v->lock);
-
-	v->stream_tx.stream_mute = mute;
-
-	if ((v->voc_state == VOC_RUN) ||
-	    (v->voc_state == VOC_CHANGE) ||
-	    (v->voc_state == VOC_STANDBY))
-		ret = voice_send_stream_mute_cmd(v);
-
-	mutex_unlock(&v->lock);
 
 	return ret;
 }
-
-//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [START]
-int voc_set_phonememo_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute)
-{
-	struct voice_data *v = voice_get_session(session_id);
-	int ret = 0;
-
-	if (v == NULL) {
-		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
-
-		return -EINVAL;
-	}
-
-	mutex_lock(&v->lock);
-
-	v->stream_tx.stream_mute = mute;
-
-	if ((v->voc_state == VOC_RUN) ||
-	    (v->voc_state == VOC_CHANGE) ||
-	    (v->voc_state == VOC_STANDBY))
-		ret = voice_send_phonememo_mute_cmd(v);
-
-	mutex_unlock(&v->lock);
-
-	return ret;
-}
-//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [END]
 
 int voc_set_rx_device_mute(uint32_t session_id, uint32_t mute)
 {
-	struct voice_data *v = voice_get_session(session_id);
+	struct voice_data *v = NULL;
 	int ret = 0;
+	struct voice_session_itr itr;
 
-	if (v == NULL) {
-		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+	voice_itr_init(&itr, session_id);
+	while (voice_itr_get_next_session(&itr, &v)) {
+		if (v != NULL) {
+			mutex_lock(&v->lock);
+			v->dev_rx.dev_mute = mute;
+			if (((v->voc_state == VOC_RUN) ||
+				(v->voc_state == VOC_STANDBY)) &&
+				(v->lch_mode == 0))
+				ret = voice_send_device_mute_cmd(v,
+						VSS_IVOLUME_DIRECTION_RX,
+						v->dev_rx.dev_mute);
+			mutex_unlock(&v->lock);
+		} else {
+			pr_err("%s: invalid session_id 0x%x\n", __func__,
+				session_id);
 
-		return -EINVAL;
+			ret = -EINVAL;
+			break;
+		}
 	}
-
-	mutex_lock(&v->lock);
-
-	v->dev_rx.dev_mute = mute;
-
-	if (v->voc_state == VOC_RUN)
-		ret = voice_send_device_mute_cmd(v,
-						 VSS_IVOLUME_DIRECTION_RX,
-						 v->dev_rx.dev_mute);
-
-	mutex_unlock(&v->lock);
 
 	return ret;
 }
@@ -4029,25 +3995,28 @@ int voc_get_pp_enable(uint32_t session_id, uint32_t module_id)
 
 int voc_set_rx_vol_index(uint32_t session_id, uint32_t dir, uint32_t vol_idx)
 {
-	struct voice_data *v = voice_get_session(session_id);
+	struct voice_data *v = NULL;
 	int ret = 0;
+	struct voice_session_itr itr;
 
-	if (v == NULL) {
-		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
+	pr_debug("%s session id = %#x vol = %u", __func__, session_id, vol_idx);
 
-		return -EINVAL;
+	voice_itr_init(&itr, session_id);
+	while (voice_itr_get_next_session(&itr, &v)) {
+		if (v != NULL) {
+			mutex_lock(&v->lock);
+			v->dev_rx.volume = vol_idx;
+			if (is_voc_state_active(v->voc_state))
+				ret = voice_send_vol_index_cmd(v);
+			mutex_unlock(&v->lock);
+		} else {
+			pr_err("%s: invalid session_id 0x%x\n", __func__,
+				session_id);
+
+			ret = -EINVAL;
+			break;
+		}
 	}
-
-	mutex_lock(&v->lock);
-
-	v->dev_rx.volume = vol_idx;
-
-	if ((v->voc_state == VOC_RUN) ||
-	    (v->voc_state == VOC_CHANGE) ||
-	    (v->voc_state == VOC_STANDBY))
-		ret = voice_send_vol_index_cmd(v);
-
-	mutex_unlock(&v->lock);
 
 	return ret;
 }
