@@ -235,7 +235,10 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		}
 	}
 
-	nlines = pipe->bwc_mode ? 1 : 2;
+	if (pipe->src_fmt->tile)
+		nlines = 8;
+	else
+		nlines = pipe->bwc_mode ? 1 : 2;
 
 	if (pipe->mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
 		wb_mixer = 1;
@@ -874,6 +877,7 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 	u32 chroma_samp, unpack, src_format;
 	u32 secure = 0;
 	u32 opmode;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	fmt = pipe->src_fmt;
 
@@ -904,6 +908,9 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 		     (fmt->bits[C1_B_Cb] << 2) |
 		     (fmt->bits[C0_G_Y] << 0);
 
+	if (fmt->tile)
+		src_format |= BIT(30);
+
 	if (pipe->flags & MDP_ROT_90)
 		src_format |= BIT(11); /* ROT90 */
 
@@ -923,6 +930,11 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 #endif
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 
+	if (fmt->tile && mdata->highest_bank_bit) {
+		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_FETCH_CONFIG,
+			MDSS_MDP_FETCH_CONFIG_RESET_VALUE |
+				 mdata->highest_bank_bit << 18);
+	}
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, src_format);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_OP_MODE, opmode);
