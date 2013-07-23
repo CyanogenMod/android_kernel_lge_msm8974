@@ -525,16 +525,6 @@ struct msm_fb_data_type *mfd_base = NULL;
 static int bl_chargerlogo;
 #endif
 
-static void mdss_fb_shutdown(struct platform_device *pdev)
-{
-	struct msm_fb_data_type *mfd = platform_get_drvdata(pdev);
-
-	if (mfd->ref_cnt > 1)
-		mfd->ref_cnt = 1;
-
-	mdss_fb_release(mfd->fbi, 0);
-}
-
 static int mdss_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
@@ -869,7 +859,6 @@ static struct platform_driver mdss_fb_driver = {
 	.remove = mdss_fb_remove,
 	.suspend = mdss_fb_suspend,
 	.resume = mdss_fb_resume,
-	.shutdown = mdss_fb_shutdown,
 	.driver = {
 		.name = "mdss_fb",
 		.of_match_table = mdss_fb_dt_match,
@@ -1501,8 +1490,7 @@ static int mdss_fb_release(struct fb_info *info, int user)
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 				       mfd->op_enable);
 		if (ret) {
-			pr_err("can't turn off display attached to fb%d!\n",
-				mfd->index);
+			pr_err("can't turn off display!\n");
 			return ret;
 		}
 	}
