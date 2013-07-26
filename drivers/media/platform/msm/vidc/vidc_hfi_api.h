@@ -176,7 +176,7 @@ enum hal_property {
 	HAL_PARAM_VENC_MAX_NUM_B_FRAMES,
 	HAL_PARAM_BUFFER_ALLOC_MODE,
 	HAL_PARAM_VDEC_FRAME_ASSEMBLY,
-	HAL_PARAM_VDEC_CONCEAL_COLOR,
+	HAL_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC,
 };
 
 enum hal_domain {
@@ -791,6 +791,10 @@ struct hal_h264_vui_timing_info {
 	u32 enable;
 	u32 fixed_frame_rate;
 	u32 time_scale;
+};
+
+struct hal_h264_vui_bitstream_restrc {
+	u32 enable;
 };
 
 enum vidc_resource_id {
