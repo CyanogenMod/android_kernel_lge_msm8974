@@ -23,6 +23,7 @@ struct mdss_mdp_rotator_session {
 	u32 session_id;
 	u32 ref_cnt;
 	u32 params_changed;
+	int pid;
 
 	u32 format;
 	u32 flags;
@@ -44,6 +45,7 @@ struct mdss_mdp_rotator_session {
 
 	bool use_sync_pt;
 	struct list_head head;
+	struct list_head list;
 	struct mdss_mdp_rotator_session *next;
 	struct msm_sync_pt_data *rot_sync_pt_data;
 	struct work_struct commit_work;
