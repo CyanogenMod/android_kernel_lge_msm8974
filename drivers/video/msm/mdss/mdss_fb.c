@@ -671,7 +671,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		bl_chargerlogo = 1;
 #if defined(CONFIG_OLED_SUPPORT)
 	if(lge_get_boot_mode() != LGE_BOOT_MODE_CHARGERLOGO)
-		unset_bl_level = 0xFF;  /* should be synchronized to LK brightness set */
+		mfd->unset_bl_level = 0xFF;  /* should be synchronized to LK brightness set */
 #endif
 #endif
 
@@ -877,15 +877,6 @@ static struct platform_driver mdss_fb_driver = {
 	},
 };
 
-#ifndef CONFIG_OLED_SUPPORT
-#if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
-static int unset_bl_level;
-#else
-static int unset_bl_level, bl_updated;
-#endif
-static int bl_level_old;
-#endif
-
 static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 {
 	u32 temp = *bl_lvl;
@@ -939,16 +930,17 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 
 #if defined(CONFIG_MACH_LGE)
 	if (bl_chargerlogo) {
-		mdss_fb_chargerlogo_backlight(mfd, bkl_lvl);
-		return;
+	    mdss_fb_chargerlogo_backlight(mfd, bkl_lvl);
+	    return;
 	}
 #endif
 
-	if ((!mfd->panel_power_on || !bl_updated) && !IS_CALIB_MODE_BL(mfd)) {
-		unset_bl_level = bkl_lvl;
+	if ((!mfd->panel_power_on || !mfd->bl_updated) &&
+	    !IS_CALIB_MODE_BL(mfd)) {
+		mfd->unset_bl_level = bkl_lvl;
 		return;
 	} else {
-		unset_bl_level = 0;
+		mfd->unset_bl_level = 0;
 	}
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
@@ -964,13 +956,13 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		 * as well as setting bl_level to bkl_lvl even though the
 		 * backlight has been set to the scaled value.
 		 */
-		if (bl_level_old == temp) {
+		if (mfd->bl_level_old == temp) {
 			mfd->bl_level = bkl_lvl;
 			return;
 		}
 		pdata->set_backlight(pdata, temp);
 		mfd->bl_level = bkl_lvl;
-		bl_level_old = temp;
+		mfd->bl_level_old = temp;
 
 		if (mfd->mdp.update_ad_input) {
 			mutex_unlock(&mfd->bl_lock);
@@ -985,15 +977,15 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 {
 	struct mdss_panel_data *pdata;
 
-	if (unset_bl_level && !bl_updated) {
+	if (mfd->unset_bl_level && !mfd->bl_updated) {
 		pdata = dev_get_platdata(&mfd->pdev->dev);
 		if ((pdata) && (pdata->set_backlight)) {
 			mutex_lock(&mfd->bl_lock);
-			mfd->bl_level = unset_bl_level;
+			mfd->bl_level = mfd->unset_bl_level;
 			pdata->set_backlight(pdata, mfd->bl_level);
-			bl_level_old = unset_bl_level;
+			mfd->bl_level_old = mfd->unset_bl_level;
 			mutex_unlock(&mfd->bl_lock);
-			bl_updated = 1;
+			mfd->bl_updated = 1;
 		}
 	}
 }
@@ -1036,7 +1028,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			mutex_lock(&mfd->bl_lock);
 			mdss_fb_set_backlight(mfd, 0);
 			mutex_unlock(&mfd->bl_lock);
-			unset_bl_level = -BOOT_BRIGHTNESS;
+			mfd->unset_bl_level = -BOOT_BRIGHTNESS;
 	 }
 #endif
 
@@ -1049,7 +1041,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			mutex_lock(&mfd->bl_lock);
 			mdss_fb_set_backlight(mfd, 0);
 			mfd->panel_power_on = false;
-			bl_updated = 0;
+			mfd->bl_updated = 0;
 			mutex_unlock(&mfd->bl_lock);
 
 #if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_OLED_SUPPORT)
