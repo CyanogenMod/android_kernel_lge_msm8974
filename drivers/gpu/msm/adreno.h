@@ -37,8 +37,8 @@
 #define KGSL_CMD_FLAGS_NONE             0
 #define KGSL_CMD_FLAGS_PMODE		BIT(0)
 #define KGSL_CMD_FLAGS_INTERNAL_ISSUE   BIT(1)
-#define KGSL_CMD_FLAGS_GET_INT		BIT(2)
-#define KGSL_CMD_FLAGS_WFI              BIT(3)
+#define KGSL_CMD_FLAGS_WFI              BIT(2)
+#define KGSL_CMD_FLAGS_PWRON_FIXUP      BIT(3)
 
 
 /* Command identifiers */

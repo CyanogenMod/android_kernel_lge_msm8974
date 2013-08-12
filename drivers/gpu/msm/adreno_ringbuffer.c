@@ -1131,6 +1131,15 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if (test_bit(CMDBATCH_FLAG_WFI, &cmdbatch->priv))
 		flags = KGSL_CMD_FLAGS_WFI;
 
+	/*
+	 * For some targets, we need to execute a dummy shader operation after a
+	 * power collapse
+	 */
+
+	if (test_and_clear_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv) &&
+		test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
+		flags |= KGSL_CMD_FLAGS_PWRON_FIXUP;
+
 	ret = adreno_ringbuffer_addcmds(&adreno_dev->ringbuffer,
 					drawctxt,
 					flags,
