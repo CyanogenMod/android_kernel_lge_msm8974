@@ -91,6 +91,7 @@
 		vddio-supply = <&pm8941_l12>;
 		vdda-supply = <&pm8941_l2>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 	};
 
 	mdss_dsi1: qcom,mdss_dsi@fd922e00 {
@@ -102,6 +103,7 @@
 		vddio-supply = <&pm8941_l12>;
 		vdda-supply = <&pm8941_l2>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 	};
 
 	mdss_hdmi_tx: qcom,hdmi_tx@fd922100 {

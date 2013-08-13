@@ -12,6 +12,7 @@ Required properties:
 - vdda-supply:				Phandle for vreg regulator device node.
 - qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
 					interface is mapped.
+- qcom,mdss-mdp:			pHandle that specifies the mdss-mdp device.
 					lane configuration settings.
 - qcom,dsi-pref-prim-pan:		phandle that specifies the primary panel to be used
 					with the controller.
@@ -46,4 +47,5 @@ Example:
 		qcom,supply-peak-current = <150000 100000 100000>;
 		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
         };
