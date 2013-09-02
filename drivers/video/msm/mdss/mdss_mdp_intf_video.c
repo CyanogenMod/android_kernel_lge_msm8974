@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 
+#include "mdss_fb.h"
 #include "mdss_mdp.h"
 #ifdef CONFIG_OLED_SUPPORT  // for 4th panel
 #include "mdss_dsi.h"
