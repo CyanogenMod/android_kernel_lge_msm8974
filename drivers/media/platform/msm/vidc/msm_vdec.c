@@ -1322,6 +1322,8 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
 	inst->capability.width.max = DEFAULT_WIDTH;
 	inst->prop.fps = 30;
+	inst->fmts[CAPTURE_PORT]->buf_type = V4L2_MPEG_VIDC_VIDEO_STATIC;
+	inst->fmts[OUTPUT_PORT]->buf_type = V4L2_MPEG_VIDC_VIDEO_STATIC;
 	return rc;
 }
 
@@ -1432,6 +1434,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		alloc_mode.buffer_mode = ctrl->val;
 		alloc_mode.buffer_type = HAL_BUFFER_INPUT;
 		pdata = &alloc_mode;
+		inst->fmts[OUTPUT_PORT]->buf_type = alloc_mode.buffer_mode;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_ASSEMBLY:
 	{
@@ -1455,6 +1458,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			alloc_mode.buffer_type = HAL_BUFFER_OUTPUT;
 			pdata = &alloc_mode;
 			inst->output_alloc_mode = alloc_mode.buffer_mode;
+			inst->fmts[CAPTURE_PORT]->buf_type =
+				alloc_mode.buffer_mode;
 		}
 		break;
 	default:
