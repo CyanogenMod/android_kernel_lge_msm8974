@@ -220,6 +220,7 @@ struct krait_power_vreg {
 	int				ldo_threshold_uV;
 	int				ldo_delta_uV;
 	int				cpu_num;
+	bool				ldo_disable;
 	int				coeff1;
 	int				coeff2;
 	bool				online;
@@ -653,6 +654,9 @@ static int switch_to_using_ldo(struct krait_power_vreg *kvreg)
 	if (kvreg->mode == LDO_MODE
 		&& get_krait_ldo_uv(kvreg) == kvreg->uV - kvreg->ldo_delta_uV)
 		return 0;
+
+	if (kvreg->ldo_disable)
+		return;
 
 	/*
 	 * if the krait is in ldo mode and a voltage change is requested on the
@@ -1095,6 +1099,7 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	int headroom_uV, retention_uV, ldo_default_uV, ldo_threshold_uV;
 	int ldo_delta_uV;
 	int cpu_num;
+	bool ldo_disable = false;
 
 	if (pdev->dev.of_node) {
 		/* Get init_data from device tree. */
@@ -1178,6 +1183,9 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 			pr_err("bad cpu-num= %d specified\n", cpu_num);
 			return -EINVAL;
 		}
+
+		ldo_disable = of_property_read_bool(pdev->dev.of_node,
+					"qcom,ldo-disable");
 	}
 
 	if (!init_data) {
@@ -1231,6 +1239,7 @@ static int __devinit krait_power_probe(struct platform_device *pdev)
 	kvreg->ldo_threshold_uV = ldo_threshold_uV;
 	kvreg->ldo_delta_uV	= ldo_delta_uV;
 	kvreg->cpu_num		= cpu_num;
+	kvreg->ldo_disable	= ldo_disable;
 	kvreg->force_bhs	= true;
 
 	platform_set_drvdata(pdev, kvreg);
