@@ -69,6 +69,33 @@ module_param_named(ds_modem_wait, lge_ds_modem_wait,
 			uint, S_IRUGO | S_IWUSR | S_IWGRP);
 #endif
 
+/**
+ * struct smd_tty_info - context for an individual SMD TTY device
+ *
+ * @ch:  SMD channel handle
+ * @port:  TTY port context structure
+ * @device_ptr:  TTY device pointer
+ * @pending_ws:  pending-data wakeup source
+ * @tty_tsklt:  read tasklet
+ * @buf_req_timer:  RX buffer retry timer
+ * @ch_allocated:  completion set when SMD channel is allocated
+ * @driver:  SMD channel platform driver context structure
+ * @pil:  Peripheral Image Loader handle
+ * @edge:  SMD edge associated with port
+ * @ch_name:  SMD channel name associated with port
+ * @dev_name:  SMD platform device name associated with port
+ * @open_wait:  Timeout in seconds to wait for SMD port to be created / opened
+ *
+ * @reset_lock_lha2: lock for reset and open state
+ * @in_reset:  True if SMD channel is closed / in SSR
+ * @in_reset_updated:  reset state changed
+ * @is_open:  True if SMD port is open
+ * @ch_opened_wait_queue:  SMD port open/close wait queue
+ *
+ * @ra_lock_lha3:  Read-available lock - used to synchronize reads from SMD
+ * @ra_wakeup_source_name: Name of the read-available wakeup source
+ * @ra_wakeup_source:  Read-available wakeup source
+ */
 struct smd_tty_info {
 	smd_channel_t *ch;
 	struct tty_port port;
@@ -79,22 +106,23 @@ struct smd_tty_info {
 	struct completion ch_allocated;
 	struct platform_driver driver;
 	void *pil;
+	uint32_t edge;
+	char ch_name[SMD_MAX_CH_NAME_LEN];
+	char dev_name[SMD_MAX_CH_NAME_LEN];
+	unsigned int open_wait;
+
+	spinlock_t reset_lock_lha2;
 	int in_reset;
 	int in_reset_updated;
 	int is_open;
-	unsigned int open_wait;
 #ifdef CONFIG_LGE_USES_SMD_DS_TTY
 	int is_dsmodem_ready;
 #endif
 	wait_queue_head_t ch_opened_wait_queue;
-	spinlock_t reset_lock;
-	spinlock_t ra_lock;		/* Read Available Lock*/
+	spinlock_t ra_lock_lha3;
 	char ra_wake_lock_name[MAX_RA_WAKE_LOCK_NAME_LEN];
 	struct wake_lock ra_wake_lock;	/* Read Available Wakelock */
 
-	uint32_t edge;
-	char ch_name[SMD_MAX_CH_NAME_LEN];
-	char dev_name[SMD_MAX_CH_NAME_LEN];
 };
 
 /**
@@ -151,13 +179,13 @@ static void buf_req_retry(unsigned long param)
 	struct smd_tty_info *info = (struct smd_tty_info *)param;
 	unsigned long flags;
 
-	spin_lock_irqsave(&info->reset_lock, flags);
+	spin_lock_irqsave(&info->reset_lock_lha2, flags);
 	if (info->is_open) {
-		spin_unlock_irqrestore(&info->reset_lock, flags);
+		spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 		tasklet_hi_schedule(&info->tty_tsklt);
 		return;
 	}
-	spin_unlock_irqrestore(&info->reset_lock, flags);
+	spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 }
 
 static ssize_t open_timeout_store(struct device *dev,
@@ -233,14 +261,14 @@ static void smd_tty_read(unsigned long param)
 		}
 
 		if (test_bit(TTY_THROTTLED, &tty->flags)) break;
-		spin_lock_irqsave(&info->ra_lock, flags);
+		spin_lock_irqsave(&info->ra_lock_lha3, flags);
 		avail = smd_read_avail(info->ch);
 		if (avail == 0) {
-			wake_unlock(&info->ra_wake_lock);
-			spin_unlock_irqrestore(&info->ra_lock, flags);
+			__pm_relax(&info->ra_wakeup_source);
+			spin_unlock_irqrestore(&info->ra_lock_lha3, flags);
 			break;
 		}
-		spin_unlock_irqrestore(&info->ra_lock, flags);
+		spin_unlock_irqrestore(&info->ra_lock_lha3, flags);
 
 		if (avail > MAX_TTY_BUF_SIZE)
 			avail = MAX_TTY_BUF_SIZE;
@@ -280,12 +308,12 @@ static void smd_tty_notify(void *priv, unsigned event)
 
 	switch (event) {
 	case SMD_EVENT_DATA:
-		spin_lock_irqsave(&info->reset_lock, flags);
+		spin_lock_irqsave(&info->reset_lock_lha2, flags);
 		if (!info->is_open) {
-			spin_unlock_irqrestore(&info->reset_lock, flags);
+			spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 			break;
 		}
-		spin_unlock_irqrestore(&info->reset_lock, flags);
+		spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 		/* There may be clients (tty framework) that are blocked
 		 * waiting for space to write data, so if a possible read
 		 * interrupt came in wake anyone waiting and disable the
@@ -298,30 +326,30 @@ static void smd_tty_notify(void *priv, unsigned event)
 				wake_up_interruptible(&tty->write_wait);
 			tty_kref_put(tty);
 		}
-		spin_lock_irqsave(&info->ra_lock, flags);
+		spin_lock_irqsave(&info->ra_lock_lha3, flags);
 		if (smd_read_avail(info->ch)) {
 			wake_lock(&info->ra_wake_lock);
 			tasklet_hi_schedule(&info->tty_tsklt);
 		}
-		spin_unlock_irqrestore(&info->ra_lock, flags);
+		spin_unlock_irqrestore(&info->ra_lock_lha3, flags);
 		break;
 
 	case SMD_EVENT_OPEN:
-		spin_lock_irqsave(&info->reset_lock, flags);
+		spin_lock_irqsave(&info->reset_lock_lha2, flags);
 		info->in_reset = 0;
 		info->in_reset_updated = 1;
 		info->is_open = 1;
 		wake_up_interruptible(&info->ch_opened_wait_queue);
-		spin_unlock_irqrestore(&info->reset_lock, flags);
+		spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 		break;
 
 	case SMD_EVENT_CLOSE:
-		spin_lock_irqsave(&info->reset_lock, flags);
+		spin_lock_irqsave(&info->reset_lock_lha2, flags);
 		info->in_reset = 1;
 		info->in_reset_updated = 1;
 		info->is_open = 0;
 		wake_up_interruptible(&info->ch_opened_wait_queue);
-		spin_unlock_irqrestore(&info->reset_lock, flags);
+		spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 		/* schedule task to send TTY_BREAK */
 		tasklet_hi_schedule(&info->tty_tsklt);
 
@@ -532,9 +560,10 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 	}
 
 	mutex_lock(&smd_tty_lock);
-	spin_lock_irqsave(&info->reset_lock, flags);
+
+	spin_lock_irqsave(&info->reset_lock_lha2, flags);
 	info->is_open = 0;
-	spin_unlock_irqrestore(&info->reset_lock, flags);
+	spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 
 	tasklet_kill(&info->tty_tsklt);
 	wake_lock_destroy(&info->wake_lock);
@@ -644,13 +673,13 @@ static void smd_tty_unthrottle(struct tty_struct *tty)
 	struct smd_tty_info *info = tty->driver_data;
 	unsigned long flags;
 
-	spin_lock_irqsave(&info->reset_lock, flags);
+	spin_lock_irqsave(&info->reset_lock_lha2, flags);
 	if (info->is_open) {
-		spin_unlock_irqrestore(&info->reset_lock, flags);
+		spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 		tasklet_hi_schedule(&info->tty_tsklt);
 		return;
 	}
-	spin_unlock_irqrestore(&info->reset_lock, flags);
+	spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 }
 
 /*
@@ -667,7 +696,7 @@ static int smd_tty_tiocmget(struct tty_struct *tty)
 
 	tiocm = smd_tiocmget(info->ch);
 
-	spin_lock_irqsave(&info->reset_lock, flags);
+	spin_lock_irqsave(&info->reset_lock_lha2, flags);
 	tiocm |= (info->in_reset ? TIOCM_OUT1 : 0);
 	if (info->in_reset_updated) {
 		tiocm |= TIOCM_OUT2;
@@ -675,7 +704,7 @@ static int smd_tty_tiocmget(struct tty_struct *tty)
 	}
 	SMD_TTY_INFO("PID %u --> %s TIOCM is %x ",
 			current->pid, __func__, tiocm);
-	spin_unlock_irqrestore(&info->reset_lock, flags);
+	spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 
 	return tiocm;
 }
@@ -840,8 +869,8 @@ static int smd_tty_device_init(int idx)
 #endif
 	smd_tty[idx].driver.driver.name = smd_tty[idx].dev_name;
 	smd_tty[idx].driver.driver.owner = THIS_MODULE;
-	spin_lock_init(&smd_tty[idx].reset_lock);
-	spin_lock_init(&smd_tty[idx].ra_lock);
+	spin_lock_init(&smd_tty[idx].reset_lock_lha2);
+	spin_lock_init(&smd_tty[idx].ra_lock_lha3);
 	smd_tty[idx].is_open = 0;
 	setup_timer(&smd_tty[idx].buf_req_timer, buf_req_retry,
 			(unsigned long)&smd_tty[idx]);
@@ -1074,6 +1103,9 @@ static void smd_tty_probe_worker(struct work_struct *work)
 
 static struct of_device_id msm_smd_tty_match_table[] = {
 	{ .compatible = "qcom,smdtty" },
+#ifndef CONFIG_LGE_DDM_TTY
+	{ .compatible = "qcom,smdttyatnt" },
+#endif
 	{},
 };
 
