@@ -21,7 +21,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
-#include <linux/wakelock.h>
+#include <linux/pm.h>
 #include <linux/platform_device.h>
 #include <linux/sched.h>
 
@@ -39,6 +39,7 @@
 #define MODULE_NAME "msm_smdtty"
 #define MAX_SMD_TTYS 37
 #define MAX_TTY_BUF_SIZE 2048
+#define TTY_PUSH_WS_DELAY 500
 #define MAX_RA_WAKE_LOCK_NAME_LEN 32
 #define SMD_TTY_PROBE_WAIT_TIMEOUT 3000
 #define SMD_TTY_LOG_PAGES 2
@@ -97,11 +98,12 @@ module_param_named(ds_modem_wait, lge_ds_modem_wait,
  * @ra_wakeup_source_name: Name of the read-available wakeup source
  * @ra_wakeup_source:  Read-available wakeup source
  */
+
 struct smd_tty_info {
 	smd_channel_t *ch;
 	struct tty_port port;
 	struct device *device_ptr;
-	struct wake_lock wake_lock;
+	struct wakeup_source pending_ws;
 	struct tasklet_struct tty_tsklt;
 	struct timer_list buf_req_timer;
 	struct completion ch_allocated;
@@ -122,10 +124,10 @@ struct smd_tty_info {
 	int is_dsmodem_ready;
 #endif
 	wait_queue_head_t ch_opened_wait_queue;
-	spinlock_t ra_lock_lha3;
-	char ra_wake_lock_name[MAX_RA_WAKE_LOCK_NAME_LEN];
-	struct wake_lock ra_wake_lock;	/* Read Available Wakelock */
 
+	spinlock_t ra_lock_lha3;
+	char ra_wakeup_source_name[MAX_RA_WAKE_LOCK_NAME_LEN];
+	struct wakeup_source ra_wakeup_source;
 };
 
 /**
@@ -300,7 +302,13 @@ static void smd_tty_read(unsigned long param)
 				__func__, info->ch->name);
 		}
 
-		wake_lock_timeout(&info->wake_lock, HZ / 2);
+		/*
+		 * Keep system awake long enough to allow the TTY
+		 * framework to pass the flip buffer to any waiting
+		 * userspace clients.
+		 */
+		__pm_wakeup_event(&info->pending_ws, TTY_PUSH_WS_DELAY);
+
 		tty_flip_buffer_push(tty);
 	}
 
@@ -337,7 +345,7 @@ static void smd_tty_notify(void *priv, unsigned event)
 		}
 		spin_lock_irqsave(&info->ra_lock_lha3, flags);
 		if (smd_read_avail(info->ch)) {
-			wake_lock(&info->ra_wake_lock);
+			__pm_stay_awake(&info->ra_wakeup_source);
 			tasklet_hi_schedule(&info->tty_tsklt);
 		}
 		spin_unlock_irqrestore(&info->ra_lock_lha3, flags);
@@ -390,12 +398,12 @@ static void smd_tty_notify(void *priv, unsigned event)
 		 */
 	case SMD_EVENT_REOPEN_READY:
 		/* smd channel is closed completely */
-		spin_lock_irqsave(&info->reset_lock, flags);
+		spin_lock_irqsave(&info->reset_lock_lha2, flags);
 		info->in_reset = 1;
 		info->in_reset_updated = 1;
 		info->is_open = 0;
 		wake_up_interruptible(&info->ch_opened_wait_queue);
-		spin_unlock_irqrestore(&info->reset_lock, flags);
+		spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 		break;
 #endif
 	}
@@ -497,12 +505,12 @@ static int smd_tty_port_activate(struct tty_port *tport,
 			if (res == 0) {
 				res = -ETIMEDOUT;
 				pr_err("%s: timeout to wait for %s modem: %d\n",
-						__func__, smd_tty[n].smd->port_name, res);
+						__func__, info->ch_name, res);
 				goto release_pil;
 			}
 			if (res < 0) {
 				pr_err("%s: timeout to wait for %s modem: %d\n",
-						__func__, smd_tty[n].smd->port_name, res);
+						__func__, info->ch_name, res);
 				goto release_pil;
 			}
 			pr_info("%s: DS modem is OK, open smd0..\n", __func__);
@@ -512,12 +520,11 @@ static int smd_tty_port_activate(struct tty_port *tport,
 	}
 
 	tasklet_init(&info->tty_tsklt, smd_tty_read, (unsigned long)info);
-	wake_lock_init(&info->wake_lock, WAKE_LOCK_SUSPEND,
-			info->ch_name);
-	scnprintf(info->ra_wake_lock_name, MAX_RA_WAKE_LOCK_NAME_LEN,
+	wakeup_source_init(&info->pending_ws, info->ch_name);
+	scnprintf(info->ra_wakeup_source_name, MAX_RA_WAKE_LOCK_NAME_LEN,
 		  "SMD_TTY_%s_RA", info->ch_name);
-	wake_lock_init(&info->ra_wake_lock, WAKE_LOCK_SUSPEND,
-			info->ra_wake_lock_name);
+	wakeup_source_init(&info->ra_wakeup_source,
+			info->ra_wakeup_source_name);
 
 	res = smd_named_open_on_edge(info->ch_name,
 				     smd_tty[n].edge, &info->ch, info,
@@ -549,8 +556,8 @@ close_ch:
 
 release_wl_tl:
 	tasklet_kill(&info->tty_tsklt);
-	wake_lock_destroy(&info->wake_lock);
-	wake_lock_destroy(&info->ra_wake_lock);
+	wakeup_source_trash(&info->pending_ws);
+	wakeup_source_trash(&info->ra_wakeup_source);
 
 release_pil:
 	subsystem_put(info->pil);
@@ -567,7 +574,6 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 	unsigned long flags;
 #ifdef CONFIG_LGE_USES_SMD_DS_TTY
 	int res = 0;
-	int n = tty->index;
 #endif
 
 	info = tty->driver_data;
@@ -579,12 +585,13 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 	mutex_lock(&info->open_lock_lha1);
 
 	spin_lock_irqsave(&info->reset_lock_lha2, flags);
+
 	info->is_open = 0;
 	spin_unlock_irqrestore(&info->reset_lock_lha2, flags);
 
 	tasklet_kill(&info->tty_tsklt);
-	wake_lock_destroy(&info->wake_lock);
-	wake_lock_destroy(&info->ra_wake_lock);
+	wakeup_source_trash(&info->pending_ws);
+	wakeup_source_trash(&info->ra_wakeup_source);
 
 	SMD_TTY_INFO("%s with PID %u closed port %s",
 			current->comm, current->pid,
@@ -606,7 +613,7 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 	 * 2011-10-12, hyunhui.park@lge.com
 	 */
 	pr_info("%s: waiting to close smd %s completely\n",
-			__func__, smd_tty[n].smd->port_name);
+			__func__, info->ch_name);
 	/* wait for reopen ready status in seconds */
 	res = wait_event_interruptible_timeout(
 			info->ch_opened_wait_queue,
@@ -616,12 +623,12 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 		res = -ETIMEDOUT;
 		pr_err("%s: timeout to wait for %s smd_close.\
 				next smd_open may fail....%d\n",
-				__func__, smd_tty[n].smd->port_name, res);
+				__func__, info->ch_name, res);
 	}
 	if (res < 0) {
 		pr_err("%s: wait for %s smd_close failed.\
 				next smd_open may fail....%d\n",
-				__func__, smd_tty[n].smd->port_name, res);
+				__func__, info->ch_name, res);
 	}
 #endif
 	info->ch = NULL;
@@ -788,15 +795,15 @@ static int smd_tty_dummy_probe(struct platform_device *pdev)
 #ifdef CONFIG_LGE_USES_SMD_DS_TTY
 static int smd_tty_ds_probe(struct platform_device *pdev)
 {
-	if (!smd_configs[DS_IDX].dev_name) {
+	if (!smd_tty[DS_IDX].dev_name) {
 		pr_err("%s: no device for DS\n", __func__);
 		return -EINVAL;
 	}
 
-	if (strncmp(pdev->name, smd_configs[DS_IDX].dev_name,
+	if (strncmp(pdev->name, smd_tty[DS_IDX].dev_name,
 				SMD_MAX_CH_NAME_LEN)) {
 		pr_err("%s: smd device is not DS %s %s\n", __func__,
-				pdev->name, smd_configs[DS_IDX].dev_name);
+				pdev->name, smd_tty[DS_IDX].dev_name);
 		return -EINVAL;
 	}
 
