@@ -58,7 +58,6 @@ do { \
 } while (0)
 
 static void *smd_tty_log_ctx;
-static DEFINE_MUTEX(smd_tty_lock);
 
 static struct delayed_work smd_tty_probe_work;
 static int smd_tty_probe_done;
@@ -84,6 +83,8 @@ module_param_named(ds_modem_wait, lge_ds_modem_wait,
  * @edge:  SMD edge associated with port
  * @ch_name:  SMD channel name associated with port
  * @dev_name:  SMD platform device name associated with port
+ *
+ * @open_lock_lha1: open/close lock - used to serialize open/close operations
  * @open_wait:  Timeout in seconds to wait for SMD port to be created / opened
  *
  * @reset_lock_lha2: lock for reset and open state
@@ -109,6 +110,8 @@ struct smd_tty_info {
 	uint32_t edge;
 	char ch_name[SMD_MAX_CH_NAME_LEN];
 	char dev_name[SMD_MAX_CH_NAME_LEN];
+
+	struct mutex open_lock_lha1;
 	unsigned int open_wait;
 
 	spinlock_t reset_lock_lha2;
@@ -207,7 +210,9 @@ static ssize_t open_timeout_store(struct device *dev,
 		return -EINVAL;
 	}
 	if (!kstrtoul(buf, 10, &wait)) {
+		mutex_lock(&smd_tty[num_dev].open_lock_lha1);
 		smd_tty[num_dev].open_wait = wait;
+		mutex_unlock(&smd_tty[num_dev].open_lock_lha1);
 		return n;
 	} else {
 		SMD_TTY_INFO("[%s]: Unable to convert %s to an int",
@@ -220,6 +225,7 @@ static ssize_t open_timeout_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	unsigned int num_dev;
+	unsigned int open_wait;
 
 	if (dev == NULL) {
 		SMD_TTY_INFO("%s: Invalid Device passed", __func__);
@@ -234,8 +240,11 @@ static ssize_t open_timeout_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			smd_tty[num_dev].open_wait);
+	mutex_lock(&smd_tty[num_dev].open_lock_lha1);
+	open_wait = smd_tty[num_dev].open_wait;
+	mutex_unlock(&smd_tty[num_dev].open_lock_lha1);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", open_wait);
 }
 
 static DEVICE_ATTR
@@ -407,7 +416,7 @@ static int smd_tty_port_activate(struct tty_port *tport,
 
 	info = smd_tty + n;
 
-	mutex_lock(&smd_tty_lock);
+	mutex_lock(&info->open_lock_lha1);
 	tty->driver_data = info;
 
 	peripheral = smd_edge_to_subsystem(smd_tty[n].edge);
@@ -523,7 +532,7 @@ static int smd_tty_port_activate(struct tty_port *tport,
 	SMD_TTY_INFO("%s with PID %u opened port %s",
 		      current->comm, current->pid, info->ch_name);
 	smd_disable_read_intr(info->ch);
-	mutex_unlock(&smd_tty_lock);
+	mutex_unlock(&info->open_lock_lha1);
 	return 0;
 
 close_ch:
@@ -538,7 +547,7 @@ release_wl_tl:
 release_pil:
 	subsystem_put(info->pil);
 out:
-	mutex_unlock(&smd_tty_lock);
+	mutex_unlock(&info->open_lock_lha1);
 
 	return res;
 }
@@ -559,7 +568,7 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 		return;
 	}
 
-	mutex_lock(&smd_tty_lock);
+	mutex_lock(&info->open_lock_lha1);
 
 	spin_lock_irqsave(&info->reset_lock_lha2, flags);
 	info->is_open = 0;
@@ -610,7 +619,7 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 	info->ch = NULL;
 	subsystem_put(info->pil);
 
-	mutex_unlock(&smd_tty_lock);
+	mutex_unlock(&info->open_lock_lha1);
 	tty_kref_put(tty);
 }
 
@@ -853,6 +862,7 @@ static int smd_tty_device_init(int idx)
 	/* TODO: For kernel >= 3.7 use tty_port_register_device */
 	smd_tty[idx].device_ptr = tty_register_device(smd_tty_driver, idx, 0);
 	init_completion(&smd_tty[idx].ch_allocated);
+	mutex_init(&smd_tty[idx].open_lock_lha1);
 
 #ifdef CONFIG_LGE_USES_SMD_DS_TTY
 	if (idx == DS_IDX) {
