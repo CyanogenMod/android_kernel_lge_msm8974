@@ -17,7 +17,6 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 
-#include "mdss_fb.h"
 #include "mdss_mdp.h"
 #ifdef CONFIG_OLED_SUPPORT  // for 4th panel
 #include "mdss_dsi.h"
@@ -28,6 +27,7 @@
 #include <mach/board_lge.h>
 /* LGE_UPDATE_E for MINIOS2.0 */
 #endif
+#include "mdss_panel.h"
 
 /* wait for at least 2 vsyncs for lowest refresh rate (24hz) */
 #define VSYNC_TIMEOUT_US 100000
@@ -440,6 +440,9 @@ static int mdss_mdp_video_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 		} else {
 			rc = 0;
 		}
+
+		mdss_mdp_ctl_notify(ctl,
+			rc ? MDP_NOTIFY_FRAME_TIMEOUT : MDP_NOTIFY_FRAME_DONE);
 	}
 
 	if (ctx->wait_pending) {
