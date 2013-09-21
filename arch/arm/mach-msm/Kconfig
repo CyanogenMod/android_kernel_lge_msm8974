@@ -1115,6 +1115,8 @@ config MACH_FSM9XXX_SURF
 
 endmenu
 
+source "arch/arm/mach-msm/lge/Kconfig"
+
 config MSM_STACKED_MEMORY
 	bool "Stacked Memory"
 	default y
@@ -3008,6 +3010,14 @@ config MSM_BOOT_STATS
 	 display init, total boot time.
 	 This figures are reported in mpm sleep clock cycles and have a
 	 resolution of 31 bits as 1 bit is used as an overflow check.
+
+config LGE_MOCA_DRV
+	tristate "LG Electronics MOCA driver"
+	depends on MACH_LGE
+	default n
+	help
+	  This driver works as a bridge to communicate specific daemon
+	  (like a MOCA process) in User space.
 
 config MSM_XPU_ERR_FATAL
 	bool "Configure XPU violations as fatal errors"

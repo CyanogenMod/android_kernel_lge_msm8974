@@ -33,6 +33,16 @@
 
 #include "internal.h"
 
+/* LGE_CHANGE_S
+ *
+ * do read/mmap profiling during booting
+ * in order to use the data as readahead args
+ *
+ * byungchul.park@lge.com 20120503
+ */
+#include "sreadahead_prof.h"
+/* LGE_CHAGE_E */
+
 int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,
 	struct file *filp)
 {
@@ -987,6 +997,16 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 			} else {
 				fsnotify_open(f);
 				fd_install(fd, f);
+                /* LGE_CHANGE_S
+                 *
+                 * do read/mmap profiling during booting
+                 * in order to use the data as readahead args
+                 *
+                 * byungchul.park@lge.com 20120503
+                 */
+                sreadahead_prof( f, 0, 0);
+                /* LGE_CHANGE_E */
+
 			}
 		}
 		putname(tmp);
@@ -1106,6 +1126,8 @@ EXPORT_SYMBOL(sys_close);
  */
 SYSCALL_DEFINE0(vhangup)
 {
+	if (!ccs_capable(CCS_SYS_VHANGUP))
+		return -EPERM;
 	if (capable(CAP_SYS_TTY_CONFIG)) {
 		tty_vhangup_self();
 		return 0;

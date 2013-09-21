@@ -488,7 +488,13 @@ static void msm_ispif_intf_cmd(struct ispif_device *ispif, uint32_t cmd_bits,
 		vfe_intf = params->entries[i].vfe_intf;
 		for (k = 0; k < params->entries[i].num_cids; k++) {
 			cid = params->entries[i].cids[k];
+/* LGE_CHANGE_S, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[Start] */
+#ifdef CONFIG_USE_DUAL_ISP
+			vc = cid / 4;
+#else
 			vc = cid % 4;
+#endif
+/* LGE_CHANGE_E, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[End] */
 			if (intf_type == RDI2) {
 				/* zero out two bits */
 				ispif->applied_intf_cmd[vfe_intf].intf_cmd1 &=
@@ -648,6 +654,8 @@ static void ispif_process_irq(struct ispif_device *ispif,
 	if (out[vfe_id].ispifIrqStatus0 &
 			ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
 		ispif->sof_count[vfe_id].sof_cnt[PIX0]++;
+		if(ispif->sof_count[vfe_id].sof_cnt[PIX0] <10)
+			pr_err(" %s : %d ",__func__,ispif->sof_count[vfe_id].sof_cnt[PIX0]);
 	}
 	if (out[vfe_id].ispifIrqStatus0 &
 			ISPIF_IRQ_STATUS_RDI0_SOF_MASK) {
@@ -760,6 +768,11 @@ static int msm_ispif_init(struct ispif_device *ispif,
 
 	BUG_ON(!ispif);
 
+/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+	wake_unlock(&ispif->camera_wake_lock);
+	pr_err(" %s:%d camera_wake_lock unlock \n",__func__,__LINE__);
+/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+
 	if (ispif->ispif_state == ISPIF_POWER_UP) {
 		pr_err("%s: ispif already initted state = %d\n", __func__,
 			ispif->ispif_state);
@@ -815,7 +828,7 @@ static int msm_ispif_init(struct ispif_device *ispif,
 	rc = msm_ispif_reset(ispif);
 	if (rc == 0) {
 		ispif->ispif_state = ISPIF_POWER_UP;
-		CDBG("%s: power up done\n", __func__);
+		pr_err("%s: power up done\n", __func__);
 		goto end;
 	}
 
@@ -836,7 +849,7 @@ static void msm_ispif_release(struct ispif_device *ispif)
 		pr_err("%s: ispif invalid state %d\n", __func__,
 			ispif->ispif_state);
 		return;
-	}
+	}	
 
 	/* make sure no streaming going on */
 	msm_ispif_reset(ispif);
@@ -850,6 +863,12 @@ static void msm_ispif_release(struct ispif_device *ispif)
 	iounmap(ispif->clk_mux_base);
 
 	ispif->ispif_state = ISPIF_POWER_DOWN;
+	pr_err(" %s:%d ISPIF_POWER_DOWN %d \n",__func__,__LINE__,ispif->ispif_state);
+
+/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+	wake_lock_timeout(&ispif->camera_wake_lock, 1*HZ);
+	pr_err(" %s:%d Before suspend, camera release need time to work complete. \n",__func__,__LINE__);
+/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
 }
 
 static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
@@ -978,7 +997,7 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 	if (!ispif) {
 		pr_err("%s: no enough memory\n", __func__);
 		return -ENOMEM;
-	}
+	}	
 
 	v4l2_subdev_init(&ispif->msm_sd.sd, &msm_ispif_subdev_ops);
 	ispif->msm_sd.sd.internal_ops = &msm_ispif_internal_ops;
@@ -1041,7 +1060,12 @@ static int __devinit ispif_probe(struct platform_device *pdev)
 	ispif->pdev = pdev;
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 	ispif->open_cnt = 0;
+	pr_err(" %s:%d ISPIF_POWER_DOWN %d \n",__func__,__LINE__,ispif->ispif_state);
 
+/* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+	wake_lock_init(&ispif->camera_wake_lock, WAKE_LOCK_SUSPEND, "camera_wake_lock");
+/* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
+	
 	return 0;
 
 error:
@@ -1073,7 +1097,7 @@ static int __init msm_ispif_init_module(void)
 }
 
 static void __exit msm_ispif_exit_module(void)
-{
+{	
 	platform_driver_unregister(&ispif_driver);
 }
 

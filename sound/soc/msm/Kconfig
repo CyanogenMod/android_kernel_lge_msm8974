@@ -269,4 +269,26 @@ config SND_SOC_MDM9625
 	select SND_DYNAMIC_MINORS
 	help
 	 To add support for SoC audio on MDM9625 boards.
+	 
+# LGE_BSP_AUDIO, jy0127.jang@lge.com, mi2s interface for FM Radio
+config SND_FM_RADIO
+	bool "mi2s interface for FM Radio"
+	default n
+	help
+		mi2s interface for FM Radio
+
+config SND_VOICE_VOLUME
+	int "Level of voice volume"
+	range 4 256
+	default 9
+	help
+	  Level of voice volume.
+
+config SND_VOIP_VOLUME
+	int "Level of voice volume"
+	range 4 256
+	default 9
+	help
+	  Level of voice volume.
+	 
 endmenu

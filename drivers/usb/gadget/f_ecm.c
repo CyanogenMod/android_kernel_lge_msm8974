@@ -92,7 +92,13 @@ static inline unsigned ecm_bitrate(struct usb_gadget *g)
  */
 
 #define LOG2_STATUS_INTERVAL_MSEC	5	/* 1 << 5 == 32 msec */
+
+#ifdef CONFIG_USB_G_LGE_ANDROID
+#define ECM_STATUS_BYTECOUNT		64	/* LGE United host driver */
+#define ECM_STATUS_NOTIFY_REQ_LEN	16
+#else
 #define ECM_STATUS_BYTECOUNT		16	/* 8 byte header + data */
+#endif
 
 
 /* interface descriptor: */
@@ -192,7 +198,11 @@ static struct usb_endpoint_descriptor fs_ecm_notify_desc = {
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
 	.wMaxPacketSize =	cpu_to_le16(ECM_STATUS_BYTECOUNT),
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	.bInterval =		4,
+#else
 	.bInterval =		1 << LOG2_STATUS_INTERVAL_MSEC,
+#endif
 };
 
 static struct usb_endpoint_descriptor fs_ecm_in_desc = {
@@ -201,6 +211,9 @@ static struct usb_endpoint_descriptor fs_ecm_in_desc = {
 
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	.wMaxPacketSize =	cpu_to_le16(64),
+#endif
 };
 
 static struct usb_endpoint_descriptor fs_ecm_out_desc = {
@@ -209,6 +222,9 @@ static struct usb_endpoint_descriptor fs_ecm_out_desc = {
 
 	.bEndpointAddress =	USB_DIR_OUT,
 	.bmAttributes =		USB_ENDPOINT_XFER_BULK,
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	.wMaxPacketSize =	cpu_to_le16(64),
+#endif
 };
 
 static struct usb_descriptor_header *ecm_fs_function[] = {
@@ -225,8 +241,13 @@ static struct usb_descriptor_header *ecm_fs_function[] = {
 	/* data interface, altsettings 0 and 1 */
 	(struct usb_descriptor_header *) &ecm_data_nop_intf,
 	(struct usb_descriptor_header *) &ecm_data_intf,
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	(struct usb_descriptor_header *) &fs_ecm_out_desc,
+	(struct usb_descriptor_header *) &fs_ecm_in_desc,
+#else
 	(struct usb_descriptor_header *) &fs_ecm_in_desc,
 	(struct usb_descriptor_header *) &fs_ecm_out_desc,
+#endif
 	NULL,
 };
 
@@ -239,7 +260,11 @@ static struct usb_endpoint_descriptor hs_ecm_notify_desc = {
 	.bEndpointAddress =	USB_DIR_IN,
 	.bmAttributes =		USB_ENDPOINT_XFER_INT,
 	.wMaxPacketSize =	cpu_to_le16(ECM_STATUS_BYTECOUNT),
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	.bInterval =		4,
+#else
 	.bInterval =		LOG2_STATUS_INTERVAL_MSEC + 4,
+#endif
 };
 
 static struct usb_endpoint_descriptor hs_ecm_in_desc = {
@@ -274,8 +299,13 @@ static struct usb_descriptor_header *ecm_hs_function[] = {
 	/* data interface, altsettings 0 and 1 */
 	(struct usb_descriptor_header *) &ecm_data_nop_intf,
 	(struct usb_descriptor_header *) &ecm_data_intf,
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	(struct usb_descriptor_header *) &hs_ecm_out_desc,
+	(struct usb_descriptor_header *) &hs_ecm_in_desc,
+#else
 	(struct usb_descriptor_header *) &hs_ecm_in_desc,
 	(struct usb_descriptor_header *) &hs_ecm_out_desc,
+#endif
 	NULL,
 };
 
@@ -330,6 +360,7 @@ static struct usb_ss_ep_comp_descriptor ss_ecm_bulk_comp_desc = {
 
 static struct usb_descriptor_header *ecm_ss_function[] = {
 	/* CDC ECM control descriptors */
+	(struct usb_descriptor_header *) &ecm_iad_descriptor,
 	(struct usb_descriptor_header *) &ecm_control_intf,
 	(struct usb_descriptor_header *) &ecm_header_desc,
 	(struct usb_descriptor_header *) &ecm_union_desc,
@@ -342,10 +373,17 @@ static struct usb_descriptor_header *ecm_ss_function[] = {
 	/* data interface, altsettings 0 and 1 */
 	(struct usb_descriptor_header *) &ecm_data_nop_intf,
 	(struct usb_descriptor_header *) &ecm_data_intf,
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	(struct usb_descriptor_header *) &ss_ecm_out_desc,
+	(struct usb_descriptor_header *) &ss_ecm_bulk_comp_desc,
+	(struct usb_descriptor_header *) &ss_ecm_in_desc,
+	(struct usb_descriptor_header *) &ss_ecm_bulk_comp_desc,
+#else
 	(struct usb_descriptor_header *) &ss_ecm_in_desc,
 	(struct usb_descriptor_header *) &ss_ecm_bulk_comp_desc,
 	(struct usb_descriptor_header *) &ss_ecm_out_desc,
 	(struct usb_descriptor_header *) &ss_ecm_bulk_comp_desc,
+#endif
 	NULL,
 };
 
@@ -406,7 +444,11 @@ static void ecm_do_notify(struct f_ecm *ecm)
 		event->bNotificationType = USB_CDC_NOTIFY_SPEED_CHANGE;
 		event->wValue = cpu_to_le16(0);
 		event->wLength = cpu_to_le16(8);
+#ifdef CONFIG_USB_G_LGE_ANDROID
+		req->length = ECM_STATUS_NOTIFY_REQ_LEN;
+#else
 		req->length = ECM_STATUS_BYTECOUNT;
+#endif
 
 		/* SPEED_CHANGE data is up/down speeds in bits/sec */
 		data = req->buf + sizeof *event;
@@ -578,11 +620,25 @@ static int ecm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		if (alt == 1) {
 			struct net_device	*net;
 
+#ifdef CONFIG_USB_G_LGE_ANDROID
+			/* LGE_CHANGE
+			 * Disable zlps in case of LG android USB and qct's udc.
+			 * By this, host driver can handle null packet properly.
+			 * 2011-03-01, hyunhui.park@lge.com
+			 */
+			ecm->port.is_zlp_ok = !(
+					gadget_is_musbhdrc(cdev->gadget)
+					|| gadget_is_ci13xxx_msm(cdev->gadget)
+					|| gadget_is_dwc3(cdev->gadget)
+                    );
+#else
 			/* Enable zlps by default for ECM conformance;
 			 * override for musb_hdrc (avoids txdma ovhead).
 			 */
 			ecm->port.is_zlp_ok = !(gadget_is_musbhdrc(cdev->gadget)
 				);
+#endif
+
 			ecm->port.cdc_filter = DEFAULT_FILTER;
 			DBG(cdev, "activate ecm\n");
 			net = gether_connect(&ecm->port);
@@ -869,6 +925,16 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 		ecm_string_defs[0].id = status;
 		ecm_control_intf.iInterface = status;
 
+#ifdef CONFIG_USB_G_LGE_ANDROID
+		/* MAC address */
+		status = usb_string_id(c->cdev);
+		if (status < 0)
+			return status;
+		ecm_string_defs[1].id = status;
+		pr_info("%s: iMACAddress = %d\n", __func__, status);
+		ecm_desc.iMACAddress = status;
+#endif
+
 		/* data interface label */
 		status = usb_string_id(c->cdev);
 		if (status < 0)
@@ -876,13 +942,15 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 		ecm_string_defs[2].id = status;
 		ecm_data_intf.iInterface = status;
 
+#ifndef CONFIG_USB_G_LGE_ANDROID
+		/* NOTE : if NOT defined */
 		/* MAC address */
 		status = usb_string_id(c->cdev);
 		if (status < 0)
 			return status;
 		ecm_string_defs[1].id = status;
 		ecm_desc.iMACAddress = status;
-
+#endif
 		/* IAD label */
 		status = usb_string_id(c->cdev);
 		if (status < 0)
@@ -905,7 +973,11 @@ ecm_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
 
 	ecm->port.cdc_filter = DEFAULT_FILTER;
 
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	ecm->port.func.name = "ecm";
+#else
 	ecm->port.func.name = "cdc_ethernet";
+#endif
 	ecm->port.func.strings = ecm_strings;
 	/* descriptors are per-instance copies */
 	ecm->port.func.bind = ecm_bind;

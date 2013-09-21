@@ -117,6 +117,14 @@ enum usb_chg_state {
 	USB_CHG_STATE_DETECTED,
 };
 
+#ifdef CONFIG_USB_LGE_LPM_STATE
+enum tri_state_lpm_type {
+    NO_INIT_LPM = 0,
+    ENTER_LPM,
+    EXIT_LPM,
+    KEEP_NO_LPM,
+};
+#endif
 /**
  * USB charger types
  *

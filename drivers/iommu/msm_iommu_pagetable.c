@@ -50,6 +50,10 @@ int msm_iommu_pagetable_alloc(struct msm_iommu_pt *pt)
 	if (!pt->fl_table)
 		return -ENOMEM;
 
+#ifdef CONFIG_LGE_MEMORY_INFO
+	__mod_zone_page_state(page_zone(virt_to_page((void *)pt->fl_table)),
+							NR_IOMMU_PAGES, (1UL << get_order(SZ_16K)));
+#endif
 	memset(pt->fl_table, 0, SZ_16K);
 	clean_pte(pt->fl_table, pt->fl_table + NUM_FL_PTE, pt->redirect);
 
@@ -62,11 +66,24 @@ void msm_iommu_pagetable_free(struct msm_iommu_pt *pt)
 	int i;
 
 	fl_table = pt->fl_table;
+#ifdef CONFIG_LGE_MEMORY_INFO
+	for (i = 0; i < NUM_FL_PTE; i++)
+		if ((fl_table[i] & 0x03) == FL_TYPE_TABLE) {
+			__dec_zone_page_state(virt_to_page((void *)(unsigned long) __va(((fl_table[i]) &
+							FL_BASE_MASK))), NR_IOMMU_PAGES);
+			free_page((unsigned long) __va(((fl_table[i]) &
+							FL_BASE_MASK)));
+		}
+	__mod_zone_page_state(page_zone(virt_to_page((void *)(unsigned long)fl_table)),
+							NR_IOMMU_PAGES, - (1UL << get_order(SZ_16K)));
+	free_pages((unsigned long)fl_table, get_order(SZ_16K));
+#else
 	for (i = 0; i < NUM_FL_PTE; i++)
 		if ((fl_table[i] & 0x03) == FL_TYPE_TABLE)
 			free_page((unsigned long) __va(((fl_table[i]) &
 							FL_BASE_MASK)));
 	free_pages((unsigned long)fl_table, get_order(SZ_16K));
+#endif
 	pt->fl_table = 0;
 }
 
@@ -349,6 +366,9 @@ size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
 			if (sl_table[i])
 				used = 1;
 		if (!used) {
+#ifdef CONFIG_LGE_MEMORY_INFO
+			__dec_zone_page_state(virt_to_page((void *)(unsigned long)sl_table), NR_IOMMU_PAGES);
+#endif
 			free_page((unsigned long)sl_table);
 			*fl_pte = 0;
 			clean_pte(fl_pte, fl_pte + 1, pt->redirect);
@@ -508,6 +528,9 @@ int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 				ret = -ENOMEM;
 				goto fail;
 			}
+#ifdef CONFIG_LGE_MEMORY_INFO
+			__inc_zone_page_state(virt_to_page((void *)sl_table), NR_IOMMU_PAGES);
+#endif
 		}
 		if (!(*fl_pte & FL_TYPE_TABLE)) {
 			ret = -EBUSY;
@@ -624,6 +647,9 @@ void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 				clean_pte(fl_pte, fl_pte + 1, pt->redirect);
 			}
 
+#ifdef CONFIG_LGE_MEMORY_INFO
+			__dec_zone_page_state(virt_to_page((void *)(unsigned long)sl_table), NR_IOMMU_PAGES);
+#endif
 			sl_start = 0;
 		} else {
 			*fl_pte = 0;

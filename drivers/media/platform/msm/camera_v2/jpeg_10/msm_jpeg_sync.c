@@ -640,6 +640,12 @@ int __msm_jpeg_release(struct msm_jpeg_device *pgmn_dev)
 	msm_jpeg_platform_release(pgmn_dev->mem, pgmn_dev->base,
 		pgmn_dev->irq, pgmn_dev);
 
+	/* QMC patch from SR 1195923 */
+#ifdef CONFIG_MACH_LGE
+	pgmn_dev->mem = NULL;
+	pgmn_dev->base = NULL;
+#endif
+
 	JPEG_DBG("%s:%d]\n", __func__, __LINE__);
 	return 0;
 }

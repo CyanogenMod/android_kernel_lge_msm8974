@@ -152,6 +152,10 @@ static irqreturn_t ocmem_dm_irq_handler(int irq, void *dev_id)
 #ifdef CONFIG_MSM_OCMEM_NONSECURE
 int ocmem_clear(unsigned long start, unsigned long size)
 {
+#if 1 // LGE Workaround for hang on irq wait
+	int retry_count = 5 ;
+retry_entry:
+#endif
 	INIT_COMPLETION(dm_clear_event);
 	/* Clear DM Mask */
 	ocmem_write(DM_MASK_RESET, dm_base + DM_INTR_MASK);
@@ -170,8 +174,18 @@ int ocmem_clear(unsigned long start, unsigned long size)
 	/* Trigger Data Clear */
 	ocmem_write(DM_CLR_ENABLE, dm_base + DM_CLR_TRIGGER);
 
+#if 0 // LGE Workaround for hang on irq wait
 	wait_for_completion(&dm_clear_event);
 
+#else
+	if( !wait_for_completion_timeout(&dm_clear_event, msecs_to_jiffies(1000)) ) {
+		printk(KERN_ERR "%s : dm_clear_event is delayed %d\n",__func__,retry_count);
+		if( --retry_count )
+			goto retry_entry;
+		else
+			panic("%s : Dm_clear_event is ran over\n",__func__) ;
+	}
+#endif
 	return 0;
 }
 #else

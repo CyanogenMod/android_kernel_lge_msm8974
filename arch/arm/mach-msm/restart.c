@@ -37,6 +37,10 @@
 #include "msm_watchdog.h"
 #include "timer.h"
 #include "wdog_debug.h"
+#ifdef CONFIG_LGE_HANDLE_PANIC
+#include <mach/lge_handle_panic.h>
+#include <mach/board_lge.h>
+#endif
 
 #define WDT0_RST	0x38
 #define WDT0_EN		0x40
@@ -68,7 +72,7 @@ static void *dload_mode_addr;
 
 /* Download mode master kill-switch */
 static int dload_set(const char *val, struct kernel_param *kp);
-static int download_mode = 1;
+static int download_mode = 0;
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 
@@ -109,6 +113,10 @@ static int dload_set(const char *val, struct kernel_param *kp)
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_LGE_HANDLE_PANIC
+	if (lge_get_laf_mode() == LGE_LAF_MODE_LAF)
+		download_mode = 1;
+#endif
 	set_dload_mode(download_mode);
 
 	return 0;
@@ -201,9 +209,11 @@ static void msm_restart_prepare(const char *cmd)
 	/* Write download mode flags if we're panic'ing */
 	set_dload_mode(in_panic);
 
+#ifndef CONFIG_LGE_HANDLE_PANIC
 	/* Write download mode flags if restart_mode says so */
 	if (restart_mode == RESTART_DLOAD)
 		set_dload_mode(1);
+#endif
 
 	/* Kill download mode if master-kill switch is set */
 	if (!download_mode)
@@ -218,7 +228,17 @@ static void msm_restart_prepare(const char *cmd)
 			__raw_writel(0x77665500, restart_reason);
 		} else if (!strncmp(cmd, "recovery", 8)) {
 			__raw_writel(0x77665502, restart_reason);
+#ifdef CONFIG_LGE_BNR_RECOVERY_REBOOT
+			/* PC Sync B&R : Add restart reason */
+		} else if (!strncmp(cmd, "--bnr_recovery", 14)) {
+			__raw_writel(0x77665555, restart_reason);
+#endif
 		} else if (!strncmp(cmd, "oem-", 4)) {
+			/*
+			 * oem-10 : used diag comand 250-105-1 power off
+			 * oem-11 : battery remove insert irq restart
+			 * oem-52 : laf download restart
+			 */
 			unsigned long code;
 			code = simple_strtoul(cmd + 4, NULL, 16) & 0xff;
 			__raw_writel(0x6f656d00 | code, restart_reason);
@@ -226,7 +246,18 @@ static void msm_restart_prepare(const char *cmd)
 			__raw_writel(0x77665501, restart_reason);
 		}
 	}
+#ifdef CONFIG_LGE_HANDLE_PANIC
+	else {
+		__raw_writel(0x77665503, restart_reason);
+	}
 
+	if (restart_mode == RESTART_DLOAD)
+		lge_set_restart_reason(LAF_DLOAD_MODE);
+
+	if (in_panic) {
+		lge_set_panic_reason();
+	}
+#endif
 	flush_cache_all();
 	outer_flush_all();
 }
@@ -286,6 +317,13 @@ late_initcall(msm_pmic_restart_init);
 
 static int __init msm_restart_init(void)
 {
+#ifdef CONFIG_LGE_HANDLE_PANIC
+	/* Set default restart_reason to TZ crash.
+	 * If can't be set explicit, it causes by TZ */
+	lge_set_restart_reason(LGE_RB_MAGIC | LGE_ERR_TZ);
+	if (lge_get_laf_mode() == LGE_LAF_MODE_LAF)
+		download_mode = 1;
+#endif
 #ifdef CONFIG_MSM_DLOAD_MODE
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	dload_mode_addr = MSM_IMEM_BASE + DLOAD_MODE_ADDR;

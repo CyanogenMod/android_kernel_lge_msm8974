@@ -490,6 +490,22 @@ config SYNA_MULTI_TOUCH
 	depends on TOUCHSCREEN_SYNAPTICS_RMI4_I2C
 	default y
 
+
+config TOUCHSCREEN_SYNAPTICS_DSX_RMI4_I2C
+	tristate "Synaptics RMI4 protocol based I2C interface Touchscreen Driver"
+	help
+	  This enables support for Synaptics RMI4 protocol I2C interface Touchscreens.
+
+config TOUCHSCREEN_SYNAPTICS_7020S
+	tristate "Synaptics 7020S chip(G2 EVB)"
+	help
+	  This enables support for Synaptics 7020S chip for Touch Dirver.
+
+config TOUCHSCREEN_SYNAPTICS_3404S
+	tristate "Synaptics 3404S chip(G2)"
+	help
+	  This enables support for Synaptics 3404S chip for Touch Dirver.
+
 config TOUCHSCREEN_TOUCHRIGHT
 	tristate "Touchright serial touchscreen"
 	select SERIO
@@ -946,6 +962,44 @@ config TOUCHSCREEN_FT5X06
          To compile this driver as a module, choose M here: the
          module will be called ft5x06_ts.
 
+config TOUCHSCREEN_MMS136
+	tristate "MELFAS MMS-136 touchscreen"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you have the MELFAS MMS-136 touchscreen controller
+	  chip in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called melfas_ts.
+
+config USING_TOVIS_PANEL
+	tristate "MELFAS MMS-136 touchscreen with TOVIS Panel for D1L_DCM & KR board"
+	depends on TOUCHSCREEN_MMS136
+	default n
+	help
+	  Say Y here if you have the MELFAS MMS-136 touchscreen controller
+	  chip in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called melfas_ts.
+
+config TS_INFO_CLASS
+	tristate "Use Ts info Class for unified PATH"
+	depends on TOUCHSCREEN_MMS136 || TOUCHSCREEN_SYNAPTICS_I2C_RMI4 || TOUCHSCREEN_S3200_SYNAPTICS_TS || TOUCHSCREEN_MMS128
+	default n
+	help
+	  Say Y here if you have the touchscreen info class in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ts info class.
+
 config TOUCHSCREEN_GEN_VKEYS
        tristate "Touchscreen Virtual Keys Driver"
        help
@@ -958,6 +1012,18 @@ config TOUCHSCREEN_GEN_VKEYS
          module will be called gen_vkeys.
 
 config TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+	tristate "Synaptics DSX I2C touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have a Synaptics DSX I2C touchscreen
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_i2c_rmi4.
+
+config TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB
 	tristate "Synaptics DSX I2C touchscreen"
 	depends on I2C
 	help
@@ -999,6 +1065,20 @@ config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_dsx_fw_update.
 
+config LGE_Z_TOUCHSCREEN
+	default n
+	bool "Use LGE Z-prj touch"
+	help
+	  For difference of Z-prj touch
+	  - its own FW version.
+
+config LGE_VU3_TOUCHSCREEN
+	default n
+	bool "Use LGE VU3-prj touch"
+	help
+	  For difference of Z-prj touch
+	  - its own FW version.
+	  
 config SECURE_TOUCH
 	bool "Secure Touch"
 	depends on TOUCHSCREEN_ATMEL_MXT

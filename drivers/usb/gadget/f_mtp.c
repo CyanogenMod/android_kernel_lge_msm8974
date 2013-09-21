@@ -50,8 +50,13 @@
 #define STATE_ERROR                 4   /* error from completion routine */
 
 /* number of tx and rx requests to allocate */
+#ifdef CONFIG_USB_G_LGE_ANDROID
+#define MTP_TX_REQ_MAX 16
+#define MTP_RX_REQ_MAX 8
+#else
 #define MTP_TX_REQ_MAX 8
 #define RX_REQ_MAX 2
+#endif
 #define INTR_REQ_MAX 5
 
 /* ID for Microsoft MTP OS String */
@@ -100,7 +105,11 @@ struct mtp_dev {
 	wait_queue_head_t read_wq;
 	wait_queue_head_t write_wq;
 	wait_queue_head_t intr_wq;
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	struct usb_request *rx_req[MTP_RX_REQ_MAX];
+#else
 	struct usb_request *rx_req[RX_REQ_MAX];
+#endif
 	int rx_done;
 
 	/* for processing MTP_SEND_FILE, MTP_RECEIVE_FILE and
@@ -321,6 +330,40 @@ struct mtp_ext_config_desc_function {
 	__u8	reserved[6];
 };
 
+#ifdef NOT_CONFIG_USB_G_LGE_ANDROID
+/* LGE_CHANGE
+ * MS Ext Desciptor for MTP and adb (to use in testing driver).
+ * NOTE: this remains for reference code about MTP setting with ADB enabled.
+ * Therefore we do not use this officially(so NOT_ prefix is used).
+ * 2011-02-09, hyunhui.park@lge.com
+ */
+
+/* MTP Extended Configuration Descriptor */
+struct {
+	struct mtp_ext_config_desc_header	header;
+	struct mtp_ext_config_desc_function    function;
+	struct mtp_ext_config_desc_function    adb_function;
+} mtp_ext_config_desc = {
+	.header = {
+		.dwLength = __constant_cpu_to_le32(sizeof(mtp_ext_config_desc)),
+		.bcdVersion = __constant_cpu_to_le16(0x0100),
+		.wIndex = __constant_cpu_to_le16(4),
+		/* It has two functions (mtp, adb) */
+		.bCount = __constant_cpu_to_le16(2),
+	},
+	.function = {
+		.bFirstInterfaceNumber = 0,
+		.bInterfaceCount = 1,
+		.compatibleID = { 'M', 'T', 'P' },
+	},
+	/* adb */
+	.adb_function = {
+		.bFirstInterfaceNumber = 1,
+		.bInterfaceCount = 1,
+	},
+};
+
+#else /* This is Google Original */
 /* MTP Extended Configuration Descriptor */
 struct {
 	struct mtp_ext_config_desc_header	header;
@@ -338,6 +381,7 @@ struct {
 		.compatibleID = { 'M', 'T', 'P' },
 	},
 };
+#endif
 
 struct mtp_device_status {
 	__le16	wLength;
@@ -494,12 +538,17 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 	ep->driver_data = dev;		/* claim the endpoint */
 	dev->ep_intr = ep;
 
+/* FixMe AU_106 */
 retry_tx_alloc:
 	if (mtp_tx_req_len > MTP_BULK_BUFFER_SIZE)
 		mtp_tx_reqs = 4;
 
 	/* now allocate requests for our endpoints */
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	for (i = 0; i < MTP_TX_REQ_MAX; i++) {
+#else
 	for (i = 0; i < mtp_tx_reqs; i++) {
+#endif
 		req = mtp_request_new(dev->ep_in, mtp_tx_req_len);
 		if (!req) {
 			if (mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
@@ -524,7 +573,11 @@ retry_tx_alloc:
 		mtp_rx_req_len = MTP_BULK_BUFFER_SIZE;
 
 retry_rx_alloc:
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	for (i = 0; i < MTP_RX_REQ_MAX; i++) {
+#else
 	for (i = 0; i < RX_REQ_MAX; i++) {
+#endif
 		req = mtp_request_new(dev->ep_out, mtp_rx_req_len);
 		if (!req) {
 			if (mtp_rx_req_len <= MTP_BULK_BUFFER_SIZE)
@@ -566,7 +619,11 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 	if (count > mtp_rx_req_len)
 		return -EINVAL;
 
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	if (dev->ep_out && !IS_ALIGNED(count, dev->ep_out->maxpacket))
+#else
 	if (!IS_ALIGNED(count, dev->ep_out->maxpacket))
+#endif
 		DBG(cdev, "%s - count(%d) not multiple of mtu(%d)\n", __func__,
 						count, dev->ep_out->maxpacket);
 
@@ -866,7 +923,11 @@ static void receive_file_work(struct work_struct *data)
 		if (count > 0) {
 			/* queue a request */
 			read_req = dev->rx_req[cur_buf];
+#ifdef CONFIG_USB_G_LGE_ANDROID
+			cur_buf = (cur_buf + 1) % MTP_RX_REQ_MAX;
+#else
 			cur_buf = (cur_buf + 1) % RX_REQ_MAX;
+#endif
 
 			/* some h/w expects size to be aligned to ep's MTU */
 			read_req->length = mtp_rx_req_len;
@@ -1147,7 +1208,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 		DBG(cdev, "class request: %d index: %d value: %d length: %d\n",
 			ctrl->bRequest, w_index, w_value, w_length);
 
-		if (ctrl->bRequest == MTP_REQ_CANCEL && w_index == 0
+		if (ctrl->bRequest == MTP_REQ_CANCEL && (w_index == 0 || w_index == 3)
 				&& w_value == 0) {
 			DBG(cdev, "MTP_REQ_CANCEL\n");
 
@@ -1165,7 +1226,7 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 			 */
 			value = w_length;
 		} else if (ctrl->bRequest == MTP_REQ_GET_DEVICE_STATUS
-				&& w_index == 0 && w_value == 0) {
+				&& (w_index == 0 || w_index == 3) && w_value == 0) {
 			struct mtp_device_status *status = cdev->req->buf;
 			status->wLength =
 				__constant_cpu_to_le16(sizeof(*status));
@@ -1214,6 +1275,11 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	if (id < 0)
 		return id;
 	mtp_interface_desc.bInterfaceNumber = id;
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	/* for ptp & MS desc */
+	ptp_interface_desc.bInterfaceNumber = id;
+	mtp_ext_config_desc.function.bFirstInterfaceNumber = id;
+#endif
 
 	/* allocate endpoints */
 	ret = mtp_create_bulk_endpoints(dev, &mtp_fullspeed_in_desc,
@@ -1252,7 +1318,11 @@ mtp_function_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	while ((req = mtp_req_get(dev, &dev->tx_idle)))
 		mtp_request_free(req, dev->ep_in);
+#ifdef CONFIG_USB_G_LGE_ANDROID
+	for (i = 0; i < MTP_RX_REQ_MAX; i++)
+#else
 	for (i = 0; i < RX_REQ_MAX; i++)
+#endif
 		mtp_request_free(dev->rx_req[i], dev->ep_out);
 	while ((req = mtp_req_get(dev, &dev->intr_idle)))
 		mtp_request_free(req, dev->ep_intr);

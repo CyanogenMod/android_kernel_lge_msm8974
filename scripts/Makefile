@@ -7,6 +7,8 @@
 # conmakehash:   Create chartable
 # conmakehash:	 Create arrays for initializing the kernel console tables
 # docproc:       Used in Documentation/DocBook
+# readelf:       Stripped down version of readelf for .debug_lines sections
+
 
 HOST_EXTRACFLAGS += -I$(srctree)/tools/include
 
@@ -14,6 +16,7 @@ hostprogs-$(CONFIG_KALLSYMS)     += kallsyms
 hostprogs-$(CONFIG_LOGO)         += pnmtologo
 hostprogs-$(CONFIG_VT)           += conmakehash
 hostprogs-$(CONFIG_IKCONFIG)     += bin2c
+hostprogs-$(CONFIG_KALLSYMS_LINE_LOCATIONS)     += readelf
 hostprogs-$(BUILD_C_RECORDMCOUNT) += recordmcount
 
 always		:= $(hostprogs-y) $(hostprogs-m)

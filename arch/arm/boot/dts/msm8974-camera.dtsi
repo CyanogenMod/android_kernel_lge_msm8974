@@ -180,8 +180,14 @@
 		compatible = "qcom,camera-led-flash";
 		qcom,flash-type = <1>;
 		qcom,flash-source = <&pm8941_flash0 &pm8941_flash1>;
+                qcom,torch-source = <&pm8941_torch>;
 	};
-
+	qcom,ois@48 {
+			cell-index = <998>;
+			reg = <0x48 0x0>;
+			compatible = "qcom,ois";
+			qcom,cci-master = <0>;
+		};
 	cci: qcom,cci@fda0C000 {
 		cell-index = <0>;
 		compatible = "qcom,cci";
@@ -201,15 +207,26 @@
 					"CCI_I2C_CLK0",
 					"CCI_I2C_DATA1",
 					"CCI_I2C_CLK1";
-		qcom,hw-thigh = <78>;
-		qcom,hw-tlow = <114>;
-		qcom,hw-tsu-sto = <28>;
-		qcom,hw-tsu-sta = <28>;
-		qcom,hw-thd-dat = <10>;
-		qcom,hw-thd-sta = <77>;
-		qcom,hw-tbuf = <118>;
+/*
+ * I2C Speed Control (QCT Official Setting)
+ * ------------------------------------------------------------------------
+ * |   TSP|TRDHLD|THDDAT|THDSTA|TSUSTO|TSUSTA|  TBUF| THIGH|  TLOW|  fSCL |
+ * ------------------------------------------------------------------------
+ * |     3|     6|    13|    11|     6|     7|    25|    20|    28|  400.0|
+ * |     3|     6|    13|    11|     6|     7|    25|    40|    56|  200.0|
+ * |     3|     6|    13|    11|     6|     7|    25|    21|    28|  384.0|
+ * |     2|     6|    13|    11|    20|    26|    91|   104|    88|  100.0|
+ * ------------------------------------------------------------------------
+ */
+		qcom,hw-thigh = <21>;
+		qcom,hw-tlow = <28>;
+		qcom,hw-tsu-sto = <6>;
+		qcom,hw-tsu-sta = <7>;
+		qcom,hw-thd-dat = <13>;
+		qcom,hw-thd-sta = <11>;
+		qcom,hw-tbuf = <25>;
 		qcom,hw-scl-stretch-en = <0>;
 		qcom,hw-trdhld = <6>;
-		qcom,hw-tsp = <1>;
+		qcom,hw-tsp = <3>;
 	};
 };

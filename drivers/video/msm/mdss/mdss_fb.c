@@ -50,7 +50,22 @@
 #include <mach/iommu_domains.h>
 #include <mach/msm_memtypes.h>
 
+#if defined(CONFIG_MACH_LGE)
+#include <mach/board_lge.h>
+#endif
+
 #include "mdss_fb.h"
+#ifdef CONFIG_LGE_ESD_CHECK
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-10, seojin.lee@lge.com
+*/
+#include "mdss_dsi.h"
+#endif
+
+#ifdef CONFIG_LGE_HANDLE_PANIC
+#include <mach/lge_handle_panic.h>
+#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -59,6 +74,24 @@
 #endif
 
 #define MAX_FBI_LIST 32
+
+#if defined(CONFIG_MACH_LGE)
+#define BOOT_BRIGHTNESS 1
+#endif
+
+#if defined(CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_Z_KR) && !defined(CONFIG_MACH_MSM8974_Z_US) && !defined(CONFIG_OLED_SUPPORT)
+extern int backlight_status;
+#endif
+
+#ifdef CONFIG_OLED_SUPPORT
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
+static int unset_bl_level;
+#else
+static int unset_bl_level, bl_updated;
+#endif
+static int bl_level_old;
+#endif
+
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
 
@@ -68,6 +101,45 @@ static u32 mdss_fb_pseudo_palette[16] = {
 	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
 	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff
 };
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
+#define INIT_HD_IMAGE_FILE "/initlogo_hd.rle"
+#define INIT_FHD_IMAGE_FILE "/initlogo_fhd.rle"
+#define INIT_UVGA_IMAGE_FILE "/initlogo_uvga.rle"
+#if defined(CONFIG_MACH_MSM8974_G2_DCM)
+#define INIT_DCM_IMAGE_FILE "/initlogo_dcm_xi.rle"
+#endif
+
+extern int load_888rle_image(char *filename);
+#endif
+#ifdef CONFIG_LGE_ESD_CHECK
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
+*/
+static struct dsi_buf esd_dsi_panel_tx_buf;
+static struct dsi_buf esd_dsi_panel_rx_buf;
+
+struct msm_fb_data_type *local_mfd=NULL;
+struct mdss_panel_data *local_pdata;
+
+static char reg_adr[2] = {0xC7, 0x00};
+int reg_size = 44;
+
+static char macp_off[2] = {0xB0, 0x04};
+static char macp_on[2] = {0xB0, 0x03};
+
+static struct dsi_cmd_desc cmds_test =
+	{DTYPE_GEN_READ1, 1, 0, 0, 1, sizeof(reg_adr), reg_adr};
+static struct dsi_cmd_desc cmds_macp_off =
+	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(macp_off), macp_off};
+static struct dsi_cmd_desc cmds_macp_on =
+	{DTYPE_GEN_WRITE2, 1, 0, 0, 0, sizeof(macp_on), macp_on};
+#endif /* CONFIG_LGE_ESD_CHECK */
+
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
+extern struct mdp_csc_cfg dmb_csc_convert;
+extern int pp_set_dmb_status(int flag);
+#endif /* LGE_BROADCAST */
 
 static struct msm_mdp_interface *mdp_instance;
 
@@ -222,6 +294,190 @@ static void mdss_fb_remove_sysfs(struct msm_fb_data_type *mfd)
 	sysfs_remove_group(&mfd->fbi->dev->kobj, &mdss_fb_attr_group);
 }
 
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
+static int bl_updated;
+static int mdss_fb_draw_bootlogo(struct msm_fb_data_type *mfd)
+{
+	struct fb_info *fbi = mfd->fbi;
+
+	if (mfd->panel.type != MIPI_VIDEO_PANEL &&
+			mfd->panel.type != MIPI_CMD_PANEL)
+		return 0;
+
+	mdss_fb_open(mfd->fbi, 0);
+	if (fbi->var.xres >= 1080) {
+#if defined(CONFIG_MACH_MSM8974_G2_DCM)
+		if (load_888rle_image(INIT_DCM_IMAGE_FILE) < 0)
+#else
+		if (load_888rle_image(INIT_FHD_IMAGE_FILE) < 0)
+#endif
+			printk(KERN_WARNING "fail to load 888 rle image\n");
+	}
+	else if (fbi->var.xres == 960 && fbi->var.yres == 1280) {
+
+		if (load_888rle_image(INIT_UVGA_IMAGE_FILE) < 0)
+			printk(KERN_WARNING "fail to load 888 rle image\n");
+	}
+	else {
+		if (load_888rle_image(INIT_HD_IMAGE_FILE) < 0)
+			printk(KERN_WARNING "fail to load 888 rle image\n");
+	}
+	mdss_fb_pan_display(&mfd->fbi->var, mfd->fbi);
+
+	/* LGE_CHANGE
+	 * Turn backlight on right after logo image.
+	 * 2013-01-30, baryun.hwang@lge.com
+	 */
+	bl_updated = 1;
+	mutex_lock(&mfd->lock);
+	mdss_fb_set_backlight(mfd, -BOOT_BRIGHTNESS);
+	mutex_unlock(&mfd->lock);
+	bl_updated = 0;
+#if defined(CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_Z_KR) && !defined(CONFIG_MACH_MSM8974_Z_US) && !defined(CONFIG_OLED_SUPPORT)
+	backlight_status = 1;
+#endif
+
+	return 0;
+}
+#endif
+#ifdef CONFIG_LGE_ESD_CHECK
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
+*/
+static ssize_t write_reg_adr(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	unsigned int tmp;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	printk(KERN_INFO "%s  \n", __func__);
+	sscanf(buf,"%x",&tmp);
+	reg_adr[0] = (char) tmp;
+	return ret;
+}
+
+
+static ssize_t write_cmd(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	unsigned int cmds;
+	printk(KERN_INFO "%s  \n", __func__);
+	sscanf(buf,"%x",&cmds);
+	cmds_test.dtype =(char) cmds;
+	return ret;
+}
+
+static ssize_t write_size(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	printk(KERN_INFO "%s  \n", __func__);
+	sscanf(buf,"%d",&reg_size);
+	return ret;
+}
+
+static ssize_t read_reg(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	char *lp;
+	int len, i, idx, str_len, r;
+
+	printk(KERN_INFO "%s :cmd_types %x  reg_address %x,  cmd_size %d\n",
+								__func__,
+								cmds_test.dtype,
+								cmds_test.payload[0],
+								reg_size);
+	pr_info("#read_reg start!!!");
+	if(local_mfd == NULL)
+		pr_info("## local_mfd NULL!!!");
+
+	if(local_mfd != NULL && local_mfd->panel_power_on){
+		len = reg_size;
+		if(len > 8){
+			len -= 4;
+			len >>= 3;	/* divided by 8 */
+			if((reg_size-4-len*8) > 0)
+					len++;
+			len++;
+			len <<= 3;
+		}
+		else
+			len = 8;
+		str_len = 0;
+		idx=0;
+
+		lp = kzalloc(sizeof(int)*11, GFP_USER);	/* maximum 28 parameters */
+		if(lp == NULL){
+			printk(KERN_ERR "fail alloc for buffer\n");
+			return 0;
+		}
+		pr_info("### read_reg cmd start!!!");
+		for(i=8; i<=len;i+=8){
+			// turn cmd mode
+			mipi_set_tx_power_mode(0,local_pdata);
+			if(cmds_test.dtype == DTYPE_GEN_READ1){
+				mdss_dsi_cmds_tx(local_pdata, &esd_dsi_panel_tx_buf, &cmds_macp_off,1);
+			}
+			mdss_dsi_cmds_mode1(local_pdata);
+			pr_info("###read_reg cmd read start!!!");
+
+			if(cmds_test.dtype == DTYPE_DCS_READ)	/* DTYPE_DCS_READ */
+			{
+				cmds_test.wait = reg_size;
+				mdss_dsi_cmds_rx(local_pdata,&esd_dsi_panel_tx_buf,&esd_dsi_panel_rx_buf,&cmds_test, reg_size);
+			}
+			else	/* DTYPE_GEN_READ */
+			{
+				mdss_dsi_cmds_rx(local_pdata,&esd_dsi_panel_tx_buf,&esd_dsi_panel_rx_buf,&cmds_test, i);
+			}
+			mdss_dsi_cmds_mode2(local_pdata);
+
+			if(cmds_test.dtype == DTYPE_GEN_READ1)
+				mdss_dsi_cmds_tx(local_pdata, &esd_dsi_panel_tx_buf, &cmds_macp_on,1);
+			mipi_set_tx_power_mode(1,local_pdata);
+			pr_info("#### read_reg cmd end!!!");
+
+			if(reg_size <= 8)
+				str_len = reg_size;
+			else if(idx == 0)
+				str_len = 4;
+			else if(idx > reg_size)
+				str_len = idx - reg_size;
+			else
+				str_len = 8;
+			memcpy(lp+idx, esd_dsi_panel_rx_buf.data, str_len);
+			idx +=	str_len;
+		}
+		r= snprintf(buf, PAGE_SIZE, "0x%02X : %02X %02X %02X %02X %02X %02X %02X %02X\
+			\n	%02X %02X %02X %02X %02X %02X %02X %02X\
+			\n	%02X %02X %02X %02X %02X %02X %02X %02X\
+			\n	%02X %02X %02X %02X %02X %02X %02X %02X\
+			\n  %02X %02X %02X %02X %02X %02X %02X %02X\
+			\n",
+			cmds_test.payload[0],
+			lp[0], lp[1], lp[2], lp[3], lp[4], lp[5], lp[6], lp[7], lp[8], lp[9], lp[10],
+			lp[11], lp[12], lp[13], lp[14], lp[15], lp[16], lp[17], lp[18], lp[19], lp[20],
+			lp[21], lp[22], lp[23], lp[24], lp[25], lp[26], lp[27], lp[28], lp[29], lp[30],
+			lp[31], lp[32], lp[33],lp[34], lp[35], lp[40],lp[41],lp[42],lp[43]);
+		kfree(lp);
+		return r;
+	}
+	return 0;
+}
+
+DEVICE_ATTR(show_reg_value, 0644, read_reg, write_reg_adr);
+DEVICE_ATTR(write_cmd_type, 0644, NULL, write_cmd);
+DEVICE_ATTR(write_cmd_size, 0644, NULL, write_size);
+#endif /* CONFIG_LGE_ESD_CHECK */
+
+#if defined(CONFIG_MACH_LGE)
+#if !defined(CONFIG_OLED_SUPPORT)
+int is_fboot;
+#endif
+struct msm_fb_data_type *mfd_base = NULL;
+static int bl_chargerlogo;
+#endif
+
 static int mdss_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
@@ -312,6 +568,61 @@ static int mdss_fb_probe(struct platform_device *pdev)
 			mfd->timeline_value = 0;
 		}
 	}
+
+#if defined(CONFIG_MACH_LGE)
+	if(mfd_base == NULL)
+		mfd_base = mfd;
+#endif
+
+#ifdef CONFIG_LGE_ESD_CHECK
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
+*/
+	if(local_pdata == NULL)
+		local_pdata = pdata;
+	if(local_mfd == NULL)
+		local_mfd = mfd;
+
+	rc = device_create_file(&pdev->dev, &dev_attr_show_reg_value);
+	if (rc) {
+		printk(KERN_ERR "### %s : fail to create sysfs\n", __func__);
+	}
+
+	rc = device_create_file(&pdev->dev, &dev_attr_write_cmd_type);
+	if (rc) {
+		printk(KERN_ERR "### %s : fail to create sysfs\n", __func__);
+	}
+
+	rc = device_create_file(&pdev->dev, &dev_attr_write_cmd_size);
+	if (rc) {
+		printk(KERN_ERR "### %s : fail to create sysfs\n", __func__);
+	}
+#endif /* CONFIG_LGE_ESD_CHECK */
+
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
+ #if defined(CONFIG_MACH_MSM8974_G2_DCM)
+	if ((lge_get_boot_mode()!=LGE_BOOT_MODE_MINIOS)&&(lge_get_boot_mode()!=LGE_BOOT_MODE_CHARGERLOGO))
+ #else
+	if ((lge_get_boot_mode()!=LGE_BOOT_MODE_MINIOS)&&(lge_get_boot_mode()!=LGE_BOOT_MODE_CHARGERLOGO)&&!lge_get_cont_splash_enabled())
+#endif
+	mdss_fb_draw_bootlogo(mfd);
+#endif
+
+#if defined(CONFIG_MACH_LGE)
+	if(lge_get_boot_mode()==LGE_BOOT_MODE_CHARGERLOGO)
+		bl_chargerlogo = 1;
+#if defined(CONFIG_OLED_SUPPORT)
+	if(lge_get_boot_mode() != LGE_BOOT_MODE_CHARGERLOGO)
+		unset_bl_level = 0xFF;  /* should be synchronized to LK brightness set */
+#endif
+#endif
+
+#if defined(CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_VU3_KR) && !defined(CONFIG_MACH_MSM8974_Z_KR) && !defined(CONFIG_MACH_MSM8974_Z_US) && !defined(CONFIG_OLED_SUPPORT)
+	pr_debug("%s: boot_mode : %d, laf_mode : %d\n", __func__, lge_get_boot_mode(), lge_get_laf_mode());
+	if((lge_get_boot_mode()==LGE_BOOT_MODE_FACTORY2)||(lge_get_boot_mode()==LGE_BOOT_MODE_PIFBOOT)||(lge_get_boot_mode()==LGE_BOOT_MODE_PIFBOOT2))
+		is_fboot = 1;
+#endif
 
 	return rc;
 }
@@ -508,8 +819,14 @@ static struct platform_driver mdss_fb_driver = {
 	},
 };
 
+#ifndef CONFIG_OLED_SUPPORT
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
+static int unset_bl_level;
+#else
 static int unset_bl_level, bl_updated;
+#endif
 static int bl_level_old;
+#endif
 
 static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 {
@@ -528,11 +845,32 @@ static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 	(*bl_lvl) = temp;
 }
 
+#if defined(CONFIG_MACH_LGE)
+static void mdss_fb_chargerlogo_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
+{
+	struct mdss_panel_data *pdata = dev_get_platdata(&mfd->pdev->dev);
+	u32 temp = bkl_lvl;
+
+	if ((pdata) && (pdata->set_backlight)) {
+		mdss_fb_scale_bl(mfd, &temp);
+		pdata->set_backlight(pdata, temp);
+	}
+
+}
+#endif
+
 /* must call this function from within mfd->bl_lock */
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 {
 	struct mdss_panel_data *pdata;
 	u32 temp = bkl_lvl;
+
+#if defined(CONFIG_MACH_LGE)
+	if (bl_chargerlogo) {
+		mdss_fb_chargerlogo_backlight(mfd, bkl_lvl);
+		return;
+	}
+#endif
 
 	if (!mfd->panel_power_on || !bl_updated) {
 		unset_bl_level = bkl_lvl;
@@ -544,7 +882,10 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
 	if ((pdata) && (pdata->set_backlight)) {
-		mdss_fb_scale_bl(mfd, &temp);
+#if defined(CONFIG_MACH_LGE)
+		if (temp != -BOOT_BRIGHTNESS)
+#endif
+			mdss_fb_scale_bl(mfd, &temp);
 		/*
 		 * Even though backlight has been scaled, want to show that
 		 * backlight has been set to bkl_lvl to those that read from
@@ -593,6 +934,9 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int ret = 0;
 
+	if(mfd->index == 0)
+		pr_info("%s: %s\n", __func__, blank_mode==FB_BLANK_UNBLANK?"UNBLANK":"BLANK");
+
 	if (!op_enable)
 		return -EPERM;
 
@@ -612,6 +956,16 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	default:
 		if (mfd->panel_power_on && mfd->mdp.off_fnc) {
 			int curr_pwr_state;
+#if defined(CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_Z_KR) && !defined(CONFIG_MACH_MSM8974_Z_US) && !defined(CONFIG_OLED_SUPPORT)
+	 /* to hide blinking screen when system reset */
+	 if (mfd->index==0 && backlight_status==1){
+			bl_updated = 1;
+			mutex_lock(&mfd->bl_lock);
+			mdss_fb_set_backlight(mfd, 0);
+			mutex_unlock(&mfd->bl_lock);
+			unset_bl_level = -BOOT_BRIGHTNESS;
+	 }
+#endif
 
 			del_timer(&mfd->no_update.timer);
 			complete(&mfd->no_update.comp);
@@ -619,8 +973,17 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			mfd->op_enable = false;
 			curr_pwr_state = mfd->panel_power_on;
 			mfd->panel_power_on = false;
-			bl_updated = 0;
 
+#if defined(CONFIG_MACH_LGE)
+			if(mfd->index == 0)
+				bl_updated = 0;
+#else
+			bl_updated = 0;
+#endif
+
+#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_OLED_SUPPORT)
+			   flush_work_sync(&mfd->commit_work);
+#endif
 			ret = mfd->mdp.off_fnc(mfd);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
@@ -668,22 +1031,16 @@ static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	}
 
 	mdss_fb_pan_idle(mfd);
-	if (off >= len) {
-		/* memory mapped io */
-		off -= len;
-		if (info->var.accel_flags) {
-			mutex_unlock(&info->lock);
-			return -EINVAL;
-		}
-		start = info->fix.mmio_start;
-		len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.mmio_len);
-	}
 
 	/* Set VM flags. */
 	start &= PAGE_MASK;
-	if ((vma->vm_end - vma->vm_start + off) > len)
+	if ((vma->vm_end <= vma->vm_start) ||
+	    (off >= len) ||
+	    ((vma->vm_end - vma->vm_start) > (len - off)))
 		return -EINVAL;
 	off += start;
+	if (off < start)
+		return -EINVAL;
 	vma->vm_pgoff = off >> PAGE_SHIFT;
 	/* This is an IO map - tell maydump to skip this VMA */
 	vma->vm_flags |= VM_IO | VM_RESERVED;
@@ -764,6 +1121,13 @@ static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 	pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
 		 size, virt, phys, mfd->index);
 
+#ifdef CONFIG_LGE_HANDLE_PANIC
+	/* save fb1 address for crash handler display buffer */
+	lge_set_fb1_addr((unsigned int)(phys +
+				(mfd->fbi->fix.line_length *
+				mfd->fbi->var.yres)));
+#endif
+
 	mfd->fbi->screen_base = virt;
 	mfd->fbi->fix.smem_start = phys;
 	mfd->fbi->fix.smem_len = size;
@@ -816,8 +1180,21 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->grayscale = 0,	/* No graylevels */
 	var->nonstd = 0,	/* standard pixel format */
 	var->activate = FB_ACTIVATE_VBL,	/* activate it at vsync */
+#if defined(CONFIG_MACH_LGE)
+#if defined(CONFIG_OLED_SUPPORT)
+	var->height = 132,	/* height of picture in mm */
+	var->width = 74,	/* width of picture in mm */
+#elif defined(CONFIG_MACH_MSM8974_VU3_KR)
+	var->height = 105,	/* height of picture in mm */
+	var->width = 79,	/* width of picture in mm */
+#else
+	var->height = 115,	/* height of picture in mm */
+	var->width = 65,	/* width of picture in mm */
+#endif
+#else /*QMC original code */
 	var->height = -1,	/* height of picture in mm */
 	var->width = -1,	/* width of picture in mm */
+#endif
 	var->accel_flags = 0,	/* acceleration flags */
 	var->sync = 0,	/* see FB_SYNC_* */
 	var->rotate = 0,	/* angle we rotate counter clockwise */
@@ -1007,18 +1384,18 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	return ret;
 }
 
+
 static int mdss_fb_open(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	int result;
 
 	result = pm_runtime_get_sync(info->dev);
-
 	if (result < 0)
 		pr_err("pm_runtime: fail to wake up\n");
 
-
 	if (!mfd->ref_cnt) {
+		pr_info("%s: fb ref_cnt is 0\n", __func__);
 		result = mdss_fb_blank_sub(FB_BLANK_UNBLANK, info,
 					   mfd->op_enable);
 		if (result) {
@@ -1044,8 +1421,15 @@ static int mdss_fb_release(struct fb_info *info, int user)
 
 	mdss_fb_pan_idle(mfd);
 	mfd->ref_cnt--;
-
 	if (!mfd->ref_cnt) {
+		pr_info("%s: fb ref_cnt is 0\n", __func__);
+
+#if defined(CONFIG_MACH_LGE)
+        /* change scaling formula from chargerlogo to android*/
+        if(bl_chargerlogo)
+			bl_chargerlogo = 0;
+#endif
+
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 				       mfd->op_enable);
 		if (ret) {
@@ -1209,6 +1593,9 @@ static int mdss_fb_pan_display(struct fb_var_screeninfo *var,
 {
 	struct mdp_display_commit disp_commit;
 	memset(&disp_commit, 0, sizeof(disp_commit));
+#if defined(CONFIG_MACH_LGE)
+	disp_commit.var = *var;
+#endif
 	disp_commit.wait_for_finish = true;
 	memcpy(&disp_commit.var, var, sizeof(struct fb_var_screeninfo));
 	return mdss_fb_pan_display_ex(info, &disp_commit);
@@ -1609,6 +1996,13 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_page_protection fb_page_protection;
 	int ret = -ENOSYS;
 	struct mdp_buf_sync buf_sync;
+#ifdef CONFIG_MACH_LGE
+	u32 dsi_panel_invert = 0;
+#endif
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
+	int dmb_flag = 0;
+	struct mdp_csc_cfg dmb_csc_cfg;
+#endif /* LGE_BROADCAST */
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -1653,6 +2047,28 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_DISPLAY_COMMIT:
 		ret = mdss_fb_display_commit(info, argp);
 		break;
+#ifdef CONFIG_MACH_LGE
+	case MSMFB_INVERT_PANEL:
+		ret=copy_from_user(&dsi_panel_invert, argp, sizeof(int));
+		if (ret)
+			return ret;
+		ret = mdss_dsi_panel_invert(dsi_panel_invert);
+		break;
+#endif
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
+	case MSMFB_DMB_SET_FLAG:
+		ret = copy_from_user(&dmb_flag, argp, sizeof(int));
+		if (ret)
+			return ret;
+		ret = pp_set_dmb_status(dmb_flag);
+		break;
+	case MSMFB_DMB_SET_CSC_MATRIX:
+		ret = copy_from_user(&dmb_csc_cfg, argp, sizeof(dmb_csc_cfg));
+		if (ret)
+			return ret;
+		memcpy(dmb_csc_convert.csc_mv, dmb_csc_cfg.csc_mv, sizeof(dmb_csc_cfg.csc_mv));
+		break;
+#endif /* LGE_BROADCAST */
 
 	default:
 		if (mfd->mdp.ioctl_handler)
@@ -1803,7 +2219,14 @@ int __init mdss_fb_init(void)
 
 	if (platform_driver_register(&mdss_fb_driver))
 		return rc;
-
+#ifdef CONFIG_LGE_ESD_CHECK
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
+*/
+	mdss_dsi_buf_alloc(&esd_dsi_panel_tx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
+	mdss_dsi_buf_alloc(&esd_dsi_panel_rx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
+#endif
 	return 0;
 }
 

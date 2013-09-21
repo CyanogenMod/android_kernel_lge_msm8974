@@ -141,6 +141,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	int i;
 	int rc = 0, rot_mode = 0;
 	u32 nlines;
+	u16 width = pipe->src.w >> pipe->horz_deci;
 
 	if (pipe->bwc_mode) {
 		rc = mdss_mdp_get_rau_strides(pipe->src.w, pipe->src.h,
@@ -151,11 +152,11 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 			ps.ystride[0], ps.ystride[1]);
 	} else if (mdata->has_decimation && pipe->src_fmt->is_yuv) {
 		ps.num_planes = 2;
-		ps.ystride[0] = pipe->src.w >> pipe->horz_deci;
-		ps.ystride[1] = pipe->src.h >> pipe->vert_deci;
+		ps.ystride[0] = width;
+		ps.ystride[1] = ps.ystride[0];
 	} else {
 		rc = mdss_mdp_get_plane_sizes(pipe->src_fmt->format,
-			pipe->src.w, pipe->src.h, &ps, 0);
+			width, pipe->src.h, &ps, 0);
 		if (rc)
 			return rc;
 
@@ -163,7 +164,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 			rot_mode = 1;
 		else if (ps.num_planes == 1)
 			ps.ystride[0] = MAX_BPP *
-				max(pipe->mixer->width, pipe->src.w);
+				max(pipe->mixer->width, width);
 	}
 
 	nlines = pipe->bwc_mode ? 1 : 2;
@@ -351,6 +352,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx)
 	mutex_lock(&mdss_mdp_sspp_lock);
 
 	pipe = mdss_mdp_pipe_search(mdata, ndx);
+
 	if (!pipe) {
 		pipe = ERR_PTR(-EINVAL);
 		goto error;
@@ -527,6 +529,9 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 			(fmt->unpack_align_msb << 18) |
 			((fmt->bpp - 1) << 9);
 
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_MACH_MSM8974_G2EVB)
+	opmode |= MDSS_MDP_OP_FLIP_UD;
+#endif
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_FORMAT, src_format);
@@ -709,4 +714,9 @@ done:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	return ret;
+}
+
+int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe)
+{
+	return (pipe == pipe->mixer->stage_pipe[pipe->mixer_stage]);
 }

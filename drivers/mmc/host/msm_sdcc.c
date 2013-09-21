@@ -197,6 +197,16 @@ static void msmsdcc_pm_qos_update_latency(struct msmsdcc_host *host, int vote)
 	else
 		pm_qos_update_request(&host->pm_qos_req_dma,
 					PM_QOS_DEFAULT_VALUE);
+	/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-06-12, dma qos control */
+	#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
+	{
+		extern void bcm_wifi_req_dma_qos(int vote);
+		if (host->mmc && host->mmc->card && mmc_card_sdio(host->mmc->card)) {
+			bcm_wifi_req_dma_qos(vote);
+		}
+	}
+	#endif
+	/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-06-12, dma qos control */
 }
 
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
@@ -1691,6 +1701,18 @@ msmsdcc_pio_irq(int irq, void *dev_id)
 		if (!msmsdcc_sg_next(host, &buffer, &remain))
 			break;
 
+#ifdef CONFIG_MACH_LGE
+		/*LGE_CHANGE
+		* Exception handling : Kernel Panic issue by Null Pointer
+		* for some reasons, host->pio.sg_miter gets wrong data when it gets into the msmsdcc_pio_irq func()
+		* and it gets kernel crash when wifi is on.
+		* to prevent this, we inserted LG W/A code.
+		* 2013-04-22, G2-FS@lge.com
+		*/
+		if(!host->curr.data)
+			break;
+#endif
+
 		len = 0;
 		if (status & MCI_RXACTIVE)
 			len = msmsdcc_pio_read(host, buffer, remain);
@@ -2281,7 +2303,14 @@ msmsdcc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if ((mmc->card) && (mmc->card->quirks & MMC_QUIRK_INAND_DATA_TIMEOUT))
 		host->curr.req_tout_ms = 20000;
 	else
+		#ifdef CONFIG_MACH_LGE
+		/* LGE_CHANGE, 2013-04-29, G2-FS@lge.com
+		* Increase Request-Timeout from 10sec to 15sec (because of 'CMD25: Request timeout')
+		*/
+		host->curr.req_tout_ms = 15000;
+		#else
 		host->curr.req_tout_ms = MSM_MMC_REQ_TIMEOUT;
+		#endif
 	/*
 	 * Kick the software request timeout timer here with the timeout
 	 * value identified above
@@ -3373,7 +3402,20 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			writel_relaxed(clk, host->base + MMCICLOCK);
 			msmsdcc_sync_reg_wr(host);
 
-			clock = msmsdcc_get_sup_clk_rate(host, ios->clock * 2);
+			/*
+			 * Make sure that we don't double the clock if
+			 * doubled clock rate is already set
+			 */
+			if (!host->ddr_doubled_clk_rate ||
+				(host->ddr_doubled_clk_rate &&
+				(host->ddr_doubled_clk_rate != ios->clock))) {
+				host->ddr_doubled_clk_rate =
+					msmsdcc_get_sup_clk_rate(
+						host, (ios->clock * 2));
+				clock = host->ddr_doubled_clk_rate;
+			}
+		} else {
+			host->ddr_doubled_clk_rate = 0;
 		}
 
 		if (clock != host->clk_rate) {
@@ -3746,6 +3788,13 @@ static int msmsdcc_switch_io_voltage(struct mmc_host *mmc,
 		goto out;
 	default:
 		/* invalid selection. don't do anything */
+		#ifdef CONFIG_MACH_LGE
+		/* LGE_CHANGE, 2013-04-19, G2-FS@lge.com
+		* Adding Print, Requested by QMC-CASE-01158823
+		*/
+		pr_err("%s: %s: ios->signal_voltage = 0x%x\n", mmc_hostname(mmc), __func__, ios->signal_voltage);
+		#endif
+
 		rc = -EINVAL;
 		goto out;
 	}
@@ -4265,6 +4314,27 @@ retry:
 			mmc_hostname(mmc), __func__);
 		msmsdcc_dump_sdcc_state(host);
 		rc = -EAGAIN;
+
+		/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-03-12, testcode for sd error debugging */
+		#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
+		{
+			extern int lge_get_board_revno(void);
+			int bcmdhd_id = 2; // sdcc 2
+			#if defined(CONFIG_MACH_MSM8974_G2_KR) 
+			if (3 /*HW_REV_B*/ < lge_get_board_revno()) {
+			bcmdhd_id = 3; //sdcc 3
+			}
+			#elif defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI)
+			bcmdhd_id = 3; //sdcc 3
+			#endif						
+			if( host->pdev->id == bcmdhd_id )
+			{
+			    rc = 0;
+			    //panic("Failed to tune.\n"); // please contact hayun.kim@lge.com
+			}
+		}
+		#endif
+		/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-03-12, testcode for sd error debugging */
 	}
 
 kfree:
@@ -4280,6 +4350,7 @@ exit:
 	return rc;
 }
 
+#ifndef CONFIG_MACH_MSM8974_EMMC_HW_RESET
 /*
  * Work around of the unavailability of a power_reset functionality in SD cards
  * by turning the OFF & back ON the regulators supplying the SD card.
@@ -4329,6 +4400,7 @@ void msmsdcc_hw_reset(struct mmc_host *mmc)
 		usleep_range(10000, 12000);
 	}
 }
+#endif
 
 /**
  *	msmsdcc_stop_request - stops ongoing request
@@ -4437,7 +4509,9 @@ static const struct mmc_host_ops msmsdcc_ops = {
 	.enable_sdio_irq = msmsdcc_enable_sdio_irq,
 	.start_signal_voltage_switch = msmsdcc_switch_io_voltage,
 	.execute_tuning = msmsdcc_execute_tuning,
+#ifndef CONFIG_MACH_MSM8974_EMMC_HW_RESET
 	.hw_reset = msmsdcc_hw_reset,
+#endif
 	.stop_request = msmsdcc_stop_request,
 	.get_xfer_remain = msmsdcc_get_xfer_remain,
 	.notify_load = msmsdcc_notify_load,
@@ -4487,6 +4561,14 @@ msmsdcc_check_status(unsigned long data)
 		else
 			status = msmsdcc_slot_status(host);
 
+#ifdef CONFIG_MACH_LGE
+		/* LGE_CHANGE
+		* Adding Print
+		* 2013-03-09, G2-FS@lge.com
+		*/
+		printk(KERN_INFO "[LGE][MMC][%-18s( )]  NOW==>(%d), OLD==>(host->oldstat:%d, host->eject:%d)\n", __func__, status, host->oldstat, host->eject);
+#endif
+
 		host->eject = !status;
 
 		if (status ^ host->oldstat) {
@@ -4519,6 +4601,13 @@ static irqreturn_t
 msmsdcc_platform_status_irq(int irq, void *dev_id)
 {
 	struct msmsdcc_host *host = dev_id;
+#ifdef CONFIG_MACH_LGE
+	/* LGE_CHANGE
+	* Adding Print
+	* 2013-03-09, G2-FS@lge.com
+	*/
+	printk(KERN_INFO "[LGE][MMC][%-18s( )] irq:%d\n", __func__, irq);
+#endif
 
 	pr_debug("%s: %d\n", __func__, irq);
 	msmsdcc_check_status((unsigned long) host);
@@ -5862,6 +5951,12 @@ err:
 	return NULL;
 }
 
+/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE) //joon For device tree.
+extern int sdc2_status_register(void (*cb)(int card_present, void *dev), void *dev);
+extern unsigned int sdc2_status(struct device* );
+#endif
+/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 static int
 msmsdcc_probe(struct platform_device *pdev)
 {
@@ -6118,7 +6213,9 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->caps |= plat->mmc_bus_width;
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED;
 	mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE;
+#ifndef CONFIG_MACH_MSM8974_EMMC_HW_RESET
 	mmc->caps |= MMC_CAP_HW_RESET;
+#endif
 	/*
 	 * If we send the CMD23 before multi block write/read command
 	 * then we need not to send CMD12 at the end of the transfer.
@@ -6148,6 +6245,13 @@ msmsdcc_probe(struct platform_device *pdev)
 	mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
 	mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
 	mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
+	/*
+	2013-05-22, g2-fs@lge.com
+	enable BKOPS feature since it has been disabled by default
+	*/
+	#ifdef CONFIG_MACH_LGE
+	mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
+	#endif
 
 	if (plat->nonremovable)
 		mmc->caps |= MMC_CAP_NONREMOVABLE;
@@ -6229,6 +6333,29 @@ msmsdcc_probe(struct platform_device *pdev)
 	/*
 	 * Setup card detect change
 	 */
+
+/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
+#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE) //joon For device tree.
+{
+	extern int lge_get_board_revno(void);
+	int bcmdhd_id = 2; // sdcc 2
+	#if defined(CONFIG_MACH_MSM8974_G2_KR) 
+	if (3 /*HW_REV_B*/ < lge_get_board_revno()) {
+		bcmdhd_id = 3; //sdcc 3
+	}
+	#elif defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI)
+		bcmdhd_id = 3; //sdcc 3
+	#endif	
+	printk("J:%s-%d> plat->nonremovable = %d\n", __FUNCTION__, host->pdev->id, plat->nonremovable );
+
+	if( host->pdev->id == bcmdhd_id )
+	{
+		plat->register_status_notify = sdc2_status_register;
+		plat->status = sdc2_status;
+	}
+}
+#endif
+/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-01-22, Wifi Bring Up */
 
 	if (!plat->status_gpio)
 		plat->status_gpio = -ENOENT;
@@ -7081,6 +7208,194 @@ DEFINE_SIMPLE_ATTRIBUTE(msmsdcc_dbg_pm_stats_ops,
 			msmsdcc_dbg_pm_stats_set,
 			"%llu\n");
 
+#ifdef CONFIG_MMC_MSM_DEBUGFS
+static int msmsdcc_dbg_strength_open(struct inode *inode, struct file *filp)
+{
+    filp->private_data = inode->i_private;
+
+    return 0;
+}
+
+static int gpio_to_value(int cfg) {
+    switch (cfg) {
+        case GPIO_CFG_2MA:
+            return 2;
+            break;
+        case GPIO_CFG_4MA:
+            return 4;
+            break;
+        case GPIO_CFG_6MA:
+            return 6;
+            break;
+        case GPIO_CFG_8MA:
+            return 8;
+            break;
+        case GPIO_CFG_10MA:
+            return 10;
+            break;
+        case GPIO_CFG_12MA:
+            return 12;
+            break;
+        case GPIO_CFG_14MA:
+            return 14;
+            break;
+        case GPIO_CFG_16MA:
+            return 16;
+            break;
+    }
+    return -1;
+}
+
+static int value_to_gpio(int value) {
+    switch (value) {
+        case 2:
+            return GPIO_CFG_2MA;
+            break;
+        case 4:
+            return GPIO_CFG_4MA;
+            break;
+        case 6:
+            return GPIO_CFG_6MA;
+            break;
+        case 8:
+            return GPIO_CFG_8MA;
+            break;
+        case 10:
+            return GPIO_CFG_10MA;
+            break;
+        case 12:
+            return GPIO_CFG_12MA;
+            break;
+        case 14:
+            return GPIO_CFG_14MA;
+            break;
+        case 16:
+            return GPIO_CFG_16MA;
+            break;
+    }
+    return -1;
+}
+
+static int msmsdcc_dbg_strength_read(struct file *filp, char __user *ubuf,
+        size_t cnt, loff_t *ppos)
+{
+    char buf[512] = {0, };
+	int i;
+    struct msmsdcc_host *host = filp->private_data;
+	struct msm_mmc_pad_data *curr;
+    struct msm_mmc_gpio_data *gpio_curr;
+    int clk = -1, cmd = -1, data = -1;
+
+    if (!host || !host->plat || !host->plat->pin_data)
+        return 0;
+    if (host->plat->pin_data->is_gpio) {
+        gpio_curr = host->plat->pin_data->gpio_data;
+        sprintf(buf, "%s : gpio\n", mmc_hostname(host->mmc));
+        for (i = 0; i < gpio_curr->size; i++) {
+            if (gpio_is_valid(gpio_curr->gpio[i].no)) {
+                sprintf(buf, "%s%s: %d\n", buf,
+                        gpio_curr->gpio[i].name,
+                        gpio_curr->gpio[i].no);
+            }
+        }
+
+        return simple_read_from_buffer(ubuf, cnt, ppos, buf, 128);
+    }
+
+	curr = host->plat->pin_data->pad_data;
+	for (i = 0; i < curr->drv->size; i++) {
+        switch (curr->drv->on[i].no) {
+            case TLMM_HDRV_SDC1_CLK:
+            case TLMM_HDRV_SDC2_CLK:
+            case TLMM_HDRV_SDC3_CLK:
+            case TLMM_HDRV_SDC4_CLK:
+                clk = gpio_to_value(curr->drv->on[i].val);
+                break;
+            case TLMM_HDRV_SDC1_CMD:
+            case TLMM_HDRV_SDC2_CMD:
+            case TLMM_HDRV_SDC3_CMD:
+            case TLMM_HDRV_SDC4_CMD:
+                cmd = gpio_to_value(curr->drv->on[i].val);
+                break;
+            case TLMM_HDRV_SDC1_DATA:
+            case TLMM_HDRV_SDC2_DATA:
+            case TLMM_HDRV_SDC3_DATA:
+            case TLMM_HDRV_SDC4_DATA:
+                data = gpio_to_value(curr->drv->on[i].val);
+                break;
+            default:
+                continue;
+        }
+    }
+    sprintf(buf, "%d %d %d\n", clk, cmd, data);
+
+    return simple_read_from_buffer(ubuf, cnt, ppos, buf, 128);
+}
+
+static int msmsdcc_dbg_strength_write(struct file *filp,
+        const char __user *ubuf, size_t cnt,
+        loff_t *ppos)
+{
+    struct msmsdcc_host *host = filp->private_data;
+	struct msm_mmc_pad_data *curr;
+	int i;
+    int clk, cmd, data, value;
+
+    if (!host || !host->plat || !host->plat->pin_data)
+        return 0;
+    if (host->plat->pin_data->is_gpio)
+        return 0;
+
+    if (sscanf(ubuf, "%d %d %d", &clk, &cmd, &data) != 3)
+        return 0;
+
+	curr = host->plat->pin_data->pad_data;
+	for (i = 0; i < curr->drv->size; i++) {
+        switch (curr->drv->on[i].no) {
+            case TLMM_HDRV_SDC1_CLK:
+            case TLMM_HDRV_SDC2_CLK:
+            case TLMM_HDRV_SDC3_CLK:
+            case TLMM_HDRV_SDC4_CLK:
+                value = value_to_gpio(clk);
+                if (value == -1)
+                    continue;
+                curr->drv->on[i].val = value;
+                break;
+            case TLMM_HDRV_SDC1_CMD:
+            case TLMM_HDRV_SDC2_CMD:
+            case TLMM_HDRV_SDC3_CMD:
+            case TLMM_HDRV_SDC4_CMD:
+                value = value_to_gpio(cmd);
+                if (value == -1)
+                    continue;
+                curr->drv->on[i].val = value;
+                break;
+            case TLMM_HDRV_SDC1_DATA:
+            case TLMM_HDRV_SDC2_DATA:
+            case TLMM_HDRV_SDC3_DATA:
+            case TLMM_HDRV_SDC4_DATA:
+                value = value_to_gpio(data);
+                if (value == -1)
+                    continue;
+                curr->drv->on[i].val = value;
+                break;
+            default:
+                continue;
+        }
+        msm_tlmm_set_hdrive(curr->drv->on[i].no,
+                curr->drv->on[i].val);
+	}
+
+    return cnt;
+}
+
+static const struct file_operations msmsdcc_dbg_strength_fops = {
+    .open       = msmsdcc_dbg_strength_open,
+    .read       = msmsdcc_dbg_strength_read,
+    .write      = msmsdcc_dbg_strength_write,
+};
+#endif /* CONFIG_MMC_MSM_DEBUGFS */
+
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *host)
 {
 	int err = 0;
@@ -7129,6 +7444,13 @@ static void msmsdcc_dbg_createhost(struct msmsdcc_host *host)
 		pr_err("%s: Failed to create pm_stats debugfs entry with err=%d\n",
 			mmc_hostname(host->mmc), err);
 	}
+
+#ifdef CONFIG_MMC_MSM_DEBUGFS
+    debugfs_create_file("strength",
+        S_IROTH | S_IWOTH | S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR,
+        host->debugfs_host_dir, host,
+        &msmsdcc_dbg_strength_fops);
+#endif /* CONFIG_MMC_MSM_DEBUGFS */
 }
 
 static int __init msmsdcc_dbg_init(void)

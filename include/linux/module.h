@@ -217,6 +217,22 @@ struct module_ref {
 	unsigned long decs;
 } __attribute((aligned(2 * sizeof(unsigned long))));
 
+/* Individual line entry data */
+struct module_cu_entry {
+	unsigned int off;	/* Offset address from kernel module base */
+	unsigned int line;	/* Source line number */
+	unsigned int file;	/* Source file lookup number */
+};
+
+/* Module compilation unit linked list for line addr2line data */
+struct module_cu {
+	unsigned char **filetab;
+	unsigned int maxfiletab;
+	struct module_cu_entry *ent;
+	unsigned int maxent;
+	struct module_cu *next;
+};
+
 struct module
 {
 	enum module_state state;
@@ -298,6 +314,8 @@ struct module
 	struct list_head bug_list;
 	struct bug_entry *bug_table;
 #endif
+
+	struct module_cu *dlinedb;
 
 #ifdef CONFIG_KALLSYMS
 	/*
@@ -490,6 +508,11 @@ const char *module_address_lookup(unsigned long addr,
 			    unsigned long *offset,
 			    char **modname,
 			    char *namebuf);
+const char *module_address_line_lookup(unsigned long addr,
+			    unsigned long *symbolsize,
+			    unsigned long *offset,
+			    char **modname,
+			    char *namebuf);
 int lookup_module_symbol_name(unsigned long addr, char *symname);
 int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size, unsigned long *offset, char *modname, char *name);
 
@@ -557,6 +580,15 @@ static inline void module_put(struct module *module)
 
 /* For kallsyms to ask for address resolution.  NULL means not found. */
 static inline const char *module_address_lookup(unsigned long addr,
+					  unsigned long *symbolsize,
+					  unsigned long *offset,
+					  char **modname,
+					  char *namebuf)
+{
+	return NULL;
+}
+
+static inline const char *module_address_line_lookup(unsigned long addr,
 					  unsigned long *symbolsize,
 					  unsigned long *offset,
 					  char **modname,

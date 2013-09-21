@@ -1648,6 +1648,7 @@ static int __cpuinit init_timers_cpu(int cpu)
 	int j;
 	struct tvec_base *base;
 	static char __cpuinitdata tvec_base_done[NR_CPUS];
+	unsigned long flags;
 
 	if (!tvec_base_done[cpu]) {
 		static char boot_done;
@@ -1686,6 +1687,7 @@ static int __cpuinit init_timers_cpu(int cpu)
 	}
 
 
+	spin_lock_irqsave(&base->lock, flags);
 	for (j = 0; j < TVN_SIZE; j++) {
 		INIT_LIST_HEAD(base->tv5.vec + j);
 		INIT_LIST_HEAD(base->tv4.vec + j);
@@ -1697,6 +1699,7 @@ static int __cpuinit init_timers_cpu(int cpu)
 
 	base->timer_jiffies = jiffies;
 	base->next_timer = base->timer_jiffies;
+	spin_unlock_irqrestore(&base->lock, flags);
 	return 0;
 }
 

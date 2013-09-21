@@ -1159,8 +1159,18 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 	elem = msm_rpm_get_entry_from_msg_id(msg_id);
 	if (!elem)
 		return rc;
-
+#if 0 /* LGE Workaround */
 	wait_for_completion(&elem->ack);
+#else
+	while(!wait_for_completion_timeout(&elem->ack, HZ/20)) {
+		/* variable for debugging */
+		static int rpm_noack_timeout_count ;
+		rpm_noack_timeout_count++ ;
+
+		if (smd_is_pkt_avail(msm_rpm_data.ch_info))
+			complete(&data_ready);
+	}
+#endif
 	trace_rpm_ack_recd(0, msg_id);
 
 	rc = elem->errno;

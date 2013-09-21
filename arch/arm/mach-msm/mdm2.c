@@ -41,7 +41,10 @@
 #include "devices.h"
 #include "clock.h"
 #include "mdm_private.h"
-#define MDM_PBLRDY_CNT		20
+#if defined(CONFIG_LGE_NFC_SONY_CXD2235AGG) || defined(CONFIG_LGE_NFC_SONY_KDDI)
+extern int snfc_poweroff_flag;
+#endif
+#define MDM_PBLRDY_CNT          20
 
 static int mdm_debug_mask;
 
@@ -76,27 +79,27 @@ out:
 /* This function can be called from atomic context. */
 static void mdm_toggle_soft_reset(struct mdm_modem_drv *mdm_drv)
 {
-	int soft_reset_direction_assert = 0,
-	    soft_reset_direction_de_assert = 1;
+        int soft_reset_direction_assert = 0,
+            soft_reset_direction_de_assert = 1;
 
-	if (mdm_drv->pdata->soft_reset_inverted) {
-		soft_reset_direction_assert = 1;
-		soft_reset_direction_de_assert = 0;
-	}
-	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
-			soft_reset_direction_assert);
-	/* Use mdelay because this function can be called from atomic
-	 * context.
-	 */
-	mdelay(10);
-	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
-			soft_reset_direction_de_assert);
+        if (mdm_drv->pdata->soft_reset_inverted) {
+                soft_reset_direction_assert = 1;
+                soft_reset_direction_de_assert = 0;
+        }
+        gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+                        soft_reset_direction_assert);
+        /* Use mdelay because this function can be called from atomic
+         * context.
+         */
+        mdelay(10);
+        gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
+                        soft_reset_direction_de_assert);
 }
 
 /* This function can be called from atomic context. */
 static void mdm_atomic_soft_reset(struct mdm_modem_drv *mdm_drv)
 {
-	mdm_toggle_soft_reset(mdm_drv);
+        mdm_toggle_soft_reset(mdm_drv);
 }
 
 static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
@@ -117,6 +120,10 @@ static void mdm_power_down_common(struct mdm_modem_drv *mdm_drv)
 		}
 		msleep(100);
 	}
+
+#if defined(CONFIG_LGE_NFC_SONY_CXD2235AGG) || defined(CONFIG_LGE_NFC_SONY_KDDI)
+        snfc_poweroff_flag = 1;
+#endif
 
 	/* Assert the soft reset line whether mdm2ap_status went low or not */
 	gpio_direction_output(mdm_drv->ap2mdm_soft_reset_gpio,
@@ -184,36 +191,29 @@ static void mdm_do_first_power_on(struct mdm_modem_drv *mdm_drv)
 			 mdm_drv->device_id, i);
 
 start_mdm_peripheral:
-	mdm_peripheral_connect(mdm_drv);
-	msleep(200);
+        mdm_peripheral_connect(mdm_drv);
+        msleep(200);
 }
 
 static void mdm_do_soft_power_on(struct mdm_modem_drv *mdm_drv)
 {
-	int i;
-	int pblrdy;
+        int i;
+        int pblrdy;
 
 	pr_debug("%s: id %d:  soft resetting mdm modem\n",
 		   __func__, mdm_drv->device_id);
 	mdm_peripheral_disconnect(mdm_drv);
 	mdm_toggle_soft_reset(mdm_drv);
 
-	if (!GPIO_IS_VALID(mdm_drv->mdm2ap_pblrdy))
-		goto start_mdm_peripheral;
-
-	for (i = 0; i  < MDM_PBLRDY_CNT; i++) {
-		pblrdy = gpio_get_value(mdm_drv->mdm2ap_pblrdy);
-		if (pblrdy)
-			break;
-		usleep_range(5000, 5000);
-	}
+        if (!GPIO_IS_VALID(mdm_drv->mdm2ap_pblrdy))
+                goto start_mdm_peripheral;
 
 	pr_debug("%s: id %d: pblrdy i:%d\n", __func__,
 			 mdm_drv->device_id, i);
 
 start_mdm_peripheral:
-	mdm_peripheral_connect(mdm_drv);
-	msleep(200);
+        mdm_peripheral_connect(mdm_drv);
+        msleep(200);
 }
 
 static void mdm_power_on_common(struct mdm_modem_drv *mdm_drv)
@@ -244,7 +244,7 @@ static void mdm_power_on_common(struct mdm_modem_drv *mdm_drv)
 
 static void debug_state_changed(int value)
 {
-	mdm_debug_mask = value;
+        mdm_debug_mask = value;
 }
 
 static void mdm_status_changed(struct mdm_modem_drv *mdm_drv, int value)
@@ -294,13 +294,13 @@ static void mdm_image_upgrade(struct mdm_modem_drv *mdm_drv, int type)
 }
 
 static struct mdm_ops mdm_cb = {
-	.power_on_mdm_cb = mdm_power_on_common,
-	.reset_mdm_cb = mdm_power_on_common,
-	.atomic_reset_mdm_cb = mdm_atomic_soft_reset,
-	.power_down_mdm_cb = mdm_power_down_common,
-	.debug_state_changed_cb = debug_state_changed,
-	.status_cb = mdm_status_changed,
-	.image_upgrade_cb = mdm_image_upgrade,
+        .power_on_mdm_cb = mdm_power_on_common,
+        .reset_mdm_cb = mdm_power_on_common,
+        .atomic_reset_mdm_cb = mdm_atomic_soft_reset,
+        .power_down_mdm_cb = mdm_power_down_common,
+        .debug_state_changed_cb = debug_state_changed,
+        .status_cb = mdm_status_changed,
+        .image_upgrade_cb = mdm_image_upgrade,
 };
 
 int mdm_get_ops(struct mdm_ops **mdm_ops)

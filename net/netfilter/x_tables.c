@@ -831,7 +831,7 @@ xt_replace_table(struct xt_table *table,
 		*error = -EAGAIN;
 		return NULL;
 	}
-
+       mb();
 	table->private = newinfo;
 	newinfo->initial_entries = private->initial_entries;
 

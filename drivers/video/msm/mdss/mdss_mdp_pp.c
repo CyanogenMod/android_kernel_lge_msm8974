@@ -19,6 +19,17 @@
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
+#if defined(CONFIG_LCD_KCAL)
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
+*/
+#include <mach/board_lge.h>
+extern int g_kcal_r;
+extern int g_kcal_g;
+extern int g_kcal_b;
+extern struct kcal_data kcal_value;
+#endif // CONFIG_LCD_KCAL
 
 struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_RGB2RGB] = {
@@ -71,6 +82,95 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	},
 };
 
+#if defined(CONFIG_LGE_BROADCAST_TDMB)
+struct mdp_csc_cfg dmb_csc_convert = {
+#if defined(CONFIG_MACH_MSM8974_G2_KR)
+	0,
+	{
+		0x023a, 0x0000, 0x0331, // 285
+		0x025a, 0xff37, 0xfe60, // 301
+		0x0280, 0x0409, 0x0000, // 320
+	},
+		{ 0xfff0, 0xff80, 0xff80,},
+	{ 0x0, 0x0, 0x0,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+#elif defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
+	0,
+	{
+		0x0254, 0x0000, 0x0331,
+		0x0254, 0xff37, 0xfe60,
+		0x0254, 0x0409, 0x0000,
+	},
+	{ 0xfff0, 0xff80, 0xff80,},
+	{ 0x0, 0x0, 0x0,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+#elif defined(CONFIG_MACH_MSM8974_VU3_KR)
+	0,
+	{
+		0x0244, 0x0000, 0x0331,
+		0x024c, 0xff37, 0xfe60,
+		0x0280, 0x0409, 0x0000,
+	},
+	{ 0xfff0, 0xff80, 0xff80,},
+	{ 0x0, 0x0, 0x0,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+#else
+	0,
+	{
+		0x0254, 0x0000, 0x0331,
+		0x0254, 0xff37, 0xfe60,
+		0x0254, 0x0409, 0x0000,
+	},
+	{ 0xfff0, 0xff80, 0xff80,},
+	{ 0x0, 0x0, 0x0,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+#endif
+};
+#endif /* LGE_BROADCAST */
+
+#if defined(CONFIG_LGE_BROADCAST_ONESEG)
+struct mdp_csc_cfg dmb_csc_convert = {
+#if defined(CONFIG_MACH_MSM8974_G2_DCM)
+	/* A1-DCM 1Seg Display tunning set  R: 290, G: 290, B: 305, 1seg tuning value */
+	0,
+	{
+		0x0244, 0x0000, 0x0331,
+		0x0244, 0xff37, 0xfe60,
+		0x0262, 0x0409, 0x0000,
+	},
+	{ 0xfff0, 0xff80, 0xff80,},
+	{ 0x0, 0x0, 0x0,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+#elif defined(CONFIG_MACH_MSM8974_G2_KDDI)
+	0,
+	{
+		0x0254, 0x0000, 0x0331,
+		0x0254, 0xff37, 0xfe60,
+		0x0254, 0x0409, 0x0000,
+	},
+	{ 0xfff0, 0xff80, 0xff80,},
+	{ 0x0, 0x0, 0x0,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+#else
+	0,
+	{
+		0x0254, 0x0000, 0x0331,
+		0x0254, 0xff37, 0xfe60,
+		0x0254, 0x0409, 0x0000,
+	},
+	{ 0xfff0, 0xff80, 0xff80,},
+	{ 0x0, 0x0, 0x0,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
+#endif
+};
+#endif /* LGE_BROADCAST ONESEG */
 #define CSC_MV_OFF	0x0
 #define CSC_BV_OFF	0x2C
 #define CSC_LV_OFF	0x14
@@ -253,8 +353,46 @@ struct mdss_pp_res_type {
 	struct pp_hist_col_info dspp_hist[MDSS_MDP_MAX_DSPP];
 };
 
+#ifdef CONFIG_MACH_LGE
+uint32_t igc_Table_RGB[256]={
+		4080	,		4064	,		4048	,		4032	,		4016	,		4000	,		3984	,		3968	,		3952	,		3936	,		3920	,		3904	,
+		3888	,		3872	,		3856	,		3840	,		3824	,		3808	,		3792	,		3776	,		3760	,		3744	,		3728	,		3712	,
+		3696	,		3680	,		3664	,		3648	,		3632	,		3616	,		3600	,		3584	,		3568	,		3552	,		3536	,		3520	,
+		3504	,		3488	,		3472	,		3456	,		3440	,		3424	,		3408	,		3392	,		3376	,		3360	,		3344	,		3328	,
+		3312	,		3296	,		3280	,		3264	,		3248	,		3232	,		3216	,		3200	,		3184	,		3168	,		3152	,		3136	,
+		3120	,		3104	,		3088	,		3072	,		3056	,		3040	,		3024	,		3008	,		2992	,		2976	,		2960	,		2944	,
+		2928	,		2912	,		2896	,		2880	,		2864	,		2848	,		2832	,		2816	,		2800	,		2784	,		2768	,		2752	,
+		2736	,		2720	,		2704	,		2688	,		2672	,		2656	,		2640	,		2624	,		2608	,		2592	,		2576	,		2560	,
+		2544	,		2528	,		2512	,		2496	,		2480	,		2464	,		2448	,		2432	,		2416	,		2400	,		2384	,		2368	,
+		2352	,		2336	,		2320	,		2304	,		2288	,		2272	,		2256	,		2240	,		2224	,		2208	,		2192	,		2176	,
+		2160	,		2144	,		2128	,		2112	,		2096	,		2080	,		2064	,		2048	,		2032	,		2016	,		2000	,		1984	,
+		1968	,		1952	,		1936	,		1920	,		1904	,		1888	,		1872	,		1856	,		1840	,		1824	,		1808	,		1792	,
+		1776	,		1760	,		1744	,		1728	,		1712	,		1696	,		1680	,		1664	,		1648	,		1632	,		1616	,		1600	,
+		1584	,		1568	,		1552	,		1536	,		1520	,		1504	,		1488	,		1472	,		1456	,		1440	,		1424	,		1408	,
+		1392	,		1376	,		1360	,		1344	,		1328	,		1312	,		1296	,		1280	,		1264	,		1248	,		1232	,		1216	,
+		1200	,		1184	,		1168	,		1152	,		1136	,		1120	,		1104	,		1088	,		1072	,		1056	,		1040	,		1024	,
+		1008	,		992	,		976	,		960	,		944	,		928	,		912	,		896	,		880	,		864	,		848	,		832	,
+		816	,		800	,		784	,		768	,		752	,		736	,		720	,		704	,		688	,		672	,		656	,		640	,
+		624	,		608	,		592	,		576	,		560	,		544	,		528	,		512	,		496	,		480	,		464	,		448	,
+		432	,		416	,		400	,		384	,		368	,		352	,		336	,		320	,		304	,		288	,		272	,		256	,
+		240	,		224	,		208	,		192	,		176	,		160	,		144	,		128	,		112	,		96	,		80	,		64	,
+		48	,		32	,		16	,		0
+};
+int igc_c0_c1[256]={0,};
+int igc_c2[256]={0,};
+
+#endif
+
 static DEFINE_MUTEX(mdss_pp_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
+
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
+static int dmb_status = 0; // on - 1, off - 0
+int pp_set_dmb_status(int flag) {
+	dmb_status = flag;
+	return 0;
+}
+#endif /* LGE_BROADCAST */
 
 static void pp_hist_read(char __iomem *v_base,
 				struct pp_hist_col_info *hist_info);
@@ -561,8 +699,16 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		 * previously configured pipe need to re-configure CSC matrix
 		 */
 		if (pipe->play_cnt == 0) {
+#if !defined(CONFIG_LGE_BROADCAST_TDMB) && !defined(CONFIG_LGE_BROADCAST_ONESEG)
 			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1,
 					   MDSS_MDP_CSC_YUV2RGB);
+#else
+			if(dmb_status == 1) {
+				mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_SSPP, pipe->num, 1, &dmb_csc_convert);
+			} else {
+				mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1, MDSS_MDP_CSC_YUV2RGB);
+			}
+#endif /* LGE_BROADCAST */
 		}
 	}
 
@@ -604,39 +750,6 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	*op = opmode;
 
 	return 0;
-}
-
-static int mdss_mdp_leading_zero(u32 num)
-{
-	u32 bit = 0x80000000;
-	int i;
-
-	for (i = 0; i < 32; i++) {
-		if (bit & num)
-			return i;
-		bit >>= 1;
-	}
-
-	return i;
-}
-
-static u32 mdss_mdp_scale_phase_step(int f_num, u32 src, u32 dst)
-{
-	u32 val, s;
-	int n;
-
-	n = mdss_mdp_leading_zero(src);
-	if (n > f_num)
-		n = f_num;
-	s = src << n;	/* maximum to reduce lose of resolution */
-	val = s / dst;
-	if (n < f_num) {
-		n = f_num - n;
-		val <<= n;
-		val |= ((s % dst) << n) / dst;
-	}
-
-	return val;
 }
 
 static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
@@ -704,13 +817,14 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 
 		scale_config |= MDSS_MDP_SCALEY_EN;
+		phasey_step = pipe->phase_step_y;
 
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
-			u32 chr_dst_h = pipe->dst.h;
+			u32 chroma_shift = 0;
 			if (!pipe->vert_deci &&
 			    ((chroma_sample == MDSS_MDP_CHROMA_420) ||
 			    (chroma_sample == MDSS_MDP_CHROMA_H1V2)))
-				chr_dst_h *= 2;	/* 2x upsample chroma */
+				chroma_shift = 1; /* 2x upsample chroma */
 
 			if (src_h <= pipe->dst.h) {
 				scale_config |= /* G/Y, A */
@@ -721,17 +835,14 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
 
-			if (src_h <= chr_dst_h)
+			if ((src_h >> chroma_shift) <= pipe->dst.h)
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_BIL << 14);
 			else
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 14);
 
-			phasey_step = mdss_mdp_scale_phase_step(
-				PHASE_STEP_SHIFT, src_h, chr_dst_h);
-
-			writel_relaxed(phasey_step, pipe->base +
+			writel_relaxed(phasey_step >> chroma_shift, pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPY);
 		} else {
 			if (src_h <= pipe->dst.h)
@@ -743,9 +854,6 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
 		}
-
-		phasey_step = mdss_mdp_scale_phase_step(
-			PHASE_STEP_SHIFT, src_h, pipe->dst.h);
 	}
 
 	if ((src_w != pipe->dst.w) ||
@@ -761,14 +869,15 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 
 		scale_config |= MDSS_MDP_SCALEX_EN;
+		phasex_step = pipe->phase_step_x;
 
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
-			u32 chr_dst_w = pipe->dst.w;
+			u32 chroma_shift = 0;
 
 			if (!pipe->horz_deci &&
 			    ((chroma_sample == MDSS_MDP_CHROMA_420) ||
 			    (chroma_sample == MDSS_MDP_CHROMA_H2V1)))
-				chr_dst_w *= 2;	/* 2x upsample chroma */
+				chroma_shift = 1; /* 2x upsample chroma */
 
 			if (src_w <= pipe->dst.w) {
 				scale_config |= /* G/Y, A */
@@ -779,16 +888,14 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
 
-			if (src_w <= chr_dst_w)
+			if ((src_w >> chroma_shift) <= pipe->dst.w)
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_BIL << 12);
 			else
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 12);
 
-			phasex_step = mdss_mdp_scale_phase_step(
-				PHASE_STEP_SHIFT, src_w, chr_dst_w);
-			writel_relaxed(phasex_step, pipe->base +
+			writel_relaxed(phasex_step >> chroma_shift, pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPX);
 		} else {
 			if (src_w <= pipe->dst.w)
@@ -800,9 +907,6 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
 		}
-
-		phasex_step = mdss_mdp_scale_phase_step(
-			PHASE_STEP_SHIFT, src_w, pipe->dst.w);
 	}
 
 	writel_relaxed(scale_config, pipe->base +
@@ -1048,8 +1152,13 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 	if (dspp_num < mdata->nad_cfgs) {
 		ret = mdss_mdp_ad_setup(ctl->mfd);
+#ifdef CONFIG_MACH_LGE
+		if (ret < 0 && ret != -EINVAL)
+			pr_warn("ad_setup(dspp%d) returns %d", dspp_num, ret);
+#else
 		if (ret < 0)
 			pr_warn("ad_setup(dspp%d) returns %d", dspp_num, ret);
+#endif
 	}
 	/* nothing to update */
 	if ((!flags) && (!(opmode)) && (ret <= 0))
@@ -1283,6 +1392,11 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 			mdss_pp_res->gamut_disp_cfg[disp_num].flags |=
 				MDP_PP_OPS_WRITE;
 	}
+#if defined(CONFIG_LCD_KCAL)
+	if (disp_num == 0)
+		pp_sts.pgc_sts |= PP_STS_ENABLE;
+#endif
+
 	if (pp_sts.pgc_sts & PP_STS_ENABLE) {
 		flags |= PP_FLAGS_DIRTY_PGC;
 		if (!(mdss_pp_res->pgc_disp_cfg[disp_num].flags
@@ -1295,6 +1409,156 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	return 0;
 }
 
+#if defined(CONFIG_LCD_KCAL)
+static struct mdp_ar_gc_lut_data test_r[GC_LUT_SEGMENTS] =
+{
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000002, 0x000000FF, 0x00000010},
+        {0x00000FFF, 0x00000000, 0x00007F80},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000}
+};
+
+static struct mdp_ar_gc_lut_data test_g[GC_LUT_SEGMENTS] =
+{
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000002, 0x000000FF, 0x00000010},
+        {0x00000FFF, 0x00000000, 0x00007F80},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000}
+};
+
+static struct mdp_ar_gc_lut_data test_b[GC_LUT_SEGMENTS] =
+{
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000002, 0x000000FF, 0x00000010},
+        {0x00000FFF, 0x00000000, 0x00007F80},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000},
+        {0x00000000, 0x00000000, 0x00000000}
+};
+
+void mdss_mdp_pp_argc(void)
+{
+	int disp_num = 0;
+	u32 tbl_size;
+
+	struct mdp_ar_gc_lut_data *r_data;
+	struct mdp_ar_gc_lut_data *g_data;
+	struct mdp_ar_gc_lut_data *b_data;
+	struct mdp_pgc_lut_data *pgc_config;
+
+
+	r_data = &mdss_pp_res->gc_lut_r[disp_num][0];
+	g_data = &mdss_pp_res->gc_lut_g[disp_num][0];
+	b_data = &mdss_pp_res->gc_lut_b[disp_num][0];
+
+	tbl_size = GC_LUT_SEGMENTS * sizeof(struct mdp_ar_gc_lut_data);
+	memcpy(r_data, test_r, tbl_size);
+	memcpy(g_data, test_g, tbl_size);
+	memcpy(b_data, test_b, tbl_size);
+
+
+	pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
+
+	pgc_config->r_data =
+		&mdss_pp_res->gc_lut_r[disp_num][0];
+	pgc_config->g_data =
+		&mdss_pp_res->gc_lut_g[disp_num][0];
+	pgc_config->b_data =
+		&mdss_pp_res->gc_lut_b[disp_num][0];
+
+	pgc_config->flags |= MDP_PP_OPS_WRITE;
+	pgc_config->flags |= MDP_PP_OPS_ENABLE;
+
+	pr_info(">>>>> %s \n", __func__);
+}
+
+
+#define NUM_QLUT 256
+#define MAX_KCAL_V (NUM_QLUT-1)
+
+#define SCALED_BY_KCAL(rgb, kcal) \
+	(((((unsigned int)(rgb) * (unsigned int)(kcal)) << 10) / \
+						(unsigned int)MAX_KCAL_V) >> 10)
+
+void mdss_mdp_pp_argc_kcal(int kr, int kg, int kb)//struct mdss_mdp_ctl *ctl,
+{
+	int i;
+	int disp_num = 0;
+	struct mdp_pgc_lut_data *pgc_config;
+
+	for (i = 0; i < GC_LUT_SEGMENTS; i++) {
+		mdss_pp_res->gc_lut_r[disp_num][i].slope =
+		SCALED_BY_KCAL(test_r[i].slope, kr);
+		mdss_pp_res->gc_lut_r[disp_num][i].offset =
+		SCALED_BY_KCAL(test_r[i].offset, kr);
+
+		mdss_pp_res->gc_lut_g[disp_num][i].slope =
+		SCALED_BY_KCAL(test_g[i].slope, kg);
+		mdss_pp_res->gc_lut_g[disp_num][i].offset =
+		SCALED_BY_KCAL(test_g[i].offset, kg);
+
+		mdss_pp_res->gc_lut_b[disp_num][i].slope =
+		SCALED_BY_KCAL(test_b[i].slope, kb);
+		mdss_pp_res->gc_lut_b[disp_num][i].offset =
+		SCALED_BY_KCAL(test_b[i].offset, kb);
+	}
+	pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
+	pgc_config->flags |= MDP_PP_OPS_WRITE;
+	pgc_config->flags |= MDP_PP_OPS_ENABLE;
+	//mdss_mdp_pp_setup(ctl);
+	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PGC;
+
+	pr_info(">>>>> %s \n", __func__);
+}
+
+int update_preset_lcdc_lut(void)
+{
+	int ret = 0;
+
+	pr_info("update_preset_lcdc_lut red=[%d], green=[%d], blue=[%d]\n", g_kcal_r, g_kcal_g, g_kcal_b);
+
+	mdss_mdp_pp_argc_kcal(g_kcal_r,g_kcal_g,g_kcal_b);
+
+	if (ret)
+		pr_err("%s: failed to set lut! %d\n", __func__, ret);
+
+	return ret;
+}
+#endif
 int mdss_mdp_pp_init(struct device *dev)
 {
 	int i, ret = 0;
@@ -1322,6 +1586,16 @@ int mdss_mdp_pp_init(struct device *dev)
 			spin_lock_init(&vig[i].pp_res.hist.hist_lock);
 		}
 	}
+#if defined(CONFIG_LCD_KCAL)
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
+*/
+	if (!ret) {
+		mdss_mdp_pp_argc();
+		update_preset_lcdc_lut();
+	}
+#endif
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
 }
@@ -1571,6 +1845,55 @@ pcc_config_exit:
 		mdss_mdp_pp_setup(ctl);
 	return ret;
 }
+#ifdef CONFIG_MACH_LGE
+int mdss_dsi_panel_invert(u32 enable)
+{
+	int i;
+	int disp_num = 0;
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_mdp_ctl *ctl_d = NULL;
+	struct mdss_data_type *mdata;
+	struct mdp_igc_lut_data *igc_data;
+
+	mdata = mdss_mdp_get_mdata();
+	for (i = 0; i < mdata->nctl; i++) {
+		ctl = mdata->ctl_off + i;
+		if ((ctl->power_on) && (ctl->mfd) &&
+			(ctl->mfd->index == 0)) {
+			ctl_d = ctl;
+			break;
+		}
+	}
+
+	igc_data = &mdss_pp_res->igc_disp_cfg[disp_num];
+	igc_data->c0_c1_data = &mdss_pp_res->igc_lut_c0c1[disp_num][0];
+	igc_data->c2_data = &mdss_pp_res->igc_lut_c2[disp_num][0];
+	igc_data->block = MDP_LOGICAL_BLOCK_DISP_0;
+	igc_data->len = 256;
+
+	if(ctl_d && enable)
+	{
+		igc_data->ops = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
+		for(i=0; i<256 ; i++){
+			igc_c0_c1[i]=(igc_Table_RGB[i]&0xFFF)|((igc_Table_RGB[i]&0xFFF))<<16;
+			igc_c2[i]=igc_Table_RGB[i];
+		}
+		igc_data->c0_c1_data=&igc_c0_c1[0];
+		igc_data->c2_data=&igc_c2[0];
+	}
+	else if(ctl_d && !enable)
+	{
+		igc_data->ops = MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
+	}
+	else
+	{
+		pr_info("!!!!!!!!!!!!!!!!! null !!!!!!!!!!!!\n");
+	}
+	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_IGC;
+
+	return 0;
+}
+#endif
 
 static void pp_read_igc_lut(struct mdp_igc_lut_data *cfg,
 				u32 offset, u32 blk_idx)

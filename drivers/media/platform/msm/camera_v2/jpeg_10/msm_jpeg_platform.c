@@ -256,6 +256,11 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 #endif
 	set_vbif_params(pgmn_dev, pgmn_dev->jpeg_vbif);
 
+#ifdef CONFIG_MACH_LGE
+	*mem  = jpeg_mem;
+	*base = jpeg_base;
+#endif
+
 	rc = request_irq(jpeg_irq, handler, IRQF_TRIGGER_RISING, "jpeg",
 		context);
 	if (rc) {
@@ -264,8 +269,10 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 		goto fail_request_irq;
 	}
 
+#ifndef CONFIG_MACH_LGE /* QCT origin */
 	*mem  = jpeg_mem;
 	*base = jpeg_base;
+#endif
 	*irq  = jpeg_irq;
 
 	pgmn_dev->jpeg_client = msm_ion_client_create(-1, "camera/jpeg");
@@ -274,6 +281,11 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	return rc;
 
 fail_request_irq:
+#ifdef CONFIG_MACH_LGE
+	*mem  = NULL;
+	*base = NULL;
+#endif
+
 #ifdef CONFIG_MSM_IOMMU
 	for (i = 0; i < pgmn_dev->iommu_cnt; i++) {
 		JPEG_PR_ERR("%s:%d] dom 0x%x ctx 0x%x", __func__, __LINE__,

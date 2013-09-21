@@ -17,12 +17,32 @@
 #include <linux/usb/hcd.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/usb/msm_hsusb.h>
 
 #include "core.h"
 #include "dwc3_otg.h"
 #include "io.h"
 #include "xhci.h"
 
+#ifdef CONFIG_LGE_PM
+#include <mach/board_lge.h>
+#include <linux/power_supply.h>
+#include <linux/slimport.h>
+#endif
+
+#ifdef CONFIG_BU52031NVX_CARKIT
+#include <linux/mfd/pm8xxx/cradle.h>
+#endif
+
+#ifdef CONFIG_MACH_LGE
+#define PARAMETER_OVERRIDE_X_REG (0xF8814)
+#define DEFAULT_HSPHY_INIT (0x00D195A4) /* qcom,dwc-hsphy-init */
+#endif
+
+#if defined(CONFIG_USB_DWC3_MSM_VZW_SUPPORT)
+extern int lge_usb_config_finish;  
+#endif  
+struct workqueue_struct* touch_otg_wq;
 static void dwc3_otg_reset(struct dwc3_otg *dotg);
 
 static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode);
@@ -41,6 +61,14 @@ static void dwc3_otg_set_host_regs(struct dwc3_otg *dotg)
 	u32 reg;
 	struct dwc3 *dwc = dotg->dwc;
 	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
+
+#ifdef CONFIG_MACH_LGE
+	/* use default qcom,dwc-hsphy-init value for Host Mode */
+	reg = dwc3_readl(dwc->regs, PARAMETER_OVERRIDE_X_REG);
+	reg &= ~(0x03FFFFFF);
+	reg |= (DEFAULT_HSPHY_INIT & 0x03FFFFFF);
+	dwc3_writel(dwc->regs, PARAMETER_OVERRIDE_X_REG, reg);
+#endif
 
 	if (ext_xceiv && !ext_xceiv->otg_capability) {
 		/* Set OCTL[6](PeriMode) to 0 (host) */
@@ -472,6 +500,10 @@ static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode)
 		power_supply_set_scope(dotg->psy, POWER_SUPPLY_SCOPE_DEVICE);
 }
 
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+extern void trigger_baseline_state_machine(int plug_in, int type);
+#endif
+
 static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 {
 	static int power_supply_type;
@@ -498,6 +530,28 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 
 	power_supply_set_supply_type(dotg->psy, power_supply_type);
 
+/* BEGIN : janghyun.baek@lge.com 2012-12-26 For cable detection*/
+#ifdef CONFIG_LGE_PM
+#if defined(CONFIG_USB_DWC3_MSM_VZW_SUPPORT)
+	if(lge_usb_config_finish == 1 ||
+        (lge_pm_get_cable_type() == CABLE_56K || lge_pm_get_cable_type() == CABLE_910K || lge_pm_get_cable_type() == CABLE_130K)) 
+#endif  
+      {
+	if (mA > 2 && lge_pm_get_cable_type() != NO_INIT_CABLE) {
+		if (dotg->charger->chg_type == DWC3_SDP_CHARGER)
+			mA = lge_pm_get_usb_current();
+		else if (dotg->charger->chg_type == DWC3_DCP_CHARGER)
+			mA = lge_pm_get_ta_current();
+		}
+	}
+#endif
+/* END : janghyun.baek@lge.com 2012-12-26 */
+
+#ifdef CONFIG_LGE_PM
+	if (slimport_is_connected() && mA > 2)
+		mA = IDEV_CHG_MIN;
+#endif
+
 	if ((dotg->charger->chg_type == DWC3_CDP_CHARGER) && mA > 2)
 		mA = DWC3_IDEV_CHG_MAX;
 
@@ -505,6 +559,23 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		return 0;
 
 	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
+
+/* BEGIN : janghyun.baek@lge.com 2012-12-26 For cable detection*/
+#ifdef CONFIG_LGE_PM
+	if (dotg->charger->chg_type == DWC3_DCP_CHARGER) {
+		pr_info("msm_otg_notify_power_supply: "
+				"power_supply_get_by_name(ac)\n");
+		dotg->psy = power_supply_get_by_name("ac");
+	} else {
+		pr_info("msm_otg_notify_power_supply: "
+				"power_supply_get_by_name(usb)\n");
+		dotg->psy = power_supply_get_by_name("usb");
+	}
+	if (!dotg->psy) {
+		goto psy_error;
+	}
+#endif
+/* END : janghyun.baek@lge.com 2012-12-26 */
 
 	if (dotg->charger->max_power <= 2 && mA > 2) {
 		/* Enable charging */
@@ -519,10 +590,22 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		/* Set max current limit */
 		if (power_supply_set_current_limit(dotg->psy, 0))
 			goto psy_error;
+
+/* BEGIN : janghyun.baek@lge.com 2012-12-26 For cable detection*/
+#ifdef CONFIG_LGE_PM
+		/* Below line comes from "dwc3_start_chg_det()" because of
+		 * AC(TA) removal detection
+		 */
+		dotg->charger->chg_type = DWC3_INVALID_CHARGER;
+#endif
+/* END : janghyun.baek@lge.com 2012-12-26 */
 	}
 
 	power_supply_changed(dotg->psy);
 	dotg->charger->max_power = mA;
+
+	queue_work(touch_otg_wq, &dotg->touch_work);
+
 	return 0;
 
 psy_error:
@@ -635,6 +718,29 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
 	}
 }
 
+static void touch_otg_work(struct work_struct *w){
+
+	struct dwc3_otg *dotg = container_of(w, struct dwc3_otg, touch_work);
+
+/*  BEGIN : donguk.ki@lge.com to know usb state on touch*/
+#ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4
+	if(dotg->charger->max_power == 0) {
+		trigger_baseline_state_machine(0, -1);
+		printk("[Touch] TA/USB OUT!!!!!!!!!!!!!!!!\n");
+	} else {
+		if (dotg->charger->chg_type == DWC3_DCP_CHARGER) {
+			trigger_baseline_state_machine(1, 1);
+			printk("[Touch] TA IN!!!!!!!!!!!!!!!!\n");
+		} else {
+			trigger_baseline_state_machine(1, 0);
+			printk("[Touch] USB IN!!!!!!!!!!!!!!!!\n");
+		}
+	}
+#endif
+ /* END : donguk.ki@lge.com to know usb state on touch */
+}
+
+
 /**
  * dwc3_otg_sm_work - workqueue function.
  *
@@ -649,6 +755,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	struct usb_phy *phy = dotg->otg.phy;
 	struct dwc3_charger *charger = dotg->charger;
 	bool work = 0;
+#ifdef CONFIG_LGE_PM
+	enum lge_boot_mode_type boot_mode;
+#endif
 
 	pm_runtime_resume(phy->dev);
 	dev_dbg(phy->dev, "%s state\n", otg_state_string(phy->state));
@@ -684,6 +793,12 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	case OTG_STATE_B_IDLE:
 		if (!test_bit(ID, &dotg->inputs)) {
 			dev_dbg(phy->dev, "!id\n");
+#ifdef CONFIG_LGE_PM
+			if (slimport_is_connected()) {
+				work = 1;
+				break;
+			}
+#endif
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
 			if (charger) {
@@ -715,10 +830,29 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					work = 1;
 					break;
 				case DWC3_SDP_CHARGER:
+					dwc3_otg_set_power(phy,
+								IUNIT);
+#ifdef CONFIG_LGE_PM
+					if (!slimport_is_connected()) {
+						dwc3_otg_start_peripheral(&dotg->otg,
+										1);
+						phy->state = OTG_STATE_B_PERIPHERAL;
+						work = 1;
+						boot_mode = lge_get_boot_mode();
+						if((boot_mode != LGE_BOOT_MODE_FACTORY) &&
+								(boot_mode != LGE_BOOT_MODE_FACTORY2) &&
+								(boot_mode != LGE_BOOT_MODE_PIFBOOT) &&
+								(boot_mode != LGE_BOOT_MODE_PIFBOOT2) &&
+								(boot_mode != LGE_BOOT_MODE_MINIOS)) {
+							charger->start_ta_detection();
+						}
+					}
+#else
 					dwc3_otg_start_peripheral(&dotg->otg,
 									1);
 					phy->state = OTG_STATE_B_PERIPHERAL;
 					work = 1;
+#endif
 					break;
 				default:
 					dev_dbg(phy->dev, "chg_det started\n");
@@ -747,6 +881,11 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dwc3_otg_set_power(phy, 0);
 			dev_dbg(phy->dev, "No device, trying to suspend\n");
 			pm_runtime_put_sync(phy->dev);
+#ifdef CONFIG_BU52031NVX_CARKIT
+			/* triggering deskdock disconnect uevent */
+			if (carkit_get_deskdock())
+				carkit_set_deskdock(0);
+#endif /* CONFIG_BU52031NVX_CARKIT */
 		}
 		break;
 
@@ -770,6 +909,11 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			work = 1;
 		} else {
 			phy->state = OTG_STATE_A_HOST;
+#ifdef CONFIG_LGE_PM // sangmin978.lee@lge.com, 2013-03-18, For OTG, set usb as a current power supply on host mode.
+			dotg->psy = power_supply_get_by_name("usb");
+			if (!dotg->psy)
+				dev_err(phy->dev, "couldn't get usb power supply\n");
+#endif
 			if (dwc3_otg_start_host(&dotg->otg, 1)) {
 				/*
 				 * Probably set_host was not called yet.
@@ -921,7 +1065,15 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
 
 	init_completion(&dotg->dwc3_xcvr_vbus_init);
+
+	touch_otg_wq = create_singlethread_workqueue("touch_otg_wq");
+	if(!touch_otg_wq){
+		dev_err(dwc->dev, "CANNOT create new workqueue\n");
+		goto err4;
+	}
+
 	INIT_WORK(&dotg->sm_work, dwc3_otg_sm_work);
+	INIT_WORK(&dotg->touch_work, touch_otg_work);
 
 	ret = request_irq(dotg->irq, dwc3_otg_interrupt, IRQF_SHARED,
 				"dwc3_otg", dotg);
@@ -935,6 +1087,10 @@ int dwc3_otg_init(struct dwc3 *dwc)
 
 	return 0;
 
+
+err4:
+	if(touch_otg_wq)
+	    destroy_workqueue(touch_otg_wq);
 err3:
 	cancel_work_sync(&dotg->sm_work);
 	usb_set_transceiver(NULL);
@@ -969,4 +1125,7 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 		kfree(dotg);
 		dwc->dotg = NULL;
 	}
+
+	if(touch_otg_wq)
+		destroy_workqueue(touch_otg_wq);
 }

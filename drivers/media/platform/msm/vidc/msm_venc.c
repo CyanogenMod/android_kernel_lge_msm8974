@@ -21,6 +21,7 @@
 #define MSM_VENC_DVC_NAME "msm_venc_8974"
 #define MIN_NUM_OUTPUT_BUFFERS 4
 #define MIN_NUM_CAPTURE_BUFFERS 4
+//to applying the bit rate in 3G VT - sukhui.kim@lge.com
 #define MIN_BIT_RATE 32000
 #define MAX_BIT_RATE 160000000
 #define DEFAULT_BIT_RATE 64000
@@ -871,7 +872,10 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Failed to set persist buffers: %d\n", rc);
 		goto fail_start;
 	}
+
+	mutex_lock(&inst->core->sync_lock);
 	msm_comm_scale_clocks_and_bus(inst);
+	mutex_unlock(&inst->core->sync_lock);
 
 	rc = msm_comm_try_state(inst, MSM_VIDC_START_DONE);
 	if (rc) {
@@ -947,7 +951,9 @@ static int msm_venc_stop_streaming(struct vb2_queue *q)
 		rc = -EINVAL;
 		break;
 	}
+	mutex_lock(&inst->core->sync_lock);
 	msm_comm_scale_clocks_and_bus(inst);
+	mutex_unlock(&inst->core->sync_lock);
 
 	if (rc)
 		dprintk(VIDC_ERR,
@@ -1753,7 +1759,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDC_VIDEO_H264_VUI_TIMING_INFO_ENABLED:
 			vui_timing_info.enable = 1;
 			vui_timing_info.fixed_frame_rate = cfr;
-			vui_timing_info.time_scale = inst->prop.fps;
+		//	vui_timing_info.time_scale = inst->prop.fps;
+			vui_timing_info.time_scale = NSEC_PER_SEC;
 		}
 
 		pdata = &vui_timing_info;
@@ -1853,7 +1860,8 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->fmts[OUTPUT_PORT] = &venc_formats[0];
 	inst->prop.height = DEFAULT_HEIGHT;
 	inst->prop.width = DEFAULT_WIDTH;
-	inst->prop.fps = 30;
+	//inst->prop.fps = 30;
+	inst->prop.fps = 15;
 	return rc;
 }
 
@@ -1955,7 +1963,8 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 {
 	u32 property_id = 0, us_per_frame = 0;
 	void *pdata;
-	int rc = 0, fps = 0, rem = 0;
+	//int rc = 0, fps = 0, rem = 0;
+	int rc = 0, fps = 0;
 	struct hal_frame_rate frame_rate;
 	struct hfi_device *hdev;
 
@@ -1992,11 +2001,18 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	}
 
 	fps = USEC_PER_SEC;
-	rem = do_div(fps, us_per_frame);
-	if (rem) {
+//	rem = do_div(fps, us_per_frame);
+//	if (rem) {
 		/* Effectively fps = ceil((float)USEC_PER_SEC/us_per_frame) */
-		fps++;
-	}
+//		fps++;
+//	}
+
+	do_div(fps, us_per_frame);
+
+	if ((fps % 15 == 14) || (fps % 24 == 23))
+		fps = fps + 1;
+	else if ((fps % 24 == 1) || (fps % 15 == 1))
+		fps = fps - 1;
 
 	if (inst->prop.fps != fps) {
 		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%d\n",
@@ -2012,7 +2028,9 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 			dprintk(VIDC_WARN,
 				"Failed to set frame rate %d\n", rc);
 		}
+		mutex_lock(&inst->core->sync_lock);
 		msm_comm_scale_clocks_and_bus(inst);
+		mutex_unlock(&inst->core->sync_lock);
 	}
 exit:
 	return rc;

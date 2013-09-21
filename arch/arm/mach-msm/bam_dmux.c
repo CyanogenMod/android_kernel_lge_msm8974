@@ -71,6 +71,9 @@ static int bam_adaptive_timer_enabled = 1;
 module_param_named(adaptive_timer_enabled,
 			bam_adaptive_timer_enabled,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+static int ul_wakeup_timeout = 10;
+module_param_named(ul_wakeup_response_timeout, ul_wakeup_timeout,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #if defined(DEBUG)
 static uint32_t bam_dmux_read_cnt;
@@ -1576,8 +1579,14 @@ static void ul_timeout(struct work_struct *work)
 
 static int ssrestart_check(void)
 {
-	DMUX_LOG_KERR("%s: modem timeout: BAM DMUX disabled\n", __func__);
+	int ret = 0;
+
+	DMUX_LOG_KERR("%s: modem timeout: BAM DMUX disabled for SSR\n",
+								__func__);
 	in_global_reset = 1;
+	ret = subsystem_restart("modem");
+	if (ret == -ENODEV)
+		panic("modem subsystem restart failed\n");
 	return 1;
 }
 
@@ -1653,7 +1662,8 @@ static void ul_wakeup(void)
 	if (wait_for_ack) {
 		BAM_DMUX_LOG("%s waiting for previous ack\n", __func__);
 		ret = wait_for_completion_timeout(
-					&ul_wakeup_ack_completion, HZ);
+					&ul_wakeup_ack_completion,
+					ul_wakeup_timeout * HZ);
 		wait_for_ack = 0;
 		if (unlikely(ret == 0) && ssrestart_check()) {
 			mutex_unlock(&wakeup_lock);
@@ -1664,14 +1674,16 @@ static void ul_wakeup(void)
 	INIT_COMPLETION(ul_wakeup_ack_completion);
 	power_vote(1);
 	BAM_DMUX_LOG("%s waiting for wakeup ack\n", __func__);
-	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion, HZ);
+	ret = wait_for_completion_timeout(&ul_wakeup_ack_completion, 
+						ul_wakeup_timeout * HZ);
 	if (unlikely(ret == 0) && ssrestart_check()) {
 		mutex_unlock(&wakeup_lock);
 		BAM_DMUX_LOG("%s timeout wakeup ack\n", __func__);
 		return;
 	}
 	BAM_DMUX_LOG("%s waiting completion\n", __func__);
-	ret = wait_for_completion_timeout(&bam_connection_completion, HZ);
+	ret = wait_for_completion_timeout(&bam_connection_completion,
+						ul_wakeup_timeout * HZ);
 	if (unlikely(ret == 0) && ssrestart_check()) {
 		mutex_unlock(&wakeup_lock);
 		BAM_DMUX_LOG("%s timeout power on\n", __func__);

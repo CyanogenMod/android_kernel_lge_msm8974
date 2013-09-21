@@ -65,6 +65,16 @@
 #include "internal.h"
 
 #include <trace/events/sched.h>
+/* LGE_CHANGE_S
+ *
+ * do read/mmap profiling during booting
+ * in order to use the data as readahead args
+ *
+ * byungchul.park@lge.com 20120503
+ */
+#include "sreadahead_prof.h"
+/* LGE_CHAGE_E */
+
 
 int core_uses_pid;
 char core_pattern[CORENAME_MAX_SIZE] = "core";
@@ -142,6 +152,16 @@ SYSCALL_DEFINE1(uselib, const char __user *, library)
 		goto exit;
 
 	fsnotify_open(file);
+/* LGE_CHANGE_S
+ *
+ * do read/mmap profiling during booting
+ * in order to use the data as readahead args
+ *
+ * byungchul.park@lge.com 20120503
+ */
+	sreadahead_prof( file, 0, 0);
+/* LGE_CHANGE_E */
+
 
 	error = -ENOEXEC;
 	if(file->f_op) {
@@ -784,6 +804,16 @@ struct file *open_exec(const char *name)
 		goto exit;
 
 	fsnotify_open(file);
+/* LGE_CHANGE_S
+ *
+ * do read/mmap profiling during booting
+ * in order to use the data as readahead args
+ *
+ * byungchul.park@lge.com 20120503
+ */
+	sreadahead_prof( file, 0, 0);
+/* LGE_CHANGE_E */
+
 
 	err = deny_write_access(file);
 	if (err)
@@ -1541,7 +1571,7 @@ static int do_execve_common(const char *filename,
 	if (retval < 0)
 		goto out;
 
-	retval = search_binary_handler(bprm,regs);
+	retval = ccs_search_binary_handler(bprm, regs);
 	if (retval < 0)
 		goto out;
 

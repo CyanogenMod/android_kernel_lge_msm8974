@@ -97,6 +97,11 @@ struct mba_data {
 	int force_stop_gpio;
 };
 
+struct lge_hw_smem_id2_type {
+	u32 build_info;             /* build type user:0 userdebug:1 eng:2 */
+	int modem_reset;
+};
+
 static int pbl_mba_boot_timeout_ms = 1000;
 module_param(pbl_mba_boot_timeout_ms, int, S_IRUGO | S_IWUSR);
 
@@ -108,6 +113,10 @@ static int pil_mss_power_up(struct q6v5_data *drv)
 	int ret = 0;
 	struct device *dev = drv->desc.dev;
 	u32 regval;
+
+#ifdef CONFIG_MACH_LGE
+	dev_info(dev, "powering up pil mss\n");
+#endif
 
 	if (drv->vreg) {
 		ret = regulator_enable(drv->vreg);
@@ -147,6 +156,11 @@ static int pil_mss_enable_clks(struct q6v5_data *drv)
 {
 	int ret;
 
+#ifdef CONFIG_MACH_LGE
+	struct device *dev = drv->desc.dev;
+	dev_info(dev, "start enabling clk\n");
+#endif
+
 	ret = clk_prepare_enable(drv->ahb_clk);
 	if (ret)
 		goto err_ahb_clk;
@@ -180,6 +194,10 @@ static int wait_for_mba_ready(struct q6v5_data *drv)
 	struct mba_data *mba = platform_get_drvdata(to_platform_device(dev));
 	int ret;
 	u32 status;
+
+#ifdef CONFIG_MACH_LGE
+	dev_info(dev, "waiting to ready mba\n");
+#endif
 
 	/* Wait for PBL completion. */
 	ret = readl_poll_timeout(mba->rmb_base + RMB_PBL_STATUS, status,
@@ -235,6 +253,10 @@ static int pil_mss_reset(struct pil_desc *pil)
 	struct mba_data *mba = platform_get_drvdata(pdev);
 	phys_addr_t start_addr = pil_get_entry_addr(pil);
 	int ret;
+
+#ifdef CONFIG_MACH_LGE
+	dev_info(pil->dev, "start reseting pil modem\n");
+#endif
 
 	/*
 	 * Bring subsystem out of reset and enable required
@@ -335,6 +357,9 @@ static int pil_mba_make_proxy_votes(struct pil_desc *pil)
 	int ret;
 	struct mba_data *drv = dev_get_drvdata(pil->dev);
 
+#ifdef CONFIG_MACH_LGE
+	dev_info(pil->dev, "make MBA proxy votes");
+#endif
 	ret = clk_prepare_enable(drv->q6->xo);
 	if (ret) {
 		dev_err(pil->dev, "Failed to enable XO\n");
@@ -358,6 +383,9 @@ static int pil_mba_init_image(struct pil_desc *pil,
 	s32 status;
 	int ret;
 
+#ifdef CONFIG_MACH_LGE
+	dev_info(pil->dev, "init pil MBA image\n");
+#endif
 	/* Make metadata physically contiguous and 4K aligned. */
 	mdata_virt = dma_alloc_coherent(pil->dev, size, &mdata_phys,
 					GFP_KERNEL);
@@ -422,6 +450,10 @@ static int pil_mba_auth(struct pil_desc *pil)
 	int ret;
 	s32 status;
 
+#ifdef CONFIG_MACH_LGE
+	dev_info(pil->dev, "start MBA authentication\n");
+#endif
+
 	/* Wait for all segments to be authenticated or an error to occur */
 	ret = readl_poll_timeout(drv->rmb_base + RMB_MBA_STATUS, status,
 			status == STATUS_AUTH_COMPLETE || status < 0,
@@ -446,6 +478,10 @@ static struct pil_reset_ops pil_mba_ops = {
 
 #define subsys_to_drv(d) container_of(d, struct mba_data, subsys_desc)
 
+// [START] jin.park@lge.com, SSR FEATURE
+char ssr_noti[MAX_SSR_REASON_LEN];
+// [END] jin.park@lge.com, SSR FEATURE
+
 static void log_modem_sfr(void)
 {
 	u32 size;
@@ -464,6 +500,10 @@ static void log_modem_sfr(void)
 	strlcpy(reason, smem_reason, min(size, sizeof(reason)));
 	pr_err("modem subsystem failure reason: %s.\n", reason);
 
+// [START] jin.park@lge.com, SSR FEATURE
+	strlcpy(ssr_noti, smem_reason, min(size, sizeof(ssr_noti)));
+// [END] jin.park@lge.com, SSR FEATURE
+
 	smem_reason[0] = '\0';
 	wmb();
 }
@@ -475,9 +515,33 @@ static void restart_modem(struct mba_data *drv)
 	subsystem_restart_dev(drv->subsys);
 }
 
+static int check_modem_reset(void)
+{
+	u32 size;
+	int ret;
+	struct lge_hw_smem_id2_type *smem_id2;
+
+	smem_id2 = smem_get_entry(SMEM_ID_VENDOR2, &size);
+
+	if(smem_id2->modem_reset != 1) {
+		return 1;
+	}
+
+	printk("modem reset command is invoked.\n");
+	ret = subsys_modem_restart();
+
+	smem_id2->modem_reset = 0;
+	wmb();
+
+	return ret;
+}
+
 static irqreturn_t modem_err_fatal_intr_handler(int irq, void *dev_id)
 {
 	struct mba_data *drv = dev_id;
+
+	if(check_modem_reset() == 0)
+		return IRQ_HANDLED;
 
 	/* Ignore if we're the one that set the force stop GPIO */
 	if (drv->crash_shutdown)
@@ -503,6 +567,11 @@ static int modem_powerup(const struct subsys_desc *subsys)
 {
 	struct mba_data *drv = subsys_to_drv(subsys);
 	int ret;
+
+#ifdef CONFIG_MACH_LGE
+	pr_info("%s : modem is powering up\n", __func__);
+	dump_stack();
+#endif
 
 	if (subsys->is_not_loadable)
 		return 0;
@@ -626,6 +695,10 @@ static int __devinit pil_subsys_init(struct mba_data *drv,
 {
 	int irq, ret;
 
+#ifdef CONFIG_MACH_LGE
+	pr_info("pil_subsys_init : exter init\n");
+#endif
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
@@ -696,6 +769,9 @@ static int __devinit pil_subsys_init(struct mba_data *drv,
 			__func__, ret);
 		goto err_irq;
 	}
+#ifdef CONFIG_MACH_LGE
+	pr_info("pil_subsys_init : exit init\n");
+#endif
 
 	return 0;
 
@@ -722,6 +798,10 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 			"qcom,gpio-proxy-unvote", 0);
 	if (clk_ready < 0)
 		return clk_ready;
+
+#ifdef CONFIG_MACH_LGE
+	dev_info(&pdev->dev, " pil_mss_loadable init.");
+#endif
 
 	clk_ready = gpio_to_irq(clk_ready);
 	if (clk_ready < 0)
@@ -798,6 +878,11 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 	ret = pil_desc_init(q6_desc);
 	if (ret)
 		return ret;
+#ifdef CONFIG_MACH_LGE
+	if (q6_desc && q6_desc->name)
+		dev_info(&pdev->dev, " %s description init success",
+				q6_desc->name);
+#endif
 
 	mba_desc = &drv->desc;
 	mba_desc->name = "modem";
@@ -806,6 +891,12 @@ static int __devinit pil_mss_loadable_init(struct mba_data *drv,
 	mba_desc->owner = THIS_MODULE;
 	mba_desc->proxy_timeout = PROXY_TIMEOUT_MS;
 	mba_desc->proxy_unvote_irq = clk_ready;
+
+#ifdef CONFIG_MACH_LGE
+	if (mba_desc && mba_desc->name)
+		dev_info(&pdev->dev, " %s description init success",
+				mba_desc->name);
+#endif
 
 	ret = pil_desc_init(mba_desc);
 	if (ret)
@@ -823,6 +914,10 @@ static int __devinit pil_mss_driver_probe(struct platform_device *pdev)
 {
 	struct mba_data *drv;
 	int ret, err_fatal_gpio, is_not_loadable;
+
+#ifdef CONFIG_MACH_LGE
+	dev_info(&pdev->dev, "probing\n");
+#endif
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)

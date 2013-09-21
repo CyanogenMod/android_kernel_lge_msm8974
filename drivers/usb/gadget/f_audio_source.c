@@ -29,7 +29,8 @@
 #define IN_EP_MAX_PACKET_SIZE	256
 
 /* Number of requests to allocate */
-#define IN_EP_REQ_COUNT 4
+//#define IN_EP_REQ_COUNT 4
+#define IN_EP_REQ_COUNT 16
 
 #define AUDIO_AC_INTERFACE	0
 #define AUDIO_AS_INTERFACE	1

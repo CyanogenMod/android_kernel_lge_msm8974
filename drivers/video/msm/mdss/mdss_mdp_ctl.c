@@ -37,6 +37,18 @@ enum {
 #define MDSS_MDP_PERF_UPDATE_BUS BIT(1)
 #define MDSS_MDP_PERF_UPDATE_ALL -1
 
+#ifdef CONFIG_MACH_LGE
+#define QCT_UNDERRUN_PATCH
+#endif
+
+#ifdef CONFIG_OLED_SUPPORT
+/* LGE_CHANGE
+ * This is for slimport underrun(plug/unplug) patch from case#01249713
+ * 2013-07-22, minkyeong.kim@lge.com
+ */
+#define QMC_SLIMPORT_UNDERRUN_PATCH
+#endif
+
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
 static int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer);
@@ -96,13 +108,88 @@ static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 	return 0;
 }
 
+#ifdef QCT_UNDERRUN_PATCH
+/**
+ * mdss_mdp_perf_calc_pipe - calculate performance numbers required by pipe
+ * @pipe:	Source pipe struct containing updated pipe params
+ * @perf:	Structure containing values that should be updated for
+ *		performance tuning
+ *
+ * Function calculates the minimum required performance calculations in order
+ * to avoid MDP underflow. The calculations are based on the way MDP
+ * fetches (bandwidth requirement) and processes data through MDP pipeline
+ * (MDP clock requirement) based on frame size and scaling requirements.
+ */
+int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
+		struct mdss_mdp_perf_params *perf)
+{
+	struct mdss_mdp_mixer *mixer;
+	const int fps = 60;
+	u32 quota, rate, v_total, src_h;
+
+	if (!pipe || !perf || !pipe->mixer)
+		return -EINVAL;
+
+	mixer = pipe->mixer;
+	if (mixer->rotator_mode)
+		v_total = pipe->flags & MDP_ROT_90 ? pipe->dst.w : pipe->dst.h;
+	else if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF)
+		v_total = mdss_panel_get_vtotal(
+				&mixer->ctl->panel_data->panel_info);
+	else
+		v_total = mixer->height;
+
+	/*
+	 * when doing vertical decimation lines will be skipped, hence there is
+	 * no need to account for these lines in MDP clock or request bus
+	 * bandwidth to fetch them.
+	 */
+	src_h = pipe->src.h >> pipe->vert_deci;
+
+	quota = fps * pipe->src.w * src_h;
+	if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
+		quota = (quota * 3) / 2;
+	else
+		quota *= pipe->src_fmt->bpp;
+
+	rate = pipe->dst.w;
+	if (src_h > pipe->dst.h)
+		rate = (rate * src_h) / pipe->dst.h;
+
+	rate *= v_total * fps;
+	if (mixer->rotator_mode) {
+		rate /= 4; /* block mode fetch at 4 pix/clk */
+
+		#if defined(CONFIG_MACH_MSM8974_VU3_KR) //Temporary WA for VU3 MDP Underrun
+		if(((src_h ==480)||(src_h ==360))&&((pipe->src.w ==640)||(pipe->src.w ==480)||(pipe->src.w ==720)))
+			quota *=8;
+		else
+		#endif
+		quota *= 2; /* bus read + write */
+		perf->ib_quota = quota;
+	} else {
+		perf->ib_quota = (quota / pipe->dst.h) * v_total;
+	}
+	perf->ab_quota = quota;
+	perf->mdp_clk_rate = rate;
+
+	pr_debug("mixer=%d pnum=%d clk_rate=%u bus ab=%u ib=%u\n",
+		 mixer->num, pipe->num, rate, perf->ab_quota, perf->ib_quota);
+
+	return 0;
+}
+#endif
+
 static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 				       u32 *bus_ab_quota, u32 *bus_ib_quota,
 				       u32 *clk_rate)
 {
 	struct mdss_mdp_pipe *pipe;
 	const int fps = 60;
+#ifndef QCT_UNDERRUN_PATCH
+/*maintain QMC original code */
 	u32 quota, rate;
+#endif
 	u32 v_total;
 	int i;
 	u32 max_clk_rate = 0, ab_total = 0, ib_total = 0;
@@ -111,17 +198,13 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 	*bus_ib_quota = 0;
 	*clk_rate = 0;
 
-	if (mixer->rotator_mode) {
-		pipe = mixer->stage_pipe[0]; /* rotator pipe */
-		v_total = pipe->flags & MDP_ROT_90 ? pipe->dst.w : pipe->dst.h;
-	} else {
+#ifdef QCT_UNDERRUN_PATCH
+	if (!mixer->rotator_mode) {
 		int is_writeback = false;
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 			struct mdss_panel_info *pinfo;
 			pinfo = &mixer->ctl->panel_data->panel_info;
-			v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
-				   pinfo->lcdc.v_front_porch +
-				   pinfo->lcdc.v_pulse_width);
+			v_total = mdss_panel_get_vtotal(pinfo);
 
 			if (pinfo->type == WRITEBACK_PANEL)
 				is_writeback = true;
@@ -138,9 +221,55 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 			*bus_ib_quota = *bus_ab_quota;
 		}
 	}
+#else
+	if (mixer->rotator_mode) {
+		pipe = mixer->stage_pipe[0]; /* rotator pipe */
+		v_total = pipe->flags & MDP_ROT_90 ? pipe->dst.w : pipe->dst.h;
+	} else {
+		int is_writeback = false;
+		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+			struct mdss_panel_info *pinfo;
+			pinfo = &mixer->ctl->panel_data->panel_info;
+#ifdef CONFIG_OLED_SUPPORT
+		     if(ctl->intf_num == MDSS_MDP_INTF1) {
+			    v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
+				      pinfo->lcdc.yres_margin +
+				      pinfo->lcdc.v_front_porch +
+				      pinfo->lcdc.v_pulse_width);
+		     } else {
+			    v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
+				      pinfo->lcdc.v_front_porch +
+				      pinfo->lcdc.v_pulse_width);
+		     }
+#else
+			v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
+				   pinfo->lcdc.v_front_porch +
+				   pinfo->lcdc.v_pulse_width);
+#endif
 
+			if (pinfo->type == WRITEBACK_PANEL)
+				is_writeback = true;
+		} else {
+			v_total = mixer->height;
+
+			is_writeback = true;
+		}
+		*clk_rate = mixer->width * v_total * fps;
+		if (is_writeback) {
+			/* perf for bus writeback */
+			*bus_ab_quota = fps * mixer->width * mixer->height * 3;
+			*bus_ab_quota >>= MDSS_MDP_BUS_FACTOR_SHIFT;
+			*bus_ib_quota = *bus_ab_quota;
+		}
+	}
+#endif
 	for (i = 0; i < MDSS_MDP_MAX_STAGE; i++) {
+#ifdef QCT_UNDERRUN_PATCH
+		struct mdss_mdp_perf_params perf;
+#else
 		u32 ib_quota;
+#endif
+
 		pipe = mixer->stage_pipe[i];
 		if (pipe == NULL)
 			continue;
@@ -150,6 +279,15 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 			max_clk_rate = 0;
 		}
 
+#ifdef QCT_UNDERRUN_PATCH
+		if (mdss_mdp_perf_calc_pipe(pipe, &perf))
+			continue;
+
+		ab_total += perf.ab_quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
+		ib_total += perf.ib_quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
+		if (perf.mdp_clk_rate > max_clk_rate)
+			max_clk_rate = perf.mdp_clk_rate;
+#else
 		quota = fps * pipe->src.w * pipe->src.h;
 		if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
 			quota = (quota * 3) / 2;
@@ -177,6 +315,7 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		ib_total += ib_quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
 		if (rate > max_clk_rate)
 			max_clk_rate = rate;
+#endif
 	}
 
 	*bus_ab_quota += ab_total;
@@ -242,6 +381,11 @@ static int mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl)
 		}
 		ctl->bus_ab_quota = total_ab_quota;
 		ctl->bus_ib_quota = total_ib_quota;
+
+#ifdef QMC_SLIMPORT_UNDERRUN_PATCH
+		if (ctl->intf_type == MDSS_INTF_HDMI && total_ab_quota == 0 && total_ib_quota == 0);
+		else
+#endif
 		ctl->perf_changed |= MDSS_MDP_PERF_UPDATE_BUS;
 	}
 
@@ -470,6 +614,7 @@ int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl)
 	case MIPI_VIDEO_PANEL:
 		return mdss_mdp_video_reconfigure_splash_done(ctl);
 	case MIPI_CMD_PANEL:
+		return mdss_mdp_cmd_reconfigure_splash_done(ctl);
 	default:
 		return 0;
 	}
@@ -899,6 +1044,10 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl)
 	u32 outsize, temp;
 	int ret = 0;
 	int i, nmixers;
+#ifdef CONFIG_OLED_SUPPORT
+       u32 yres_margin;
+       yres_margin = ctl->panel_data->panel_info.lcdc.yres_margin;
+#endif
 
 	if (ctl->start_fnc)
 		ret = ctl->start_fnc(ctl);
@@ -911,7 +1060,7 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl)
 		return ret;
 	}
 
-	pr_debug("ctl_num=%d\n", ctl->num);
+	pr_info("ctl_num=%d\n", ctl->num);
 
 	nmixers = MDSS_MDP_INTF_MAX_LAYERMIXER + MDSS_MDP_WB_MAX_LAYERMIXER;
 	for (i = 0; i < nmixers; i++)
@@ -925,7 +1074,14 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl)
 	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_DISP_INTF_SEL, temp);
 
+#ifdef CONFIG_OLED_SUPPORT
+       if(ctl->intf_num == MDSS_MDP_INTF1)
+	       outsize = ((mixer->height + yres_margin) << 16) | mixer->width;
+       else
+	       outsize = (mixer->height << 16) | mixer->width;
+#else
 	outsize = (mixer->height << 16) | mixer->width;
+#endif
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 
 	if (ctl->panel_data->panel_info.fbc.enabled) {
@@ -1006,7 +1162,7 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
-	pr_debug("ctl_num=%d\n", ctl->num);
+	pr_info("ctl_num=%d\n", ctl->num);
 
 	mutex_lock(&ctl->lock);
 
@@ -1042,6 +1198,9 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 		ctl->power_on = false;
 		ctl->play_cnt = 0;
 		ctl->clk_rate = 0;
+#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(QMC_SLIMPORT_UNDERRUN_PATCH)
+ 		if (ctl->intf_type != MDSS_INTF_HDMI)
+#endif
 		mdss_mdp_ctl_perf_commit(ctl->mdata, MDSS_MDP_PERF_UPDATE_ALL);
 	}
 
@@ -1393,10 +1552,25 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 
 	current_line = ctl->read_line_cnt_fnc(ctl);
 
+#ifdef CONFIG_OLED_SUPPORT
+       if(ctl->intf_num == MDSS_MDP_INTF1) {
+	      total_line = pinfo->lcdc.v_back_porch +
+		     pinfo->lcdc.v_front_porch +
+		     pinfo->lcdc.v_pulse_width +
+		     pinfo->yres +
+		     pinfo->lcdc.yres_margin;
+       } else {
+	      total_line = pinfo->lcdc.v_back_porch +
+		     pinfo->lcdc.v_front_porch +
+		     pinfo->lcdc.v_pulse_width +
+		     pinfo->yres;
+       }
+#else
 	total_line = pinfo->lcdc.v_back_porch +
 		pinfo->lcdc.v_front_porch +
 		pinfo->lcdc.v_pulse_width +
 		pinfo->yres;
+#endif
 
 	if (current_line > total_line)
 		return -EINVAL;
@@ -1433,7 +1607,11 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 		ret = ctl->wait_fnc(ctl, NULL);
 
 	if (ctl->perf_changed) {
-		mdss_mdp_ctl_perf_commit(ctl->mdata, ctl->perf_changed);
+#ifdef QMC_SLIMPORT_UNDERRUN_PATCH
+		if ((ctl->intf_type == MDSS_INTF_HDMI) && ((ctl->bus_ab_quota==0) || (ctl->bus_ib_quota==0))); 
+		else
+#endif
+			mdss_mdp_ctl_perf_commit(ctl->mdata, ctl->perf_changed);
 		ctl->perf_changed = 0;
 	}
 

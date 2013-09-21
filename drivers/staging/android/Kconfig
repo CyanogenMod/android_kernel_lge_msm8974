@@ -32,11 +32,18 @@ config ANDROID_PERSISTENT_RAM
 	select REED_SOLOMON_ENC8
 	select REED_SOLOMON_DEC8
 
+choice
+	prompt "Android RAM Console Type"
+	default ANDROID_RAM_CONSOLE
 config ANDROID_RAM_CONSOLE
 	bool "Android RAM buffer console"
 	depends on !S390 && !UML && HAVE_MEMBLOCK
 	select ANDROID_PERSISTENT_RAM
-	default n
+config ANDROID_NEW_RAM_CONSOLE
+	bool "Android NEW RAM buffer console"
+	depends on !S390 && !UML && HAVE_MEMBLOCK
+	select ANDROID_PERSISTENT_RAM
+endchoice
 
 config PERSISTENT_TRACER
 	bool "Persistent function tracer"

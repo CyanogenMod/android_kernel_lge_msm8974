@@ -225,5 +225,8 @@ Example:
                qcom,csi-phy-sel = <0>;
                qcom,sensor-position = <0>;
                qcom,sensor-mode = <1>;
+               qcom,camera-type = <0>;
+               qcom,sensor-type = <0>;
+               qcom,cci-master = <0>;
        };
    };

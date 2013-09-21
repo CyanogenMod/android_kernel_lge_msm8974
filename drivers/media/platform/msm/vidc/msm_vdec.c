@@ -700,7 +700,9 @@ exit:
 int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 {
 	u64 us_per_frame = 0;
-	int rc = 0, fps = 0, rem = 0;
+//	int rc = 0, fps = 0, rem = 0;
+	int rc = 0, fps = 0;
+
 	if (a->parm.output.timeperframe.denominator) {
 		switch (a->type) {
 		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
@@ -726,17 +728,27 @@ int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	}
 
 	fps = USEC_PER_SEC;
-	rem = do_div(fps, us_per_frame);
-	if (rem) {
-		/* Effectively fps = ceil((float)USEC_PER_SEC/us_per_frame) */
-		fps++;
-	}
+	
+//	rem = do_div(fps, us_per_frame);
+//	if (rem) {
+//		/* Effectively fps = ceil((float)USEC_PER_SEC/us_per_frame) */
+//		fps++;
+//	}
+
+	do_div(fps, us_per_frame);
+	
+	if ((fps % 15 == 14) || (fps % 24 == 23))
+		fps = fps + 1;
+	else if ((fps % 24 == 1) || (fps % 15 == 1))
+		fps = fps - 1;
 
 	if (inst->prop.fps != fps) {
 		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%d\n",
 				inst, inst->prop.fps, fps);
 		inst->prop.fps = fps;
+		mutex_lock(&inst->core->sync_lock);
 		msm_comm_scale_clocks_and_bus(inst);
+		mutex_unlock(&inst->core->sync_lock);
 	}
 exit:
 	return rc;
@@ -912,6 +924,10 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	struct hal_buffer_requirements *bufreq;
 	int extra_idx = 0;
 	struct hfi_device *hdev;
+	// LGE_CHANGE_S, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
+	struct hal_buffer_count_actual new_buf_count;
+	enum hal_property property_id;
+	// LGE_CHANGE_E, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
 	if (!q || !num_buffers || !num_planes
 		|| !sizes || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p, %p, %p\n",
@@ -938,6 +954,18 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 					i, inst->capability.height.max,
 					inst->capability.width.max);
 		}
+		// LGE_CHANGE_S, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
+		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
+		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
+		new_buf_count.buffer_count_actual = *num_buffers;
+		rc = call_hfi_op(hdev, session_set_property,
+		inst->session, property_id, &new_buf_count);
+		if (rc) {
+			dprintk(VIDC_WARN,
+					"Failed to set new buffer count(%d) on FW, err: %d\n",
+			new_buf_count.buffer_count_actual, rc);
+		}
+		// LGE_CHANGE_E, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		dprintk(VIDC_DBG, "Getting bufreqs on capture plane\n");
@@ -960,13 +988,14 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				"No buffer requirement for buffer type %x\n",
 				HAL_BUFFER_OUTPUT);
 			rc = -EINVAL;
+			mutex_unlock(&inst->lock);
 			break;
 		}
 		if (*num_buffers && *num_buffers >
 			bufreq->buffer_count_actual) {
-			struct hal_buffer_count_actual new_buf_count;
-			enum hal_property property_id =
-				HAL_PARAM_BUFFER_COUNT_ACTUAL;
+			// LGE_CHANGE_S, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
+			property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
+			// LGE_CHANGE_E, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
 
 			new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
 			new_buf_count.buffer_count_actual = *num_buffers;
@@ -1021,7 +1050,11 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to set persist buffers: %d\n", rc);
 		goto fail_start;
 	}
+
+	mutex_lock(&inst->core->sync_lock);
 	msm_comm_scale_clocks_and_bus(inst);
+	mutex_unlock(&inst->core->sync_lock);
+
 	rc = msm_comm_try_state(inst, MSM_VIDC_START_DONE);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1112,7 +1145,10 @@ static int msm_vdec_stop_streaming(struct vb2_queue *q)
 		rc = -EINVAL;
 		break;
 	}
+
+	mutex_lock(&inst->core->sync_lock);
 	msm_comm_scale_clocks_and_bus(inst);
+	mutex_unlock(&inst->core->sync_lock);
 
 	if (rc)
 		dprintk(VIDC_ERR,

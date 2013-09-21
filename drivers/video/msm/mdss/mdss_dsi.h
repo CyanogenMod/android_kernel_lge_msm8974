@@ -46,7 +46,6 @@
 #define MIPI_DSI_PANEL_WUXGA	7
 #define MIPI_DSI_PANEL_720P_PT	8
 #define DSI_PANEL_MAX	8
-
 enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
 	DSI_CMD_MODE,
@@ -139,6 +138,15 @@ extern struct device dsi_dev;
 extern int mdss_dsi_clk_on;
 extern u32 dsi_irq;
 
+#ifdef CONFIG_LGE_LCD_TUNING
+/* LGE_CHANGE_S
+ * Add code to apply tuning method for LCD
+ * 2012-12-03, minjong.gong@lge.com
+*/
+extern struct dsi_cmd_desc *dsi_panel_tun_cmds;
+extern int num_of_tun_cmds;
+#endif
+
 struct dsiphy_pll_divider_config {
 	u32 clk_rate;
 	u32 fb_divider;
@@ -192,7 +200,15 @@ struct dsi_clk_desc {
 
 #define MDSS_DSI_MRPS	0x04  /* Maximum Return Packet Size */
 
+#ifdef CONFIG_LGE_ESD_CHECK
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
+*/
+#define MDSS_DSI_LEN 44
+#else
 #define MDSS_DSI_LEN 8 /* 4 x 4 - 6 - 2, bytes dcs header+crc-align  */
+#endif
 
 struct dsi_buf {
 	u32 *hdr;	/* dsi host header */
@@ -379,7 +395,17 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_cmd_desc *cmds, int rlen, u32 rx_flags);
-
+#ifdef CONFIG_LGE_ESD_CHECK
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
+*/
+void mdss_dsi_cmds_mode1(struct mdss_panel_data *pdata);
+void mdss_dsi_cmds_mode2(struct mdss_panel_data *pdata);
+#endif
+#if defined(CONFIG_OLED_SUPPORT) && defined(CONFIG_LGE_OLED_IMG_TUNING)
+int mdss_dsi_panel_img_tune_apply(unsigned int screen_mode);
+#endif
 void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_op_mode_config(int mode,
@@ -389,9 +415,7 @@ void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(unsigned char *dsi_base);
-void mdss_dsi_clk_enable(struct mdss_dsi_ctrl_pdata *ctrl);
-void mdss_dsi_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl);
-void mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
+int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable);
 void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
 				int enable);
 void mdss_dsi_controller_cfg(int enable,
@@ -407,8 +431,6 @@ int mdss_dsi_clk_div_config(u8 bpp, u8 lanes,
 int mdss_dsi_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-void mdss_dsi_prepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-void mdss_dsi_unprepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_enable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);

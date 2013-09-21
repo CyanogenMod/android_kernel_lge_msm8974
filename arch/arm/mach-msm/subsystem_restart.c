@@ -39,6 +39,9 @@
 #include <mach/subsystem_notif.h>
 #include <mach/subsystem_restart.h>
 
+#ifdef CONFIG_LGE_HANDLE_PANIC
+#include <mach/lge_handle_panic.h>
+#endif
 #include "smd_private.h"
 
 static int enable_debug;
@@ -162,6 +165,10 @@ struct subsys_device {
 	struct completion err_ready;
 };
 
+#ifdef CONFIG_MACH_LGE
+static int modem_reboot_cnt = 0;
+#endif
+
 static struct subsys_device *to_subsys(struct device *d)
 {
 	return container_of(d, struct subsys_device, dev);
@@ -257,6 +264,10 @@ static DEFINE_IDA(subsys_ida);
 
 static int enable_ramdumps;
 module_param(enable_ramdumps, int, S_IRUGO | S_IWUSR);
+
+#ifdef CONFIG_MACH_LGE
+module_param(modem_reboot_cnt, int, S_IRUGO | S_IWUSR);
+#endif
 
 struct workqueue_struct *ssr_wq;
 
@@ -440,9 +451,13 @@ static void subsystem_shutdown(struct subsys_device *dev, void *data)
 	const char *name = dev->desc->name;
 
 	pr_info("[%p]: Shutting down %s\n", current, name);
-	if (dev->desc->shutdown(dev->desc) < 0)
+	if (dev->desc->shutdown(dev->desc) < 0) {
+#ifdef CONFIG_LGE_HANDLE_PANIC
+		lge_set_magic_subsystem(name, LGE_ERR_SUB_SD);
+#endif
 		panic("subsys-restart: [%p]: Failed to shutdown %s!",
 			current, name);
+	}
 	subsys_set_state(dev, SUBSYS_OFFLINE);
 }
 
@@ -463,8 +478,12 @@ static void subsystem_powerup(struct subsys_device *dev, void *data)
 
 	pr_info("[%p]: Powering up %s\n", current, name);
 	init_completion(&dev->err_ready);
-	if (dev->desc->powerup(dev->desc) < 0)
-		panic("[%p]: Powerup error: %s!", current, name);
+	if (dev->desc->powerup(dev->desc) < 0) {
+#ifdef CONFIG_LGE_HANDLE_PANIC
+		lge_set_magic_subsystem(name, LGE_ERR_SUB_PWR);
+#endif
+		panic("[%p]: Failed to powerup %s!", current, name);
+	}
 
 	ret = wait_for_err_ready(dev);
 	if (ret)
@@ -573,6 +592,11 @@ void *subsystem_get(const char *name)
 			retval = ERR_PTR(ret);
 			goto err_start;
 		}
+		/* QCT Debug code for modem stuck issue,
+	 	 * secheol.pyo@lge.com, 2013-05-01*/
+		pr_info("[LGE Debug] subsys: %s get start %d by %d[%s]\n",
+			name, subsys->count,
+			current->pid, current->comm);
 	}
 	subsys->count++;
 	mutex_unlock(&track->lock);
@@ -609,9 +633,30 @@ void subsystem_put(void *subsystem)
 			subsys->desc->name, __func__))
 		goto err_out;
 	if (!--subsys->count) {
+/* [LGE_S]QCT Debug code for modem stuck issue,
+ * secheol.pyo@lge.com, 2013-05-01
+ */
+		pr_info("[LGE DEBUG]subsys: %s put stop %d by %d[%s]\n",
+			 subsys->desc->name, subsys->count,
+			 current->pid, current->comm);
+#if 0
 		subsys_stop(subsys);
 		if (subsys->do_ramdump_on_put)
 			subsystem_ramdump(subsys, NULL);
+#else
+		if (strncmp(subsys->desc->name, "modem", 5)) {
+			subsys_stop(subsys);
+			if (subsys->do_ramdump_on_put)
+				subsystem_ramdump(subsys, NULL);
+		}
+		else {
+			pr_info("[LGE DEBUG]subsys: block modem put stop for stabilty\n");
+			subsys->count++;
+		}
+#endif
+/* [LGE_E]QCT Debug code for modem stuck issue,
+ * secheol.pyo@lge.com, 2013-05-01
+ */
 	}
 	mutex_unlock(&track->lock);
 
@@ -753,15 +798,29 @@ int subsystem_restart_dev(struct subsys_device *dev)
 	pr_info("Restart sequence requested for %s, restart_level = %s.\n",
 		name, restart_levels[dev->restart_level]);
 
+#ifdef CONFIG_MACH_LGE
+	if (!strcmp(name, "modem")) {
+		modem_reboot_cnt++;
+		if (modem_reboot_cnt <= 0)
+			modem_reboot_cnt = 1;
+	}
+#endif
+
 	switch (dev->restart_level) {
 
 	case RESET_SUBSYS_COUPLED:
 		__subsystem_restart_dev(dev);
 		break;
 	case RESET_SOC:
+#ifdef CONFIG_LGE_HANDLE_PANIC
+		lge_set_magic_subsystem(name, LGE_ERR_SUB_RST);
+#endif
 		panic("subsys-restart: Resetting the SoC - %s crashed.", name);
 		break;
 	default:
+#ifdef CONFIG_LGE_HANDLE_PANIC
+		lge_set_magic_subsystem(name, LGE_ERR_SUB_UNK);
+#endif
 		panic("subsys-restart: Unknown restart level!\n");
 		break;
 	}
@@ -785,6 +844,39 @@ int subsystem_restart(const char *name)
 	return ret;
 }
 EXPORT_SYMBOL(subsystem_restart);
+
+/**
+ * subsys_modem_restart() - modem restart silently
+ *
+ * modem restart silently
+ */
+int subsys_modem_restart(void)
+{
+	int ret;
+	int rsl;
+	struct subsys_tracking *track;
+
+	struct subsys_device *dev = find_subsys("modem");
+
+	if (!dev)
+		return -ENODEV;
+
+	track = subsys_get_track(dev);
+
+	if (dev->track.state != SUBSYS_ONLINE ||
+		track->p_state != SUBSYS_NORMAL)
+		return -ENODEV;
+
+	rsl = dev->restart_level;
+	dev->restart_level = RESET_SUBSYS_COUPLED;
+	ret = subsystem_restart_dev(dev);
+	dev->restart_level = rsl;
+	modem_reboot_cnt--;
+
+	put_device(&dev->dev);
+	return ret;
+}
+EXPORT_SYMBOL(subsys_modem_restart);
 
 int subsystem_crashed(const char *name)
 {

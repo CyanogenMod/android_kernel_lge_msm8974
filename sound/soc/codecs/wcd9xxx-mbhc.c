@@ -773,12 +773,18 @@ static void wcd9xxx_insert_detect_setup(struct wcd9xxx_mbhc *mbhc, bool ins)
 		 ins ? "insert" : "removal");
 	/* Disable detection to avoid glitch */
 	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT, 1, 0);
+
+#ifdef CONFIG_MACH_LGE
+	snd_soc_write(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT,
+		      (0x6c | (ins ? (1 << 1) : 0)));
+#else /* QCT original */
 	if (mbhc->mbhc_cfg->gpio_level_insert)
 		snd_soc_write(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT,
 			      (0x68 | (ins ? (1 << 1) : 0)));
 	else
 		snd_soc_write(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT,
 			      (0x6C | (ins ? (1 << 1) : 0)));
+#endif
 	/* Re-enable detection */
 	snd_soc_update_bits(mbhc->codec, WCD9XXX_A_MBHC_INSERT_DETECT, 1, 1);
 }
@@ -1060,8 +1066,10 @@ static short wcd9xxx_mbhc_setup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	 * Request BG and clock.
 	 * These will be released by wcd9xxx_cleanup_hs_polling
 	 */
+	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
 	wcd9xxx_resmgr_get_bandgap(mbhc->resmgr, WCD9XXX_BANDGAP_MBHC_MODE);
 	wcd9xxx_resmgr_get_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
+	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CLK_BUFF_EN1, 0x05, 0x01);
 
@@ -1108,7 +1116,9 @@ static void wcd9xxx_shutdown_hs_removal_detect(struct wcd9xxx_mbhc *mbhc)
 	    WCD9XXX_MBHC_CAL_GENERAL_PTR(mbhc->mbhc_cfg->calibration);
 
 	/* Need MBHC clock */
+	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
 	wcd9xxx_resmgr_get_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
+	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0x2, 0x2);
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_B1_CTL, 0x6, 0x0);
@@ -1119,8 +1129,10 @@ static void wcd9xxx_shutdown_hs_removal_detect(struct wcd9xxx_mbhc *mbhc)
 
 	snd_soc_update_bits(codec, WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xA, 0x8);
 
+	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
 	/* Put requested CLK back */
 	wcd9xxx_resmgr_put_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
+	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
 	snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0x00);
 }
@@ -1132,8 +1144,10 @@ static void wcd9xxx_cleanup_hs_polling(struct wcd9xxx_mbhc *mbhc)
 	wcd9xxx_shutdown_hs_removal_detect(mbhc);
 
 	/* Release clock and BG requested by wcd9xxx_mbhc_setup_hs_polling */
+	WCD9XXX_BG_CLK_LOCK(mbhc->resmgr);
 	wcd9xxx_resmgr_put_clk_block(mbhc->resmgr, WCD9XXX_CLK_RCO);
 	wcd9xxx_resmgr_put_bandgap(mbhc->resmgr, WCD9XXX_BANDGAP_MBHC_MODE);
+	WCD9XXX_BG_CLK_UNLOCK(mbhc->resmgr);
 
 	mbhc->polling_active = false;
 	mbhc->mbhc_state = MBHC_STATE_NONE;
@@ -2335,7 +2349,11 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 
 	mbhc->in_swch_irq_handler = true;
 	/* Wait here for debounce time */
+#ifdef CONFIG_MACH_LGE
+	usleep(mbhc->mbhc_cfg->debounce_time_us);
+#else
 	usleep_range(SWCH_IRQ_DEBOUNCE_TIME_US, SWCH_IRQ_DEBOUNCE_TIME_US);
+#endif
 
 	WCD9XXX_BCL_LOCK(mbhc->resmgr);
 
@@ -2422,8 +2440,14 @@ static irqreturn_t wcd9xxx_mech_plug_detect_irq(int irq, void *data)
 		r = IRQ_NONE;
 	} else {
 		/* Call handler */
+#ifdef CONFIG_MACH_LGE
+		disable_irq(mbhc->mbhc_cfg->gpio_irq);
+#endif
 		wcd9xxx_swch_irq_handler(mbhc);
 		wcd9xxx_unlock_sleep(mbhc->resmgr->core);
+#ifdef CONFIG_MACH_LGE
+		enable_irq(mbhc->mbhc_cfg->gpio_irq);
+#endif
 	}
 
 	pr_debug("%s: leave %d\n", __func__, r);
@@ -3715,7 +3739,12 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	wcd9xxx_init_debugfs(mbhc);
 
 	core = mbhc->resmgr->core;
-	ret = wcd9xxx_request_irq(core, WCD9XXX_IRQ_MBHC_INSERTION,
+
+#ifdef CONFIG_MACH_LGE
+if( !mbhc_enabled )
+	goto skip;
+#endif
+    ret = wcd9xxx_request_irq(core, WCD9XXX_IRQ_MBHC_INSERTION,
 				  wcd9xxx_hs_insert_irq,
 				  "Headset insert detect", mbhc);
 	if (ret) {
@@ -3751,7 +3780,6 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 			WCD9XXX_IRQ_MBHC_RELEASE);
 		goto err_release_irq;
 	}
-
 	ret = wcd9xxx_request_irq(core, WCD9XXX_IRQ_HPH_PA_OCPL_FAULT,
 				  wcd9xxx_hphl_ocp_irq, "HPH_L OCP detect",
 				  mbhc);
@@ -3771,7 +3799,9 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		goto err_hphr_ocp_irq;
 	}
 	wcd9xxx_disable_irq(codec->control_data, WCD9XXX_IRQ_HPH_PA_OCPR_FAULT);
-
+#ifdef CONFIG_MACH_LGE
+skip :
+#endif
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
 

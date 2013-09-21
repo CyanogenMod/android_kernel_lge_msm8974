@@ -33,7 +33,9 @@ struct led_classdev {
 	int			 brightness;
 	int			 max_brightness;
 	int			 flags;
-
+#ifdef CONFIG_MACH_LGE
+	int			 pattern_num;
+#endif
 	/* Lower 16 bits reflect status */
 #define LED_SUSPENDED		(1 << 0)
 	/* Upper 16 bits reflect control information */
@@ -81,6 +83,9 @@ extern int led_classdev_register(struct device *parent,
 extern void led_classdev_unregister(struct led_classdev *led_cdev);
 extern void led_classdev_suspend(struct led_classdev *led_cdev);
 extern void led_classdev_resume(struct led_classdev *led_cdev);
+#ifdef CONFIG_MACH_LGE
+extern int led_pattern_sysfs_register(void);
+#endif
 
 /**
  * led_blink_set - set blinking with software fallback

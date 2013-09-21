@@ -78,6 +78,17 @@ enum msm_sensor_clk_type_t {
 enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_RESET,
 	SENSOR_GPIO_STANDBY,
+/* LGE_CHANGE_S
+ * Camera bring-up : Add gpio to control LDO
+ * 2013-02-05, jinw.kim@lge.com
+ */
+	SENSOR_GPIO_VANA,
+	SENSOR_GPIO_VDIG,
+	SENSOR_GPIO_VIO,
+	SENSOR_GPIO_VCM,
+	SENSOR_GPIO_OIS_LDO_EN,
+	SENSOR_GPIO_OIS_RESET,
+/* LGE_CHANGE_E,  Camera bring-up : Add gpio to control LDO*/
 	SENSOR_GPIO_MAX,
 };
 
@@ -246,6 +257,30 @@ struct msm_sensor_info_t {
 	int32_t     subdev_id[SUB_MODULE_MAX];
 };
 
+/* LGE_CHANGE_S, OIS interface, 2013-05-29, kh.kang@lge.com */
+struct msm_sensor_ois_info_t{
+	char ois_provider[MAX_SENSOR_NAME];
+	int16_t gyro[2];
+	int16_t target[2];
+	int16_t hall[2];
+	uint8_t is_stable;
+};
+
+enum ois_mode_t {
+	OIS_MODE_PREVIEW_CAPTURE,
+	OIS_MODE_VIDEO,
+	OIS_MODE_CAPTURE,
+	OIS_MODE_CENTERING_ONLY,
+	OIS_MODE_CENTERING_OFF
+};
+
+enum ois_ver_t {
+	OIS_VER_RELEASE,
+	OIS_VER_CALIBRATION,
+	OIS_VER_DEBUG
+};
+
+/* LGE_CHANGE_E, OIS interface, 2013-05-29, kh.kang@lge.com */
 struct camera_vreg_t {
 	const char *reg_name;
 	enum camera_vreg_type type;
@@ -272,6 +307,7 @@ struct msm_sensor_init_params {
 	enum camb_position_t position;
 	/* sensor mount angle */
 	uint32_t            sensor_mount_angle;
+	int					ois_supported; /* LGE_CHANGE, OIS validity, 2013-06-26, kh.kang@lge.com */
 };
 
 struct sensorb_cfg_data {
@@ -279,6 +315,7 @@ struct sensorb_cfg_data {
 	union {
 		struct msm_sensor_info_t      sensor_info;
 		struct msm_sensor_init_params sensor_init_params;
+		struct msm_sensor_ois_info_t	ois_info;	/* LGE_CHANGE, OIS stats, 2013-04-09, sungmin.woo@lge.com */
 		void                         *setting;
 	} cfg;
 };
@@ -345,6 +382,11 @@ enum msm_sensor_cfg_type_t {
 	CFG_SET_RESOLUTION,
 	CFG_SET_STOP_STREAM,
 	CFG_SET_START_STREAM,
+	CFG_OIS_ON,					/* LGE_CHANGE, OIS, 2013-03-11, sungmin.woo@lge.com */
+	CFG_OIS_OFF,				/* LGE_CHANGE, OIS, 2013-03-11, sungmin.woo@lge.com */
+	CFG_GET_OIS_INFO,			/* LGE_CHANGE, OIS stats, 2013-04-09, sungmin.woo@lge.com */
+	CFG_SET_OIS_MODE,   		/* LGE_CHANGE, OIS interface, 2013-05-29, kh.kang@lge.com */
+	CFG_OIS_MOVE_LENS			/* LGE_CHANGE, OIS interface, 2013-06-20, kh.kang@lge.com */
 };
 
 enum msm_actuator_cfg_type_t {
@@ -478,6 +520,7 @@ enum msm_camera_led_config_t {
 	MSM_CAMERA_LED_HIGH,
 	MSM_CAMERA_LED_INIT,
 	MSM_CAMERA_LED_RELEASE,
+	MSM_CAMERA_LED_LOW_MIN_CURRENT,/* LGE_CHANGE, To set lowest flash current for DCM, 2013-07-08, jinw.kim@lge.com */
 };
 
 struct msm_camera_led_cfg_t {

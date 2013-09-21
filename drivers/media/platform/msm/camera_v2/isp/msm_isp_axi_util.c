@@ -355,11 +355,14 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	struct msm_isp_event_data sof_event;
 	switch (frame_src) {
 	case VFE_PIX_0:
-		ISP_DBG("%s: PIX0 frame id: %lu\n", __func__,
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id++;
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id == 0)
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 1;
+
+		if(vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id < 10)
+		pr_err("%s: PIX0 frame id: %lu\n", __func__,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 		break;
 	case VFE_RAW_0:
 	case VFE_RAW_1:
@@ -522,9 +525,9 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	if (stream_info->num_planes > 1) {
-		msm_isp_axi_free_comp_mask(&vfe_dev->axi_data, stream_info);
 		vfe_dev->hw_info->vfe_ops.axi_ops.
-		clear_comp_mask(vfe_dev, stream_info);
+			clear_comp_mask(vfe_dev, stream_info);
+		msm_isp_axi_free_comp_mask(&vfe_dev->axi_data, stream_info);
 	} else {
 		vfe_dev->hw_info->vfe_ops.axi_ops.
 		clear_wm_irq_mask(vfe_dev, stream_info);
@@ -955,6 +958,11 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
 	if (camif_update == ENABLE_CAMIF)
+/* LGE_CHANGE_S, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[Start] */
+#ifdef CONFIG_USE_DUAL_ISP
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 0;		
+#endif
+/* LGE_CHANGE_E, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[End] */
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, camif_update);
 

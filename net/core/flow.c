@@ -423,7 +423,7 @@ static int __init flow_cache_init(struct flow_cache *fc)
 	if (!fc->percpu)
 		return -ENOMEM;
 
-	for_each_online_cpu(i) {
+	for_each_possible_cpu(i) {
 		if (flow_cache_cpu_prepare(fc, i))
 			goto err;
 	}

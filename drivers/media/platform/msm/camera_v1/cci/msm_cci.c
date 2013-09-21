@@ -27,7 +27,10 @@
 #define CCI_I2C_QUEUE_0_SIZE 64
 #define CCI_I2C_QUEUE_1_SIZE 16
 
-#define CCI_TIMEOUT msecs_to_jiffies(100)
+/* soojung.lim@lge.com, 2012-12-22
+ * G2  Sub Camera Bring up(IMX132)
+ */
+#define CCI_TIMEOUT msecs_to_jiffies(1000)
 
 static void msm_cci_set_clk_param(struct cci_device *cci_dev)
 {
@@ -385,9 +388,8 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 		master * 0x200 + queue * 0x100);
 
 	val = 1 << ((master * 2) + queue);
-	CDBG("%s:%d CCI_QUEUE_START_ADDR\n", __func__, __LINE__);
-	msm_camera_io_w(val, cci_dev->base + CCI_QUEUE_START_ADDR +
-		master*0x200 + queue * 0x100);
+	CDBG("%s:%d CCI_QUEUE_START_ADDR <-- 0x%x\n", __func__, __LINE__, val);
+	msm_camera_io_w(val, cci_dev->base + CCI_QUEUE_START_ADDR);
 
 	CDBG("%s line %d wait_for_completion_interruptible\n",
 		__func__, __LINE__);
@@ -436,10 +438,14 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd)
 	cci_dev->hw_version = msm_camera_io_r(cci_dev->base +
 		CCI_HW_VERSION_ADDR);
 	cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
+	cci_dev->cci_master_info[MASTER_1].reset_pending = TRUE;
 	msm_camera_io_w(0xFFFFFFFF, cci_dev->base + CCI_RESET_CMD_ADDR);
 	msm_camera_io_w(0x1, cci_dev->base + CCI_RESET_CMD_ADDR);
 	wait_for_completion_interruptible_timeout(
 		&cci_dev->cci_master_info[MASTER_0].reset_complete,
+		CCI_TIMEOUT);
+	wait_for_completion_interruptible_timeout(
+		&cci_dev->cci_master_info[MASTER_1].reset_complete,
 		CCI_TIMEOUT);
 	msm_cci_set_clk_param(cci_dev);
 	msm_camera_io_w(0xFFFFFFFF, cci_dev->base + CCI_IRQ_MASK_0_ADDR);
@@ -511,7 +517,7 @@ static irqreturn_t msm_cci_irq(int irq_num, void *data)
 	msm_camera_io_w(irq, cci_dev->base + CCI_IRQ_CLEAR_0_ADDR);
 	msm_camera_io_w(0x1, cci_dev->base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 	msm_camera_io_w(0x0, cci_dev->base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
-	CDBG("%s CCI_I2C_M0_STATUS_ADDR = 0x%x\n", __func__, irq);
+	CDBG("%s CCI_IRQ_STATUS_0 = 0x%x\n", __func__, irq);
 	if (irq & CCI_IRQ_STATUS_0_RST_DONE_ACK_BMSK) {
 		if (cci_dev->cci_master_info[MASTER_0].reset_pending == TRUE) {
 			cci_dev->cci_master_info[MASTER_0].reset_pending =

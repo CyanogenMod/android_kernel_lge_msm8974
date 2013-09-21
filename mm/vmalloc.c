@@ -1490,6 +1490,9 @@ static void __vunmap(const void *addr, int deallocate_pages)
 			struct page *page = area->pages[i];
 
 			BUG_ON(!page);
+#ifdef CONFIG_LGE_MEMORY_INFO
+			__dec_zone_page_state(page, NR_VMALLOC_PAGES);
+#endif
 			__free_page(page);
 		}
 
@@ -1620,6 +1623,9 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 			goto fail;
 		}
 		area->pages[i] = page;
+#ifdef CONFIG_LGE_MEMORY_INFO
+		__inc_zone_page_state(page, NR_VMALLOC_PAGES);
+#endif
 	}
 
 	if (map_vm_area(area, prot, &pages))

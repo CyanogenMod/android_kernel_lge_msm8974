@@ -300,6 +300,11 @@ config LEDS_QPNP
 	  To compile this driver as a module, choose M here: the module will
 	  be called leds-qpnp.
 
+config LEDS_PM8941_EMOTIONAL
+	tristate "Support for EMOTIONAL LEDs using pm8941"
+	help
+	  This enables support for emotional LED using pm8941..
+
 config LEDS_WM831X_STATUS
 	tristate "LED support for status LEDs on WM831x PMICs"
 	depends on LEDS_CLASS

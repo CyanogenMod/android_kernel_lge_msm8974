@@ -16,6 +16,40 @@
 #define PLATFORM_DRIVER_NAME "msm_camera_imx135"
 #define imx135_obj imx135_##obj
 
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Main Camera Bring up(IMX135)
+ * Add function imx135_sensor_power_up&down
+ */
+#if defined(CONFIG_MACH_LGE)
+extern int32_t msm_sensor_enable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
+extern int32_t msm_sensor_disable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf);
+static struct camera_vreg_t imx135_vreg_vio = {
+	.reg_name = "cam_vio",
+	.type = REG_VS,
+	.min_voltage = 1800000,
+	.max_voltage = 1800000,
+	.op_mode = 0,
+	.delay = 0,
+};
+static struct regulator *p_vio;
+#endif
+
+/* jinw.kim@lge.com, 2013-01-12
+ * G2 Main Camera Bring up(IMX135)
+ * For LGU/AT&T Rev. A
+ */
+#if defined(CONFIG_MACH_MSM8974_G2_LGU) || defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_VU3_LGU) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)
+#define MAIN_ANA_EN 16
+#endif
+
+/* jinw.kim@lge.com, 2013-01-12
+ * G2 Main Camera Bring up(IMX135)
+ * For AT&T Rev. A
+ */
+#if defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)
+#define MAIN_IO_EN 22
+#endif
+
 DEFINE_MUTEX(imx135_mut);
 static struct msm_sensor_ctrl_t imx135_s_ctrl;
 
@@ -36,10 +70,224 @@ static struct msm_camera_i2c_reg_conf imx135_groupoff_settings[] = {
 };
 
 static struct msm_camera_i2c_reg_conf imx135_recommend_settings[] = {
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ * Sony's recommend CLK : 6MHz, 12MHz, 13.5MHz, 18MHz, 24MHz, 27MHz
+ */
+#if 1 // 19.2MHz
+/* Recommended global settings */
 /* Global Settings */
-	{0x0101, 0x00},
+	{0x0101, 0x03},
 	{0x0105, 0x01},
 	{0x0110, 0x00},
+	{0x0220, 0x01},
+	{0x3302, 0x11},
+	{0x3833, 0x20},
+	{0x3893, 0x00},
+	{0x3906, 0x08},
+	{0x3907, 0x01},
+	{0x391B, 0x01},
+	{0x3C09, 0x01},
+	{0x600A, 0x00},
+	{0x3008, 0xB0},
+	{0x320A, 0x01},
+	{0x320D, 0x10},
+	{0x3216, 0x2E},
+	{0x322C, 0x02},
+	{0x3409, 0x0C},
+	{0x340C, 0x2D},
+	{0x3411, 0x39},
+	{0x3414, 0x1E},
+	{0x3427, 0x04},
+	{0x3480, 0x1E},
+	{0x3484, 0x1E},
+	{0x3488, 0x1E},
+	{0x348C, 0x1E},
+	{0x3490, 0x1E},
+	{0x3494, 0x1E},
+	{0x348C, 0x1E},
+	{0x3490, 0x1E},
+	{0x3494, 0x1E},
+	{0x3511, 0x8F},
+	{0x364F, 0x2D},
+/* Defect Correction Recommended Setting */
+	{0x380A, 0x00},
+	{0x380B, 0x00},
+	{0x4100, 0xF8},
+	{0x4103, 0x00},
+/* Color Artifact Recommended Setting */
+	{0x4243, 0x9A},
+	{0x4330, 0x01},
+	{0x4331, 0x90},
+	{0x4332, 0x02},
+	{0x4333, 0x58},
+	{0x4334, 0x03},
+	{0x4335, 0x20},
+	{0x4336, 0x03},
+	{0x4337, 0x84},
+	{0x433C, 0x01},
+	{0x4340, 0x02},
+	{0x4341, 0x58},
+	{0x4342, 0x03},
+	{0x4343, 0x52},
+	{0x4344, 0x00},
+	{0x4364, 0x0B},
+	{0x4368, 0x00},
+	{0x4369, 0x0F},
+	{0x436A, 0x03},
+	{0x436B, 0xA8},
+	{0x436C, 0x00},
+	{0x436D, 0x64},
+	{0x436E, 0x00},
+	{0x436F, 0xC8},
+/* RGB Filter Recommended Setting */
+	{0x4281, 0x21},
+	{0x4282, 0x18},
+	{0x4283, 0x04},
+	{0x4284, 0x05},
+	{0x4287, 0x1E},
+	{0x4288, 0x05},
+	{0x428B, 0x1E},
+	{0x428C, 0x05},
+	{0x428F, 0x14},
+	{0x4297, 0x00},
+	{0x4298, 0x1D},
+	{0x4299, 0x1D},
+	{0x429A, 0x13},
+	{0x42A4, 0x12},
+	{0x42A5, 0x44},
+	{0x42A6, 0x91},
+	{0x42A7, 0x24},
+	{0x42AF, 0x02},
+/* DLC/ADP Recommended Setting */
+	{0x4207, 0x03},
+	{0x4216, 0x08},
+	{0x4217, 0x08},
+	{0x4218, 0x00},
+	{0x421B, 0x20},
+	{0x421F, 0x04},
+	{0x4222, 0x02},
+	{0x4223, 0x22},
+	{0x422E, 0x54},
+	{0x422F, 0xFB},
+	{0x4230, 0xFF},
+	{0x4231, 0xFE},
+	{0x4232, 0xFF},
+	{0x4235, 0x58},
+	{0x4236, 0xF7},
+	{0x4237, 0xFD},
+	{0x4239, 0x4E},
+	{0x423A, 0xFC},
+	{0x423B, 0xFD},
+/* HDR Setting */
+	{0x4300, 0x00},
+	{0x4316, 0x12},
+	{0x4317, 0x22},
+	{0x4318, 0x00},
+	{0x4319, 0x00},
+	{0x431A, 0x00},
+	{0x4324, 0x03},
+	{0x4325, 0x20},
+	{0x4326, 0x03},
+	{0x4327, 0x84},
+	{0x4328, 0x03},
+	{0x4329, 0x20},
+	{0x432A, 0x03},
+	{0x432B, 0x20},
+	{0x432C, 0x01},
+	{0x432D, 0x01},
+	{0x4338, 0x02},
+	{0x4339, 0x00},
+	{0x433A, 0x00},
+	{0x433B, 0x02},
+	{0x435A, 0x03},
+	{0x435B, 0x84},
+	{0x435E, 0x01},
+	{0x435F, 0xFF},
+	{0x4360, 0x01},
+	{0x4361, 0xF4},
+	{0x4362, 0x03},
+	{0x4363, 0x84},
+	{0x437B, 0x01},
+	{0x4401, 0x3F},
+	{0x4402, 0xFF},
+	{0x4404, 0x13},
+	{0x4405, 0x26},
+	{0x4406, 0x07},
+	{0x4408, 0x20},
+	{0x4409, 0xE5},
+	{0x440A, 0xFB},
+	{0x440C, 0xF6},
+	{0x440D, 0xEA},
+	{0x440E, 0x20},
+	{0x4410, 0x00},
+	{0x4411, 0x00},
+	{0x4412, 0x3F},
+	{0x4413, 0xFF},
+	{0x4414, 0x1F},
+	{0x4415, 0xFF},
+	{0x4416, 0x20},
+	{0x4417, 0x00},
+	{0x4418, 0x1F},
+	{0x4419, 0xFF},
+	{0x441A, 0x20},
+	{0x441B, 0x00},
+	{0x441C, 0x02},
+	{0x441D, 0x40},
+	{0x441E, 0x1D},
+	{0x441F, 0xF8},
+	{0x4420, 0x01},
+	{0x4444, 0x00},
+	{0x4445, 0x00},
+	{0x4446, 0x1D},
+	{0x4447, 0xF8},
+	{0x4452, 0x00},
+	{0x4453, 0xA0},
+	{0x4454, 0x08},
+	{0x4455, 0x00},
+	{0x4456, 0x0F},
+	{0x4457, 0xFF},
+	{0x4458, 0x18},
+	{0x4459, 0x18},
+	{0x445A, 0x3F},
+	{0x445B, 0x3A},
+	{0x445C, 0x00},
+	{0x445D, 0x28},
+	{0x445E, 0x01},
+	{0x445F, 0x90},
+	{0x4460, 0x00},
+	{0x4461, 0x60},
+	{0x4462, 0x00},
+	{0x4463, 0x00},
+	{0x4464, 0x00},
+	{0x4465, 0x00},
+	{0x446E, 0x01},
+	{0x446C, 0x00},
+	{0x446D, 0x00},
+	{0x446E, 0x00},
+/* LSC Setting */
+	{0x452A, 0x02},
+/* White Balance Setting */
+	{0x0712, 0x01},
+	{0x0713, 0x00},
+	{0x0714, 0x01},
+	{0x0715, 0x00},
+	{0x0716, 0x01},
+	{0x0717, 0x00},
+	{0x0718, 0x01},
+	{0x0719, 0x00},
+/* Shading setting */
+	{0x0700, 0x00},
+	{0x3A63, 0x00},
+//	{0x4500, 0x1F}
+
+	{0x4500, 0x1F},
+/* Hard-code gain and linecount setting */
+	{0x0202, 0x0A},
+	{0x0203, 0x74},
+	{0x0205, 0xCC},
+#else // QCT original
+/* Recommended global settings */
 	{0x0220, 0x01},
 	{0x3302, 0x11},
 	{0x3833, 0x20},
@@ -86,7 +334,7 @@ static struct msm_camera_i2c_reg_conf imx135_recommend_settings[] = {
 	{0x4341, 0x58},
 	{0x4342, 0x03},
 	{0x4343, 0x52},
-	/*Moiré reduction Parameter Setting	*/
+	/*Moir? reduction Parameter Setting	*/
 	{0x4364, 0x0B},
 	{0x4368, 0x00},
 	{0x4369, 0x0F},
@@ -233,9 +481,131 @@ static struct msm_camera_i2c_reg_conf imx135_recommend_settings[] = {
 	{0x0719, 0x00},
 	/*Shading setting*/
 	{0x4500, 0x1F},
+#endif
 };
 
 static struct msm_camera_i2c_reg_conf imx135_prev_settings[] = {
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ */
+#if 1
+/* Clock Setting */
+	{0x011E, 0x12},
+	{0x011F, 0x00},
+	{0x0301, 0x05},
+	{0x0303, 0x01},
+	{0x0305, 0x0A}, /* pll div */
+	{0x0309, 0x05},
+	{0x030B, 0x02},
+	{0x030C, 0x01}, /* pll mpy msb */
+	{0x030D, 0x77}, /* pll mpy lsb */
+	{0x030E, 0x01},
+	{0x3A06, 0x12},
+/* Mode setting */
+	{0x0108, 0x03},
+	{0x0109, 0x30},
+	{0x010B, 0x32},
+	{0x0112, 0x0A},
+	{0x0113, 0x0A},
+	{0x0381, 0x01},
+	{0x0383, 0x01},
+	{0x0385, 0x01},
+	{0x0387, 0x01},
+	{0x0390, 0x01}, /* binning_en = 1 */
+	{0x0391, 0x22}, /* binning_type */
+	{0x0392, 0x00}, /* binning_mode = 0 (average) */
+	{0x0401, 0x00},
+	{0x0404, 0x00},
+	{0x0405, 0x10},
+	{0x4082, 0x01},
+	{0x4083, 0x01},
+	{0x4203, 0xFF},
+	{0x7006, 0x04},
+/* Size setting*/
+	{0x0340, 0x06},
+	{0x0341, 0x2E},
+	{0x0342, 0x11},
+	{0x0343, 0xDC},
+	{0x0344, 0x00},
+	{0x0345, 0x00},
+	{0x0346, 0x00},
+	{0x0347, 0x00},
+	{0x0348, 0x10},
+	{0x0349, 0x6F},
+	{0x034A, 0x0C},
+	{0x034B, 0x2F},
+	{0x034C, 0x08},
+	{0x034D, 0x38},
+	{0x034E, 0x06},
+	{0x034F, 0x18},
+	{0x034F, 0x18},
+	{0x0350, 0x00},
+	{0x0351, 0x00},
+	{0x0352, 0x00},
+	{0x0353, 0x00},
+	{0x0354, 0x08},
+	{0x0355, 0x38},
+	{0x0356, 0x06},
+	{0x0357, 0x18},
+	{0x301D, 0x30},
+	{0x3310, 0x08},
+	{0x3311, 0x38},
+	{0x3312, 0x06},
+	{0x3313, 0x18},
+	{0x331C, 0x00},
+	{0x331D, 0x52},
+	{0x4084, 0x00},
+	{0x4085, 0x00},
+	{0x4086, 0x00},
+	{0x4087, 0x00},
+	{0x4400, 0x00},
+/* Global Timing Setting */
+	{0x0830, 0x67},
+	{0x0831, 0x27},
+	{0x0832, 0x47},
+	{0x0833, 0x27},
+	{0x0834, 0x27},
+	{0x0835, 0x1F},
+	{0x0836, 0x87},
+	{0x0837, 0x2F},
+	{0x0839, 0x1F},
+	{0x083A, 0x17},
+	{0x083B, 0x02},
+/* Integration Time Setting */
+	{0x0202, 0x06},
+	{0x0203, 0x2A},
+/* Gain Setting */
+	{0x0205, 0x00},
+	{0x020E, 0x01},
+	{0x020F, 0x00},
+	{0x0210, 0x01},
+	{0x0211, 0x00},
+	{0x0212, 0x01},
+	{0x0213, 0x00},
+	{0x0214, 0x01},
+	{0x0215, 0x00},
+/* HDR Setting */
+	{0x0230, 0x00},
+	{0x0231, 0x00},
+	{0x0233, 0x00},
+	{0x0234, 0x00},
+	{0x0235, 0x40},
+	{0x0238, 0x00},
+	{0x0239, 0x04},
+	{0x023B, 0x00},
+	{0x023C, 0x01},
+	{0x33B0, 0x04},
+	{0x33B1, 0x00},
+	{0x33B3, 0x00},
+	{0x33B4, 0x01},
+//	{0x3800, 0x00}
+
+	{0x3800, 0x00},
+/* Hard-code gain and linecount setting */
+	{0x0202, 0x0A},
+	{0x0203, 0x74},
+	{0x0205, 0xCC},
+#else // QCT original
 	/* Clock Setting */
 	{0x011E, 0x18},
 	{0x011F, 0x00},
@@ -349,6 +719,7 @@ static struct msm_camera_i2c_reg_conf imx135_prev_settings[] = {
 	{0x33B3, 0x00},
 	{0x33B4, 0x00},
 	{0x3800, 0x00},
+#endif
 };
 
 static struct msm_camera_i2c_reg_conf imx135_LSCTable_settings[] = {
@@ -860,6 +1231,119 @@ static struct msm_camera_i2c_reg_conf imx135_LSCTable_settings[] = {
 };
 
 static struct msm_camera_i2c_reg_conf imx135_snap_settings[] = {
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ */
+#if 1 // 19.2MHz
+/* Clock Setting */
+	{0x011E, 0x12},
+	{0x011F, 0x00},
+	{0x0301, 0x05},
+	{0x0303, 0x01},
+	{0x0305, 0x0A},	/* pll div */
+	{0x0309, 0x05},
+	{0x030B, 0x01},
+	{0x030C, 0x01}, /* pll mpy msb */
+	{0x030D, 0x4D}, /* pll mpy lsb */
+	{0x030E, 0x01},
+	{0x3A06, 0x11},
+/* Mode setting */
+	{0x0108, 0x03},
+	{0x0112, 0x0A},
+	{0x0113, 0x0A},
+	{0x0381, 0x01},
+	{0x0383, 0x01},
+	{0x0385, 0x01},
+	{0x0387, 0x01},
+	{0x0390, 0x00},
+	{0x0391, 0x11},
+	{0x0392, 0x00},
+	{0x0401, 0x00},
+	{0x0404, 0x00},
+	{0x0405, 0x10},
+	{0x4082, 0x01},
+	{0x4083, 0x01},
+	{0x4083, 0x01},
+	{0x4203, 0xFF},
+	{0x7006, 0x04},
+/* Size setting */
+	{0x0340, 0x0C},
+	{0x0341, 0xDA},
+	{0x0342, 0x11},
+	{0x0343, 0xDC},
+	{0x0344, 0x00},
+	{0x0345, 0x00},
+	{0x0346, 0x00},
+	{0x0347, 0x00},
+	{0x0348, 0x10},
+	{0x0349, 0x6F},
+	{0x034A, 0x0C},
+	{0x034B, 0x2F},
+	{0x034C, 0x10},
+	{0x034D, 0x70},
+	{0x034E, 0x0C},
+	{0x034F, 0x30},
+	{0x0350, 0x00},
+	{0x0351, 0x00},
+	{0x0352, 0x00},
+	{0x0353, 0x00},
+	{0x0354, 0x10},
+	{0x0355, 0x70},
+	{0x0356, 0x0C},
+	{0x0357, 0x30},
+	{0x301D, 0x30},
+	{0x3310, 0x10},
+	{0x3311, 0x70},
+	{0x3312, 0x0C},
+	{0x3313, 0x30},
+	{0x331C, 0x00},
+	{0x331D, 0x10},
+	{0x4084, 0x00},
+	{0x4085, 0x00},
+	{0x4086, 0x00},
+	{0x4087, 0x00},
+	{0x4400, 0x00},
+/* Global Timing Setting */
+	{0x0830, 0x87},
+	{0x0831, 0x3F},
+	{0x0832, 0x67},
+	{0x0833, 0x3F},
+	{0x0834, 0x3F},
+	{0x0835, 0x4F},
+	{0x0836, 0xDF},
+	{0x0837, 0x47},
+	{0x0839, 0x1F},
+	{0x083A, 0x17},
+	{0x083B, 0x02},
+/* Integration Time Setting */
+	{0x0202, 0x0C},
+	{0x0203, 0xD6},
+/* Gain Setting */
+	{0x0205, 0x00},
+	{0x020E, 0x01},
+	{0x020F, 0x00},
+	{0x0210, 0x01},
+	{0x0211, 0x00},
+	{0x0212, 0x01},
+	{0x0213, 0x00},
+	{0x0214, 0x01},
+	{0x0215, 0x00},
+/* HDR Setting */
+	{0x0230, 0x00},
+	{0x0231, 0x00},
+	{0x0233, 0x00},
+	{0x0234, 0x00},
+	{0x0235, 0x40},
+	{0x0238, 0x00},
+	{0x0239, 0x04},
+	{0x023B, 0x00},
+	{0x023C, 0x01},
+	{0x33B0, 0x04},
+	{0x33B1, 0x00},
+	{0x33B3, 0x00},
+	{0x33B4, 0x01},
+	{0x3800, 0x00}
+#else // QCT original
 	/* Clock Setting	*/
 	{0x011E, 0x18},
 	{0x011F, 0x00},
@@ -973,9 +1457,125 @@ static struct msm_camera_i2c_reg_conf imx135_snap_settings[] = {
 	{0x33B3, 0x00},
 	{0x33B4, 0x00},
 	{0x3800, 0x00},
+#endif
 };
 
 static struct msm_camera_i2c_reg_conf imx135_hdr_settings[] = {
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ */
+#if 1 // 19.2MHz
+/* Clock Setting */
+	{0x011E, 0x12},
+	{0x011F, 0x00},
+	{0x0301, 0x05},
+	{0x0303, 0x01},
+	{0x0305, 0x0A},	/* pll div */
+	{0x0309, 0x05},
+	{0x030B, 0x02},
+	{0x030C, 0x01},	/* pll mpy msb */
+	{0x030D, 0x77},	/* pll mpy lsb */
+	{0x030E, 0x01},
+	{0x3A06, 0x12},
+/* Mode setting */
+	{0x0101, 0x03},
+	{0x0105, 0x00},
+	{0x0108, 0x03},
+	{0x0112, 0x0E},
+	{0x0113, 0x0A},
+	{0x0381, 0x01},
+	{0x0383, 0x01},
+	{0x0385, 0x01},
+	{0x0387, 0x01},
+	{0x0390, 0x00},
+	{0x0391, 0x11},
+	{0x0392, 0x00},
+	{0x0401, 0x00},
+	{0x0404, 0x00},
+	{0x0405, 0x10},
+	{0x4082, 0x01},
+	{0x4083, 0x01},
+	{0x4203, 0xFF},
+	{0x7006, 0x04},
+/* Size setting */
+	{0x0340, 0x0C},
+	{0x0341, 0xDA},
+	{0x0342, 0x11},
+	{0x0343, 0xDC},
+	{0x0344, 0x00},
+	{0x0345, 0x08},
+	{0x0346, 0x00},
+	{0x0347, 0x00},
+	{0x0348, 0x10},
+	{0x0349, 0x67},
+	{0x034A, 0x0C},
+	{0x034B, 0x2F},
+	{0x034C, 0x08},
+	{0x034D, 0x30},
+	{0x034E, 0x06},
+	{0x034F, 0x18},
+	{0x0350, 0x00},
+	{0x0351, 0x00},
+	{0x0352, 0x00},
+	{0x0353, 0x00},
+	{0x0354, 0x08},
+	{0x0355, 0x30},
+	{0x0356, 0x06},
+	{0x0357, 0x18},
+	{0x301D, 0x30},
+	{0x3310, 0x08},
+	{0x3311, 0x30},
+	{0x3312, 0x06},
+	{0x3313, 0x18},
+	{0x331C, 0x00},
+	{0x331D, 0x10},
+	{0x4084, 0x00},
+	{0x4085, 0x00},
+	{0x4086, 0x00},
+	{0x4087, 0x00},
+	{0x4400, 0x00},
+/* Global Timing Setting */
+	{0x0830, 0x67},
+	{0x0831, 0x27},
+	{0x0832, 0x47},
+	{0x0833, 0x27},
+	{0x0834, 0x27},
+	{0x0835, 0x1F},
+	{0x0836, 0x87},
+	{0x0837, 0x2F},
+	{0x0839, 0x1F},
+	{0x083A, 0x17},
+	{0x083B, 0x02},
+/* Integration Time Setting */
+	{0x0250, 0x0B},
+	{0x0202, 0x0C},
+	{0x0203, 0xD6},
+/* Gain Setting */
+	{0x0205, 0x00},
+	{0x020E, 0x01},
+	{0x020F, 0x00},
+	{0x0210, 0x01},
+	{0x0211, 0x00},
+	{0x0212, 0x01},
+	{0x0213, 0x00},
+	{0x0214, 0x01},
+	{0x0215, 0x00},
+/* HDR Setting */
+	{0x0230, 0x00},
+	{0x0231, 0x00},
+	{0x0233, 0x00},
+	{0x0234, 0x00},
+	{0x0235, 0x40},
+	{0x0238, 0x00},
+	{0x0239, 0x04},
+	{0x023B, 0x03},
+	{0x023C, 0x01},
+	{0x33B0, 0x08},
+	{0x33B1, 0x30},
+	{0x33B3, 0x01},
+	{0x33B4, 0x01},
+	{0x3800, 0x00}
+#else // QCT original
 	/* Clock Setting */
 	{0x011E, 0x18},
 	{0x011F, 0x00},
@@ -1089,6 +1689,7 @@ static struct msm_camera_i2c_reg_conf imx135_hdr_settings[] = {
 	{0x33B3, 0x01},
 	{0x33B4, 0x00},
 	{0x3800, 0x00},
+#endif
 };
 
 static struct v4l2_subdev_info imx135_subdev_info[] = {
@@ -1118,6 +1719,10 @@ static struct msm_camera_i2c_conf_array imx135_confs[] = {
 };
 
 static struct msm_sensor_output_info_t imx135_dimensions[] = {
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ */
+#if 1
 	/* RES0 snapshot(FULL SIZE) */
 	{
 		.x_output = 4208,
@@ -1148,6 +1753,38 @@ static struct msm_sensor_output_info_t imx135_dimensions[] = {
 		.op_pixel_clk = 180000000,
 		.binning_factor = 1,
 	},
+#else //QCT original
+	/* RES0 snapshot(FULL SIZE) */
+	{
+		.x_output = 4208,
+		.y_output = 3120,
+		.line_length_pclk = 4572,
+		.frame_length_lines = 3290,
+		.vt_pixel_clk = 360000000,
+		.op_pixel_clk = 319680000,
+		.binning_factor = 1,
+	},
+	/* RES1 4:3 preview(1/2HV QTR SIZE) */
+	{
+		.x_output = 2104,
+		.y_output = 1560,
+		.line_length_pclk = 4572,
+		.frame_length_lines = 1582,
+		.vt_pixel_clk = 360000000,
+		.op_pixel_clk = 180000000,
+		.binning_factor = 1,
+	},
+	/* RES2 4:3 HDR movie mode */
+	{
+		.x_output = 2096,
+		.y_output = 1560,
+		.line_length_pclk = 4572,
+		.frame_length_lines = 3290,
+		.vt_pixel_clk = 360000000,
+		.op_pixel_clk = 180000000,
+		.binning_factor = 1,
+	},
+#endif
 };
 
 static struct msm_sensor_output_reg_addr_t imx135_reg_addr = {
@@ -1159,7 +1796,14 @@ static struct msm_sensor_output_reg_addr_t imx135_reg_addr = {
 
 static struct msm_sensor_id_info_t imx135_id_info = {
 	.sensor_id_reg_addr = 0x0000,
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ */
+#if 1
+	.sensor_id = 0x0000,
+#else //QCT original
 	.sensor_id = 0x1210,
+#endif
 };
 
 static struct msm_sensor_exp_gain_info_t imx135_exp_gain_info = {
@@ -1185,10 +1829,62 @@ static struct msm_camera_i2c_client imx135_sensor_i2c_client = {
 	.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
 };
 
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ */
+#ifdef CONFIG_MACH_LGE
+static const struct of_device_id imx135_dt_match[] = {
+	{.compatible = "qcom,imx135", .data = &imx135_s_ctrl},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, imx135_dt_match);
+
+static struct platform_driver imx135_platform_driver = {
+	.driver = {
+		.name = "qcom,imx135",
+		.owner = THIS_MODULE,
+		.of_match_table = imx135_dt_match,
+	},
+};
+
+static int32_t imx135_platform_probe(struct platform_device *pdev)
+{
+	int32_t rc = 0;
+	const struct of_device_id *match;
+	match = of_match_device(imx135_dt_match, &pdev->dev);
+	rc = msm_sensor_platform_probe(pdev, match->data);
+	return rc;
+}
+#endif /* CONFIG_MACH_LGE */
 static int __init msm_sensor_init_module(void)
 {
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ */
+#ifdef CONFIG_MACH_LGE
+	int32_t rc = 0;
+	rc = platform_driver_probe(&imx135_platform_driver,
+		imx135_platform_probe);
+	if (!rc)
+		return rc;
+#endif
 	return i2c_add_driver(&imx135_i2c_driver);
 }
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ */
+#ifdef CONFIG_MACH_LGE
+static void __exit msm_sensor_exit_module(void)
+{
+	if (imx135_s_ctrl.pdev) {
+		msm_sensor_free_sensor_data(&imx135_s_ctrl);
+		platform_driver_unregister(&imx135_platform_driver);
+	} else
+		i2c_del_driver(&imx135_i2c_driver);
+	return;
+}
+#endif
 
 static struct v4l2_subdev_core_ops imx135_subdev_core_ops = {
 	.ioctl = msm_sensor_subdev_ioctl,
@@ -1204,6 +1900,296 @@ static struct v4l2_subdev_ops imx135_subdev_ops = {
 	.video  = &imx135_subdev_video_ops,
 };
 
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Main Camera Bring up(IMX135)
+ * Add function imx135_sensor_power_up&down
+ */
+#if defined(CONFIG_MACH_LGE)
+static struct msm_cam_clk_info cam_8960_clk_info[] = {
+	{"cam_clk", MSM_SENSOR_MCLK_24HZ},
+};
+
+static struct msm_cam_clk_info cam_8974_clk_info[] = {
+	{"cam_src_clk", 19200000},
+	{"cam_clk", -1},
+};
+
+int32_t imx135_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	int32_t rc = 0;
+	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
+	struct device *dev = NULL;
+
+	pr_err("%s: E: %s\n", __func__, data->sensor_name);
+	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE)
+		dev = &s_ctrl->pdev->dev;
+	else
+		dev = &s_ctrl->sensor_i2c_client->client->dev;
+	s_ctrl->reg_ptr = kzalloc(sizeof(struct regulator *)
+			* data->sensor_platform_info->num_vreg, GFP_KERNEL);
+	if (!s_ctrl->reg_ptr) {
+		pr_err("%s: could not allocate mem for regulators\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	rc = msm_camera_request_gpio_table(data, 1);
+	if (rc < 0) {
+		pr_err("%s: request gpio failed\n", __func__);
+		goto request_gpio_failed;
+	}
+
+	rc = msm_camera_config_vreg(dev,
+		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
+		s_ctrl->sensordata->sensor_platform_info->num_vreg,
+		s_ctrl->vreg_seq,
+		s_ctrl->num_vreg_seq,
+		s_ctrl->reg_ptr, 1);
+	if (rc < 0) {
+		pr_err("%s: regulator on failed\n", __func__);
+		goto config_vreg_failed;
+	}
+
+	rc = msm_camera_enable_vreg(dev,
+		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
+		s_ctrl->sensordata->sensor_platform_info->num_vreg,
+		s_ctrl->vreg_seq,
+		s_ctrl->num_vreg_seq,
+		s_ctrl->reg_ptr, 1);
+	if (rc < 0) {
+		pr_err("%s: enable regulator failed\n", __func__);
+		goto enable_vreg_failed;
+	}
+
+/* jinw.kim@lge.com, 2013-01-12
+ * G2 Main Camera Bring up(IMX135)
+ * For LGU/AT&T Rev. A
+ */
+#if defined(CONFIG_MACH_MSM8974_G2_LGU) || defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_VU3_LGU) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)
+	CDBG("%s: Turning on VANA\n", __func__);
+	rc = gpio_request(MAIN_ANA_EN, "MAIN_ANA_EN");
+	if (rc) {
+		pr_err("%s : enable vana is failed.\n", __func__);
+		gpio_free(MAIN_ANA_EN);
+		goto enable_vreg_failed;
+	}
+	gpio_direction_output(MAIN_ANA_EN, 1);
+#endif
+
+/* jinw.kim@lge.com, 2013-01-12
+ * G2 Main Camera Bring up(IMX135)
+ * For AT&T Rev. A
+ */
+#if defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)
+	CDBG("%s: Turning on VIO\n", __func__);
+	rc = gpio_request(MAIN_IO_EN, "MAIN_ANA_EN");
+	if (rc) {
+		pr_err("%s : enable vio is failed.\n", __func__);
+		gpio_free(MAIN_IO_EN);
+		goto enable_vana_failed;
+	}
+	gpio_direction_output(MAIN_IO_EN, 1);
+#else
+	CDBG("%s: Turning on VIO\n", __func__);
+	p_vio = regulator_get(dev, imx135_vreg_vio.reg_name);
+	if (IS_ERR(p_vio)) {
+			pr_err("%s: %s get failed\n", __func__, imx135_vreg_vio.reg_name);
+			p_vio = NULL;
+			goto enable_vana_failed;
+	}
+
+	rc = regulator_enable(p_vio);
+	if (rc < 0) {
+		pr_err("%s: %s enable failed\n", __func__, imx135_vreg_vio.reg_name);
+		goto enable_vio_failed;
+	}
+	usleep_range(imx135_vreg_vio.delay * 1000, (imx135_vreg_vio.delay * 1000) + 1000);
+#endif
+	rc = msm_camera_config_gpio_table(data, 1);
+	if (rc < 0) {
+		pr_err("%s: config gpio failed\n", __func__);
+		goto config_gpio_failed;
+	}
+
+	if (s_ctrl->sensor_device_type == MSM_SENSOR_I2C_DEVICE) {
+		if (s_ctrl->clk_rate != 0)
+			cam_8960_clk_info->clk_rate = s_ctrl->clk_rate;
+
+		rc = msm_cam_clk_enable(dev, cam_8960_clk_info,
+			s_ctrl->cam_clk, ARRAY_SIZE(cam_8960_clk_info), 1);
+		if (rc < 0) {
+			pr_err("%s: clk enable failed\n", __func__);
+			goto enable_clk_failed;
+		}
+	} else {
+		rc = msm_cam_clk_enable(dev, cam_8974_clk_info,
+			s_ctrl->cam_clk, ARRAY_SIZE(cam_8974_clk_info), 1);
+		if (rc < 0) {
+			pr_err("%s: clk enable failed\n", __func__);
+			goto enable_clk_failed;
+		}
+	}
+
+	if (!s_ctrl->power_seq_delay)
+		usleep_range(1000, 2000);
+	else if (s_ctrl->power_seq_delay < 20)
+		usleep_range((s_ctrl->power_seq_delay * 1000),
+			((s_ctrl->power_seq_delay * 1000) + 1000));
+	else
+		msleep(s_ctrl->power_seq_delay);
+
+	if (data->sensor_platform_info->ext_power_ctrl != NULL)
+		data->sensor_platform_info->ext_power_ctrl(1);
+
+	if (data->sensor_platform_info->i2c_conf &&
+		data->sensor_platform_info->i2c_conf->use_i2c_mux)
+		msm_sensor_enable_i2c_mux(data->sensor_platform_info->i2c_conf);
+
+	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE) {
+		rc = msm_sensor_cci_util(s_ctrl->sensor_i2c_client,
+			MSM_CCI_INIT);
+		if (rc < 0) {
+			pr_err("%s cci_init failed\n", __func__);
+			goto cci_init_failed;
+		}
+	}
+	s_ctrl->curr_res = MSM_SENSOR_INVALID_RES;
+	pr_err("%s: X\n", __func__);
+
+	return rc;
+
+cci_init_failed:
+	if (data->sensor_platform_info->i2c_conf &&
+		data->sensor_platform_info->i2c_conf->use_i2c_mux)
+		msm_sensor_disable_i2c_mux(
+			data->sensor_platform_info->i2c_conf);
+enable_clk_failed:
+		msm_camera_config_gpio_table(data, 0);
+config_gpio_failed:
+	msm_camera_enable_vreg(dev,
+			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
+			s_ctrl->sensordata->sensor_platform_info->num_vreg,
+			s_ctrl->vreg_seq,
+			s_ctrl->num_vreg_seq,
+			s_ctrl->reg_ptr, 0);
+#if defined(CONFIG_MACH_LGE)
+enable_vio_failed:
+	if(p_vio) {
+		regulator_disable(p_vio);
+		usleep_range(imx135_vreg_vio.delay * 1000, (imx135_vreg_vio.delay * 1000) + 1000);
+		regulator_put(p_vio);
+		p_vio = NULL;
+	}
+#endif
+/* jinw.kim@lge.com, 2013-01-12
+ * G2 Main Camera Bring up(IMX135)
+ * For LGU/AT&T Rev. A
+ */
+enable_vana_failed:
+#if defined(CONFIG_MACH_MSM8974_G2_LGU) || defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_VU3_LGU) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)
+	gpio_direction_output(MAIN_ANA_EN, 0);
+	gpio_free(MAIN_ANA_EN);
+#endif
+enable_vreg_failed:
+	msm_camera_config_vreg(dev,
+		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
+		s_ctrl->sensordata->sensor_platform_info->num_vreg,
+		s_ctrl->vreg_seq,
+		s_ctrl->num_vreg_seq,
+		s_ctrl->reg_ptr, 0);
+config_vreg_failed:
+	msm_camera_request_gpio_table(data, 0);
+request_gpio_failed:
+	kfree(s_ctrl->reg_ptr);
+	return rc;
+}
+
+int32_t imx135_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
+{
+	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
+	struct device *dev = NULL;
+
+	pr_err("%s: E: %s\n", __func__, data->sensor_name);
+
+	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE)
+		dev = &s_ctrl->pdev->dev;
+	else
+		dev = &s_ctrl->sensor_i2c_client->client->dev;
+	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE) {
+		msm_sensor_cci_util(s_ctrl->sensor_i2c_client,
+			MSM_CCI_RELEASE);
+	}
+
+	if (data->sensor_platform_info->i2c_conf &&
+		data->sensor_platform_info->i2c_conf->use_i2c_mux)
+		msm_sensor_disable_i2c_mux(
+			data->sensor_platform_info->i2c_conf);
+
+	if (data->sensor_platform_info->ext_power_ctrl != NULL)
+		data->sensor_platform_info->ext_power_ctrl(0);
+	if (s_ctrl->sensor_device_type == MSM_SENSOR_I2C_DEVICE)
+		msm_cam_clk_enable(dev, cam_8960_clk_info, s_ctrl->cam_clk,
+			ARRAY_SIZE(cam_8960_clk_info), 0);
+	else
+		msm_cam_clk_enable(dev, cam_8974_clk_info, s_ctrl->cam_clk,
+			ARRAY_SIZE(cam_8974_clk_info), 0);
+	msm_camera_config_gpio_table(data, 0);
+	msm_camera_enable_vreg(dev,
+		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
+		(s_ctrl->sensordata->sensor_platform_info->num_vreg) - (s_ctrl->skip_vio),
+		s_ctrl->vreg_seq,
+		s_ctrl->num_vreg_seq,
+		s_ctrl->reg_ptr, 0);
+	msm_camera_config_vreg(dev,
+		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
+		(s_ctrl->sensordata->sensor_platform_info->num_vreg) - (s_ctrl->skip_vio),
+		s_ctrl->vreg_seq,
+		s_ctrl->num_vreg_seq,
+		s_ctrl->reg_ptr, 0);
+
+/* jinw.kim@lge.com, 2013-01-12
+ * G2 Main Camera Bring up(IMX135)
+ * For LGU/AT&T Rev. A
+ */
+#if defined(CONFIG_MACH_MSM8974_G2_LGU) || defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_VU3_LGU) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)
+	CDBG("%s: Turning off VANA\n", __func__);
+	gpio_direction_output(MAIN_ANA_EN, 0);
+	gpio_free(MAIN_ANA_EN);
+#endif
+
+/* jinw.kim@lge.com, 2013-01-12
+ * G2 Main Camera Bring up(IMX135)
+ * For AT&T Rev. A
+ */
+#if defined(CONFIG_MACH_MSM8974_G2_ATT) || defined(CONFIG_MACH_MSM8974_G2_TEL_AU)
+	CDBG("%s: Turning off VIO\n", __func__);
+	gpio_direction_output(MAIN_IO_EN, 0);
+	gpio_free(MAIN_IO_EN);
+#else
+	if(!(s_ctrl->skip_vio)) {
+		CDBG("%s: Turning off VIO\n", __func__);
+		if(p_vio) {
+			regulator_disable(p_vio);
+			usleep_range(imx135_vreg_vio.delay * 1000, (imx135_vreg_vio.delay * 1000) + 1000);
+			regulator_put(p_vio);
+	        p_vio = NULL;
+		} else {
+			pr_err("%s: p_vio is NULL!!!\n", __func__);
+		}
+	} else {
+		pr_info("%s: skip turing off VIO!!!\n", __func__);
+	}
+#endif
+	msm_camera_request_gpio_table(data, 0);
+	kfree(s_ctrl->reg_ptr);
+	s_ctrl->curr_res = MSM_SENSOR_INVALID_RES;
+
+	pr_err("%s: X\n", __func__);
+
+	return 0;
+}
+#endif	/* CONFIG_MACH_LGE */
+
 int32_t imx135_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 		uint16_t gain, uint32_t line)
 {
@@ -1214,6 +2200,14 @@ int32_t imx135_write_exp_gain(struct msm_sensor_ctrl_t *s_ctrl,
 	offset = s_ctrl->sensor_exp_gain_info->vert_offset;
 	if (line > (fl_lines - offset))
 		fl_lines = line + offset;
+
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135) - temporarily
+ * Need to be changed for AE working normally
+ */
+#ifdef CONFIG_MACH_LGE
+	return 0;
+#endif
 
 	s_ctrl->func_tbl->sensor_group_hold_on(s_ctrl);
 	msm_camera_i2c_write(s_ctrl->sensor_i2c_client,
@@ -1243,8 +2237,17 @@ static struct msm_sensor_fn_t imx135_func_tbl = {
 	.sensor_mode_init = msm_sensor_mode_init,
 	.sensor_get_output_info = msm_sensor_get_output_info,
 	.sensor_config = msm_sensor_config,
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Main Camera Bring up(IMX135)
+ * Add function imx135_sensor_power_up&down
+ */
+#if defined(CONFIG_MACH_LGE)
+	.sensor_power_up = imx135_sensor_power_up,
+	.sensor_power_down = imx135_sensor_power_down,
+#else
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
+#endif
 	.sensor_adjust_frame_lines = msm_sensor_adjust_frame_lines1,
 	.sensor_get_csi_params = msm_sensor_get_csi_params,
 };
@@ -1285,5 +2288,6 @@ static struct msm_sensor_ctrl_t imx135_s_ctrl = {
 };
 
 module_init(msm_sensor_init_module);
+module_exit(msm_sensor_exit_module);
 MODULE_DESCRIPTION("Sony 13MP Bayer sensor driver");
 MODULE_LICENSE("GPL v2");

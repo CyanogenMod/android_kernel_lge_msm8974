@@ -158,12 +158,25 @@ void msm_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 
 	if (s_ctrl->func_tbl->sensor_adjust_frame_lines)
 		s_ctrl->func_tbl->sensor_adjust_frame_lines(s_ctrl);
-
+/* soojung.lim@lge.com, 2012-12-07
+ * G2 Main Camera Bring up(IMX135)
+ *
+ * COMMENT: If the following lines are commented out, then the default
+ * count value "255" will be printed out. If this is removed, then a number
+ * like "29" will be printed out.
+ *
+ * COMMENT: If sensor is working well, then frame count and SMIA ver(0X0A)
+ * will be printed out
+ */
+#ifdef CONFIG_MACH_LGE
+#if 1
 	msm_camera_i2c_write_tbl(
 		s_ctrl->sensor_i2c_client,
 		s_ctrl->msm_sensor_reg->start_stream_conf,
 		s_ctrl->msm_sensor_reg->start_stream_conf_size,
 		s_ctrl->msm_sensor_reg->default_data_type);
+#endif
+#endif
 	msleep(20);
 }
 
@@ -597,6 +610,15 @@ int32_t msm_sensor_disable_i2c_mux(struct msm_camera_i2c_conf *i2c_conf)
 				VIDIOC_MSM_I2C_MUX_RELEASE, NULL);
 	return 0;
 }
+
+/* jinw.kim@lge.com, 2013-01-03
+ * G2 Main/Sub Camera Bring up(IMX132/135)
+ * Add function imx13x_sensor_power_up&down
+ */
+#if defined(CONFIG_MACH_LGE)
+EXPORT_SYMBOL(msm_sensor_enable_i2c_mux);
+EXPORT_SYMBOL(msm_sensor_disable_i2c_mux);
+#endif
 
 static int32_t msm_sensor_init_flash_data(struct device_node *of_node,
 	struct  msm_camera_sensor_info *sensordata)
@@ -1321,6 +1343,16 @@ static int32_t msm_sensor_init_sensor_data(struct platform_device *pdev,
 		rc = 0;
 	}
 
+	rc = of_property_read_u32(of_node, "qcom,cci-master",
+		&s_ctrl->cci_i2c_master);
+	CDBG("%s qcom,cci-master %d, rc %d\n", __func__, s_ctrl->cci_i2c_master,
+		rc);
+	if (rc < 0) {
+		/* Set default master 0 */
+		s_ctrl->cci_i2c_master = MASTER_0;
+		rc = 0;
+	}
+
 	rc = msm_sensor_init_csi_data(of_node, sensordata);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
@@ -1462,6 +1494,8 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	int32_t rc = 0;
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	struct device *dev = NULL;
+
+	pr_err("%s: E: %s\n", __func__, data->sensor_name);
 	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE)
 		dev = &s_ctrl->pdev->dev;
 	else
@@ -1551,6 +1585,8 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 		}
 	}
 	s_ctrl->curr_res = MSM_SENSOR_INVALID_RES;
+	pr_err("%s: X\n", __func__);
+
 	return rc;
 
 cci_init_failed:
@@ -1586,6 +1622,9 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
 	struct device *dev = NULL;
+
+	pr_err("%s: E: %s\n", __func__, data->sensor_name);
+
 	if (s_ctrl->sensor_device_type == MSM_SENSOR_PLATFORM_DEVICE)
 		dev = &s_ctrl->pdev->dev;
 	else
@@ -1624,6 +1663,9 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	msm_camera_request_gpio_table(data, 0);
 	kfree(s_ctrl->reg_ptr);
 	s_ctrl->curr_res = MSM_SENSOR_INVALID_RES;
+
+	pr_err("%s: X\n", __func__);
+
 	return 0;
 }
 
@@ -1643,6 +1685,9 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 
 	CDBG("%s: read id: %x expected id %x:\n", __func__, chipid,
 		s_ctrl->sensor_id_info->sensor_id);
+	pr_err("%s: read id: %x expected id %x:\n", __func__, chipid,
+		s_ctrl->sensor_id_info->sensor_id);
+
 	if (chipid != s_ctrl->sensor_id_info->sensor_id) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
@@ -1656,6 +1701,8 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl;
 	CDBG("%s %s_i2c_probe called\n", __func__, client->name);
+	pr_err("%s %s_i2c_probe called\n", __func__, client->name);
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		pr_err("%s %s i2c_check_functionality failed\n",
 			__func__, client->name);
@@ -1773,7 +1820,28 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		dev_get_drvdata(dev);
 	CDBG("%s sd %p\n", __func__,
 		s_ctrl->sensor_i2c_client->cci_client->cci_subdev);
-	s_ctrl->sensor_i2c_client->cci_client->cci_i2c_master = MASTER_0;
+/* soojung.lim@lge.com, 2012-12-22
+ * G2  Sub Camera Bring up(IMX132)
+ */
+#ifdef CONFIG_MACH_LGE
+#if 0
+				 if(s_ctrl->sensordata->camera_type == BACK_CAMERA_2D)
+				 {
+							   pr_err("%s BACK_CAMERA_2D %d\n", __func__, __LINE__);
+							   s_ctrl->sensor_i2c_client->cci_client->cci_i2c_master = MASTER_0;
+				 }
+				 else if(s_ctrl->sensordata->camera_type == FRONT_CAMERA_2D)
+				 {
+							   pr_err("%s FRONT_CAMERA_2D %d\n", __func__, __LINE__);
+							   s_ctrl->sensor_i2c_client->cci_client->cci_i2c_master = MASTER_1;
+				 }
+				 else
+							   pr_err("%s not supported %d\n", __func__, __LINE__);
+#else
+	 s_ctrl->sensor_i2c_client->cci_client->cci_i2c_master =
+		s_ctrl->cci_i2c_master;
+#endif
+#endif
 	s_ctrl->sensor_i2c_client->cci_client->sid =
 		s_ctrl->sensor_i2c_addr >> 1;
 	s_ctrl->sensor_i2c_client->cci_client->retries = 3;
@@ -1813,8 +1881,58 @@ power_down:
 	return rc;
 }
 
+/* jinw.kim@lge.com, 2013-01-03
+ * Re-define msm_sensor_power to recognize dual recording.
+ */
+#if defined(CONFIG_MACH_LGE)
 int32_t msm_sensor_power(struct v4l2_subdev *sd, int on)
 {
+
+	int rc = 0;
+	static int num_running_camera = 0;
+	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
+	mutex_lock(s_ctrl->msm_sensor_mutex);
+	if (on) {
+		rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
+		if (rc < 0) {
+			pr_err("%s: %s power_up failed rc = %d\n", __func__,
+				s_ctrl->sensordata->sensor_name, rc);
+			s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
+		} else {
+			if (s_ctrl->func_tbl->sensor_match_id)
+				rc = s_ctrl->func_tbl->sensor_match_id(s_ctrl);
+			else
+				rc = msm_sensor_match_id(s_ctrl);
+			if (rc < 0) {
+				pr_err("%s: %s match_id failed	rc=%d\n",
+					__func__,
+					s_ctrl->sensordata->sensor_name, rc);
+				if (s_ctrl->func_tbl->sensor_power_down(s_ctrl)
+					< 0)
+					pr_err("%s: %s power_down failed\n",
+					__func__,
+					s_ctrl->sensordata->sensor_name);
+				s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
+			} else {
+				s_ctrl->sensor_state = MSM_SENSOR_POWER_UP;
+				num_running_camera++;
+			}
+		}
+	} else {
+		if(num_running_camera == 2)
+			s_ctrl->skip_vio = 1;
+		rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
+		s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
+		s_ctrl->skip_vio = 0;
+		num_running_camera--;
+	}
+	mutex_unlock(s_ctrl->msm_sensor_mutex);
+	return rc;
+}
+#else	//QCT Original
+int32_t msm_sensor_power(struct v4l2_subdev *sd, int on)
+{
+
 	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
 	mutex_lock(s_ctrl->msm_sensor_mutex);
@@ -1849,6 +1967,7 @@ int32_t msm_sensor_power(struct v4l2_subdev *sd, int on)
 	mutex_unlock(s_ctrl->msm_sensor_mutex);
 	return rc;
 }
+#endif
 
 int32_t msm_sensor_v4l2_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 			   enum v4l2_mbus_pixelcode *code)

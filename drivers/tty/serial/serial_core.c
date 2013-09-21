@@ -1247,6 +1247,12 @@ static void uart_set_termios(struct tty_struct *tty,
 	}
 }
 
+/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-07-13, [A1 Bluesleep]Workaround for L2 error crash */
+#ifdef CONFIG_LGE_BLUESLEEP
+extern void bluesleep_forced_stop(void);
+#endif /* CONFIG_LGE_BLUESLEEP */
+/* LGE_CHANGE_E, [BT][younghyun.kwon@lge.com], 2013-07-13 */
+
 /*
  * In 2.4.5, calls to this will be serialized via the BKL in
  *  linux/drivers/char/tty_io.c:tty_release()
@@ -1266,6 +1272,14 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
 	port = &state->port;
 
 	pr_debug("uart_close(%d) called\n", uport->line);
+
+/* LGE_CHANGE_S, [BT][younghyun.kwon@lge.com], 2013-07-13, [A1 Bluesleep]Workaround for L2 error crash */
+#ifdef CONFIG_LGE_BLUESLEEP
+	if (!strcmp(tty->name, "ttyHS99")) {
+		bluesleep_forced_stop();
+	}
+#endif /* CONFIG_LGE_BLUESLEEP */
+/* LGE_CHANGE_E, [BT][younghyun.kwon@lge.com], 2013-07-13 */
 
 	if (tty_port_close_start(port, tty, filp) == 0)
 		return;

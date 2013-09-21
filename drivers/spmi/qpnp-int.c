@@ -578,6 +578,17 @@ int qpnpint_handle_irq(struct spmi_controller *spmi_ctrl,
 	unsigned long hwirq, busno;
 	int irq;
 
+#ifndef CONFIG_MACH_MSM8974_VU3_KR
+	if (spec->per == 0x8 || (spec->per == 0x61 && spec->irq == 0x1)) {
+		pr_info("spec slave = %u per = %u irq = %u\n",
+						spec->slave, spec->per, spec->irq);
+	}
+#else
+	if ( spec->per != 0x31 )
+	pr_info("spec slave = %u per = %u irq = %u qpnp_irq address is = 0x%x%x10\n",
+						spec->slave, spec->per, spec->irq, spec->slave, spec->per);
+#endif
+
 	pr_debug("spec slave = %u per = %u irq = %u\n",
 					spec->slave, spec->per, spec->irq);
 

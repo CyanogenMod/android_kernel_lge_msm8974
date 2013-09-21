@@ -223,6 +223,9 @@ extern int of_property_count_strings(struct device_node *np,
 extern int of_device_is_compatible(const struct device_node *device,
 				   const char *);
 extern int of_device_is_available(const struct device_node *device);
+#ifdef CONFIG_MACH_LGE
+extern int of_device_is_available_revision(struct device_node *device);
+#endif
 extern const void *of_get_property(const struct device_node *node,
 				const char *name,
 				int *lenp);

@@ -642,6 +642,7 @@ struct adm_cmd_connect_afe_port_v5 {
 #define RSVD_2 9			/* index = 9 */
 #define RSVD_3 10			/* index = 10 */
 #define DIGI_MIC_TX 11			/* index = 11 */
+#define GLOBAL_CFG 12
 #define VOICE_RECORD_RX 0x8003		/* index = 12 */
 #define VOICE_RECORD_TX 0x8004		/* index = 13 */
 #define VOICE_PLAYBACK_TX 0x8005	/* index = 14 */

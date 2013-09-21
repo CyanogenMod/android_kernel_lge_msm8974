@@ -415,7 +415,11 @@ asmlinkage void __exception do_undefinstr(struct pt_regs *regs)
 	trace_undef_instr(regs, (void *)pc);
 
 #ifdef CONFIG_DEBUG_USER
+#ifdef CONFIG_DEBUG_USER_INIT
+	if ((task_pid_nr(current) == 1) && (user_debug & UDBG_UNDEFINED)) {
+#else
 	if (user_debug & UDBG_UNDEFINED) {
+#endif
 		printk(KERN_INFO "%s (%d): undefined instruction: pc=%p\n",
 			current->comm, task_pid_nr(current), pc);
 		dump_instr(KERN_INFO, regs);
@@ -465,7 +469,11 @@ static int bad_syscall(int n, struct pt_regs *regs)
 	}
 
 #ifdef CONFIG_DEBUG_USER
+#ifdef CONFIG_DEBUG_USER_INIT
+	if ((task_pid_nr(current) == 1) && (user_debug & UDBG_SYSCALL)) {
+#else
 	if (user_debug & UDBG_SYSCALL) {
+#endif
 		printk(KERN_ERR "[%d] %s: obsolete system call %08x.\n",
 			task_pid_nr(current), current->comm, n);
 		dump_instr(KERN_ERR, regs);
@@ -649,7 +657,11 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 	 * experience shows that these seem to indicate that
 	 * something catastrophic has happened
 	 */
+#ifdef CONFIG_DEBUG_USER_INIT
+	if ((task_pid_nr(current) == 1) &&(user_debug & UDBG_SYSCALL)) {
+#else
 	if (user_debug & UDBG_SYSCALL) {
+#endif
 		printk("[%d] %s: arm syscall %d\n",
 		       task_pid_nr(current), current->comm, no);
 		dump_instr("", regs);
@@ -726,7 +738,11 @@ baddataabort(int code, unsigned long instr, struct pt_regs *regs)
 	siginfo_t info;
 
 #ifdef CONFIG_DEBUG_USER
+#ifdef CONFIG_DEBUG_USER_INIT
+	if ((task_pid_nr(current) == 1) &&(user_debug & UDBG_BADABORT)) {
+#else
 	if (user_debug & UDBG_BADABORT) {
+#endif
 		printk(KERN_ERR "[%d] %s: bad data abort: code %d instr 0x%08lx\n",
 			task_pid_nr(current), current->comm, code, instr);
 		dump_instr(KERN_ERR, regs);

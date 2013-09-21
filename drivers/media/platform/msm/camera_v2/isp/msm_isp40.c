@@ -12,6 +12,11 @@
 
 #include <linux/module.h>
 #include <mach/iommu.h>
+/* LGE_CHANGE_S, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[Start] */
+#ifdef CONFIG_USE_DUAL_ISP
+#include <linux/ratelimit.h>
+#endif
+/* LGE_CHANGE_E, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[End] */
 
 #include "msm_isp40.h"
 #include "msm_isp_util.h"
@@ -496,10 +501,25 @@ static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
 	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x3C);
 	/*Ignore composite 3 irq which is used for dual VFE only*/
+/* LGE_CHANGE_S, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[Start] */
+#ifdef CONFIG_USE_DUAL_ISP
+	if (*irq_status0 & 0x6000000)
+		*irq_status0 &= ~(0x10000000);
+#else
 	*irq_status0 &= ~BIT(28);
+#endif
+/* LGE_CHANGE_E, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[End] */
 	msm_camera_io_w(*irq_status0, vfe_dev->vfe_base + 0x30);
 	msm_camera_io_w(*irq_status1, vfe_dev->vfe_base + 0x34);
 	msm_camera_io_w_mb(1, vfe_dev->vfe_base + 0x24);
+/* LGE_CHANGE_S, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[Start] */
+#ifdef CONFIG_USE_DUAL_ISP
+	if (*irq_status0 & 0x10000000) {
+		pr_err_ratelimited("%s: Protection triggered\n", __func__);
+		*irq_status0 &= ~(0x10000000);
+	}
+#endif
+/* LGE_CHANGE_E, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[End] */
 
 	if (*irq_status1 & (1 << 0))
 		vfe_dev->error_info.camif_status =
@@ -582,7 +602,14 @@ static void msm_vfe40_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 	comp_mask &= ~(0x7F << (comp_mask_index * 8));
 	comp_mask |= (axi_data->composite_info[comp_mask_index].
 		stream_composite_mask << (comp_mask_index * 8));
+/* QMC_PATCH_S, Fix preview split issue on 720p, 2013-07-05, jinw.kim@lge.com */
+#if 0  //QMC Original
 	if (stream_info->plane_cfg[0].plane_addr_offset)
+#else
+	if (stream_info->plane_cfg[0].plane_addr_offset &&
+			stream_info->stream_type == CONTINUOUS_STREAM)
+#endif
+/* QMC_PATCH_E, Fix preview split issue on 720p, 2013-07-05, jinw.kim@lge.com */
 		comp_mask |= (axi_data->composite_info[comp_mask_index].
 		stream_composite_mask << 24);
 	msm_camera_io_w(comp_mask, vfe_dev->vfe_base + 0x40);

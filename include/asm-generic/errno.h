@@ -110,4 +110,21 @@
 
 #define EHWPOISON	133	/* Memory page has hardware error */
 
+#ifdef CONFIG_MACH_LGE
+/*
+2013-06-14, G2-FS@lge.com
+add ext4 fs errno type for ext4 superblock
+*/
+#define ESUPER      150 /*ext4 superblock is damaged */
+#endif
+
+#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
+/*
+ *2013-07-25, G2-FS@lge.com
+ *add ext4 fs errno type for journal recovery
+ */
+#define EJOURNAL	151 /*ext4 filesystem error recorded from previous mount, we should run journal check with e2fsck*/
+#endif
+
+
 #endif

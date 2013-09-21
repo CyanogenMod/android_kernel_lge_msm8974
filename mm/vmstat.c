@@ -712,6 +712,13 @@ const char * const vmstat_text[] = {
 	"nr_shmem",
 	"nr_dirtied",
 	"nr_written",
+#ifdef CONFIG_LGE_MEMORY_INFO
+	"nr_vmalloc",
+	"nr_binder",
+	"nr_kgsl",
+	"nr_ion",
+	"nr_iommu",
+#endif
 
 #ifdef CONFIG_NUMA
 	"numa_hit",

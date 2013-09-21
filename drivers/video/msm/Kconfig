@@ -25,7 +25,7 @@ config FB_MSM_BACKLIGHT
 
 config FB_MSM_LOGO
 	bool "MSM Frame Buffer Logo"
-	default n
+	default y
 	---help---
 	  Show /initlogo.rle during boot.
 
@@ -976,4 +976,11 @@ config FB_MSM_QPIC_PANEL_DETECT
 if FB_MSM_MDSS
 	source "drivers/video/msm/mdss/Kconfig"
 endif
+
+config OLED_SUPPORT
+	bool "LGD HD OLED Panel"
+       depends on MACH_MSM8974_Z_KR || MACH_MSM8974_Z_US || MACH_MSM8974_Z_KDDI
+	default y
+       ---help---
+         Support for LG Display POLED panel 
 endif

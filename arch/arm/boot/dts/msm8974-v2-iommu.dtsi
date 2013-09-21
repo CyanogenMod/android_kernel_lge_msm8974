@@ -114,7 +114,7 @@
 				0x2010
 				0x2014>;
 
-	qcom,iommu-bfb-data =  <0x3FFF
+		qcom,iommu-bfb-data =  <0x0000ffff
 				0x00000000
 				0x4
 				0x4
@@ -154,7 +154,7 @@
 				0x201c
 				0x2020>;
 
-	qcom,iommu-bfb-data =  <0xFFFFF
+ 		qcom,iommu-bfb-data =  <0xffffffff
 				0x00000000
 				0x00000004
 				0x00000010

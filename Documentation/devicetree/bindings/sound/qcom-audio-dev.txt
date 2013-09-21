@@ -465,6 +465,11 @@ Optional properties:
 - qcom,ext-ult-lo-amp-gpio: GPIO to enable external ultrasound lineout
 			    amplifier.
 
+LG Electronics' additional properties:
+-lge,board-use-auxpcm-gpio : Specifies whether auxpcm-gpio is used in lge boards.
+			0 : No used
+			1 : Used
+			NOTE: Assume that it is used in board if the property is not existed.
 - qcom,headset-jack-type-NO: Adjust GPIO level based on the headset jack type.
 
 

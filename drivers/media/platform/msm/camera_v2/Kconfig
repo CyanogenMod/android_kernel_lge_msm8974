@@ -1,3 +1,18 @@
+config IMX132
+        bool "Sensor IMX132 2.4MP MIPI (Bayer 2.4M)"
+	depends on MSMB_CAMERA
+	---help---
+	  SONY 2.4M BAYER MIPI Sensor without Autofocus
+
+config IMX135
+	bool "Sensor imx135 (Sony 13MP)"
+	depends on MSMB_CAMERA
+	---help---
+	  Support for IMX135 sensor driver.
+	  This is a Sony 13MP Bayer Sensor with autofocus and video HDR
+	  support.
+	  Say Y if the platform uses IMX135 sensor.
+
 config MSM_CAMERA_SENSOR
 	    bool "Qualcomm MSM camera sensor support"
 	    depends on MSMB_CAMERA
@@ -6,6 +21,12 @@ config MSM_CAMERA_SENSOR
           The sensor driver is capable of providing real time
           data for camera support. The driver support V4L2
           subdev APIs.
+          
+config LG_OIS	
+	bool "Qualcomm MSM camera ois support"	
+	depends on MSMB_CAMERA	
+	---help---	  
+	Enable support for ois for msm camera.
 
 config MSM_CPP
         bool "Qualcomm MSM Camera Post Processing Engine support"
@@ -177,3 +198,10 @@ config MSM_GEMINI
 	depends on MSMB_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM8960)
 	---help---
 	  Enables support for the Gemini JPEG encoder engine for 8x60.
+
+config USE_DUAL_ISP
+	bool "DUAL ISP used or not"
+	depends on MSMB_CAMERA
+	---help---
+	select the DUAL ISP used or not
+	  

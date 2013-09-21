@@ -174,7 +174,7 @@
 
 			qcom,vddmax-mv = <4200>;
 			qcom,vddsafe-mv = <4200>;
-			qcom,vinmin-mv = <4300>;
+			qcom,vinmin-mv = <4200>;
 			qcom,ibatmax-ma = <1500>;
 			qcom,ibatterm-ma = <100>;
 			qcom,ibatsafe-ma = <1500>;
@@ -247,7 +247,7 @@
 
 			};
 
-			pm8941_chg_otg: qcom,usb-chgpth@1300 {
+			qcom,usb-chgpth@1300 {
 				status = "disabled";
 				reg = <0x1300 0x100>;
 				interrupts =	<0 0x13 0x0>,
@@ -269,7 +269,7 @@
 							"dcin-valid";
 			};
 
-			pm8941_chg_boost: qcom,boost@1500 {
+			qcom,boost@1500 {
 				status = "disabled";
 				reg = <0x1500 0x100>;
 				interrupts =	<0x0 0x15 0x0>,
@@ -1230,7 +1230,7 @@
 			compatible = "qcom,leds-qpnp";
 			reg = <0xd300 0x100>;
 			label = "flash";
-			flash_boost-supply = <&pm8941_chg_boost>;
+			torch_boost-supply = <&pm8941_boost>;
 		};
 
 		qcom,leds@d400 {
@@ -1317,6 +1317,12 @@
 			label = "wled";
 		};
 
+		qcom,leds@e200 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xe200 0x100>;
+			label = "kpdbl";
+		};
+
 		pwm@b100 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb100 0x100>,
@@ -1380,5 +1386,34 @@
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <7>;
 		};
+		pwm@e400 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xe400 0x100>,
+			      <0xe342 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <8>;
+		};
+		pwm@e500 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xe500 0x100>,
+			      <0xe342 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <9>;
+		};
+		pwm@e600 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xe600 0x100>,
+			      <0xe342 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <10>;
+		};
+		pwm@e700 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xe700 0x100>,
+			      <0xe342 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <11>;
+		};
+
 	};
 };

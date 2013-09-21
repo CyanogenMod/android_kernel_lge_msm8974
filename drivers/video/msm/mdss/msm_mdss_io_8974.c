@@ -209,54 +209,133 @@ void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	clk_disable_unprepare(ctrl_pdata->ahb_clk);
 }
 
-void mdss_dsi_prepare_clocks(struct mdss_dsi_ctrl_pdata  *ctrl_pdata)
+static int mdss_dsi_clk_prepare(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	clk_prepare(ctrl_pdata->byte_clk);
-	clk_prepare(ctrl_pdata->esc_clk);
-	clk_prepare(ctrl_pdata->pixel_clk);
-}
+	int rc = 0;
 
-void mdss_dsi_unprepare_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	clk_unprepare(ctrl_pdata->esc_clk);
-	clk_unprepare(ctrl_pdata->pixel_clk);
+	rc = clk_prepare(ctrl_pdata->esc_clk);
+	if (rc) {
+		pr_err("%s: Failed to prepare dsi esc clk\n", __func__);
+		goto esc_clk_err;
+	}
+
+	rc = clk_prepare(ctrl_pdata->byte_clk);
+	if (rc) {
+		pr_err("%s: Failed to prepare dsi byte clk\n", __func__);
+		goto byte_clk_err;
+	}
+
+	rc = clk_prepare(ctrl_pdata->pixel_clk);
+	if (rc) {
+		pr_err("%s: Failed to prepare dsi pixel clk\n", __func__);
+		goto pixel_clk_err;
+	}
+
+	return rc;
+
+pixel_clk_err:
 	clk_unprepare(ctrl_pdata->byte_clk);
+byte_clk_err:
+	clk_unprepare(ctrl_pdata->esc_clk);
+esc_clk_err:
+	return rc;
 }
 
-void mdss_dsi_clk_enable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+static void mdss_dsi_clk_unprepare(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	u32 esc_clk_rate = 19200000;
 
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
 
-	if (ctrl_pdata->mdss_dsi_clk_on) {
-		pr_info("%s: mdss_dsi_clks already ON\n", __func__);
-		return;
-	}
-
-	pr_debug("%s: Setting clock rates: pclk=%d, byteclk=%d escclk=%d\n",
-			__func__, ctrl_pdata->pclk_rate,
-			ctrl_pdata->byte_clk_rate, esc_clk_rate);
-	if (clk_set_rate(ctrl_pdata->esc_clk, esc_clk_rate) < 0)
-		pr_err("%s: dsi_esc_clk - clk_set_rate failed\n", __func__);
-
-	if (clk_set_rate(ctrl_pdata->byte_clk, ctrl_pdata->byte_clk_rate) < 0)
-		pr_err("%s: dsi_byte_clk - clk_set_rate failed\n", __func__);
-
-	if (clk_set_rate(ctrl_pdata->pixel_clk, ctrl_pdata->pclk_rate) < 0)
-		pr_err("%s: dsi_pixel_clk - clk_set_rate failed\n", __func__);
-
-	clk_enable(ctrl_pdata->esc_clk);
-	clk_enable(ctrl_pdata->byte_clk);
-	clk_enable(ctrl_pdata->pixel_clk);
-
-	ctrl_pdata->mdss_dsi_clk_on = 1;
+	clk_unprepare(ctrl_pdata->pixel_clk);
+	clk_unprepare(ctrl_pdata->byte_clk);
+	clk_unprepare(ctrl_pdata->esc_clk);
 }
 
-void mdss_dsi_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+static int mdss_dsi_clk_set_rate(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	u32 esc_clk_rate = 19200000;
+	int rc = 0;
+
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: Set clk rates: pclk=%d, byteclk=%d escclk=%d\n",
+			__func__, ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate, esc_clk_rate);
+
+	rc = clk_set_rate(ctrl_pdata->esc_clk, esc_clk_rate);
+	if (rc) {
+		pr_err("%s: dsi_esc_clk - clk_set_rate failed\n", __func__);
+		goto error;
+	}
+
+	rc =  clk_set_rate(ctrl_pdata->byte_clk, ctrl_pdata->byte_clk_rate);
+	if (rc) {
+		pr_err("%s: dsi_byte_clk - clk_set_rate failed\n", __func__);
+		goto error;
+	}
+
+	rc = clk_set_rate(ctrl_pdata->pixel_clk, ctrl_pdata->pclk_rate);
+	if (rc) {
+		pr_err("%s: dsi_pixel_clk - clk_set_rate failed\n", __func__);
+		goto error;
+	}
+
+error:
+	return rc;
+}
+
+static int mdss_dsi_clk_enable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int rc = 0;
+
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+
+	if (ctrl_pdata->mdss_dsi_clk_on) {
+		pr_info("%s: mdss_dsi_clks already ON\n", __func__);
+		return 0;
+	}
+
+	rc = clk_enable(ctrl_pdata->esc_clk);
+	if (rc) {
+		pr_err("%s: Failed to enable dsi esc clk\n", __func__);
+		goto esc_clk_err;
+	}
+
+	rc = clk_enable(ctrl_pdata->byte_clk);
+	if (rc) {
+		pr_err("%s: Failed to enable dsi byte clk\n", __func__);
+		goto byte_clk_err;
+	}
+
+	rc = clk_enable(ctrl_pdata->pixel_clk);
+	if (rc) {
+		pr_err("%s: Failed to enable dsi pixel clk\n", __func__);
+		goto pixel_clk_err;
+	}
+
+	ctrl_pdata->mdss_dsi_clk_on = 1;
+
+	return rc;
+
+pixel_clk_err:
+	clk_disable(ctrl_pdata->byte_clk);
+byte_clk_err:
+	clk_disable(ctrl_pdata->esc_clk);
+esc_clk_err:
+	return rc;
+
+}
+
+static void mdss_dsi_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -268,11 +347,81 @@ void mdss_dsi_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		return;
 	}
 
+	clk_disable(ctrl_pdata->esc_clk);
 	clk_disable(ctrl_pdata->pixel_clk);
 	clk_disable(ctrl_pdata->byte_clk);
-	clk_disable(ctrl_pdata->esc_clk);
 
 	ctrl_pdata->mdss_dsi_clk_on = 0;
+}
+
+int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
+{
+	int rc = 0;
+
+	mutex_lock(&ctrl->mutex);
+	if (enable) {
+		if (ctrl->clk_cnt == 0) {
+			rc = mdss_dsi_enable_bus_clocks(ctrl);
+			if (rc) {
+				pr_err("%s: failed to enable bus clks. rc=%d\n",
+					__func__, rc);
+				goto error;
+			}
+
+#ifdef CONFIG_OLED_SUPPORT
+			if (!ctrl->panel_data.panel_info.cont_splash_enabled) {
+				rc = mdss_dsi_clk_set_rate(ctrl);
+				if (rc) {
+					pr_err("%s: failed to set clk rates. rc=%d\n",
+							__func__, rc);
+					mdss_dsi_disable_bus_clocks(ctrl);
+					goto error;
+				}
+			}
+#else
+			rc = mdss_dsi_clk_set_rate(ctrl);
+			if (rc) {
+				pr_err("%s: failed to set clk rates. rc=%d\n",
+						__func__, rc);
+				mdss_dsi_disable_bus_clocks(ctrl);
+				goto error;
+			}
+#endif
+
+			rc = mdss_dsi_clk_prepare(ctrl);
+			if (rc) {
+				pr_err("%s: failed to prepare clks. rc=%d\n",
+					__func__, rc);
+				mdss_dsi_disable_bus_clocks(ctrl);
+				goto error;
+			}
+
+			rc = mdss_dsi_clk_enable(ctrl);
+			if (rc) {
+				pr_err("%s: failed to enable clks. rc=%d\n",
+					__func__, rc);
+				mdss_dsi_clk_unprepare(ctrl);
+				mdss_dsi_disable_bus_clocks(ctrl);
+				goto error;
+			}
+		}
+		ctrl->clk_cnt++;
+	} else {
+		if (ctrl->clk_cnt) {
+			ctrl->clk_cnt--;
+			if (ctrl->clk_cnt == 0) {
+				mdss_dsi_clk_disable(ctrl);
+				mdss_dsi_clk_unprepare(ctrl);
+				mdss_dsi_disable_bus_clocks(ctrl);
+			}
+		}
+	}
+	pr_debug("%s: ctrl ndx=%d enabled=%d clk_cnt=%d\n",
+			__func__, ctrl->ndx, enable, ctrl->clk_cnt);
+
+error:
+	mutex_unlock(&ctrl->mutex);
+	return rc;
 }
 
 void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
@@ -343,6 +492,9 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	pd = ((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db;
 
 	/* Strength ctrl 0 */
+#ifdef CONFIG_OLED_SUPPORT
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, 0x07);
+#endif
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0484, pd->strength[0]);
 
 	/* phy regulator ctrl settings. Both the DSI controller
@@ -351,9 +503,10 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 		off = 0x0580;
 	else
 		off = 0x0580 - 0x600;
-
+#ifndef CONFIG_OLED_SUPPORT
 	/* Regulator ctrl 0 */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 0), 0x0);
+#endif
 	/* Regulator ctrl - CAL_PWR_CFG */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 6), pd->regulator[6]);
 
@@ -369,13 +522,14 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 0), pd->regulator[0]);
 	/* Regulator ctrl 4 */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + off + (4 * 4), pd->regulator[4]);
+#ifndef CONFIG_OLED_SUPPORT
 
 	/* LDO ctrl 0 */
 	if ((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x4dc, 0x00);
 	else
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x4dc, 0x00);
-
+#endif
 	off = 0x0440;	/* phy timing ctrl 0 - 11 */
 	for (i = 0; i < 12; i++) {
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + off, pd->timing[i]);
@@ -407,7 +561,11 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	}
 
 	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+#ifndef CONFIG_OLED_SUPPORT
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0470, 0x5f);
+#else
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0470, 0x7f);
+#endif
 	wmb();
 
 	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */

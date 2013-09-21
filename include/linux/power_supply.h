@@ -128,6 +128,33 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_RESISTANCE,
+#if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
+	POWER_SUPPLY_PROP_BATTERY_ID_CHECKER,
+#endif
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_PROP_PSEUDO_BATT,
+	POWER_SUPPLY_PROP_EXT_PWR_CHECK,
+	POWER_SUPPLY_PROP_BAT_REMOVED,
+#endif
+#if defined(CONFIG_LGE_CURRENTNOW)
+	/* kwangdo.yi@lge.com [jointlab] Wed 27 Mar 2013 S
+	   added for current now virtual driver
+*/
+	POWER_SUPPLY_PROP_VIRT_CURRENT_NOW,
+	POWER_SUPPLY_PROP_VIRT_ENABLE_BMS,
+	/* kwangdo.yi@lge.com [jointlab] Wed 27 Mar 2013 E */
+#endif
+#ifdef CONFIG_FTT_CHARGER_V3
+	POWER_SUPPLY_PROP_FTT_ANNTENA_LEVEL,
+#endif
+#ifdef CONFIG_MAX17050_FUELGAUGE
+/*junnyoung.jang@lge.com 20130326 Add battery condition */
+	POWER_SUPPLY_PROP_BATTERY_CONDITION,
+	POWER_SUPPLY_PROP_BATTERY_AGE,
+#endif
+#ifdef CONFIG_SMB349_VZW_FAST_CHG
+	POWER_SUPPLY_PROP_VZW_CHG_STATE,
+#endif
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
@@ -143,6 +170,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* Charging Downstream Port */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
+#ifdef CONFIG_WIRELESS_CHARGER
+	POWER_SUPPLY_TYPE_WIRELESS,
+#endif
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
 };
 

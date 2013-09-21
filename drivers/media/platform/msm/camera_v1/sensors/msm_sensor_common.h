@@ -176,6 +176,7 @@ struct msm_sensor_eeprom_data {
 struct msm_sensor_ctrl_t {
 	struct  msm_camera_sensor_info *sensordata;
 	struct i2c_client *msm_sensor_client;
+	enum cci_i2c_master_t cci_i2c_master;
 	struct i2c_driver *sensor_i2c_driver;
 	struct platform_device *pdev;
 	struct msm_camera_i2c_client *sensor_i2c_client;
@@ -220,6 +221,13 @@ struct msm_sensor_ctrl_t {
 	/* delay (in ms) after power up sequence */
 	uint16_t power_seq_delay;
 	struct msm_sensor_eeprom_data eeprom_data;
+
+/* jinw.kim@lge.com, 2013-01-03
+ * Add viriable "skip_vio" to skip disable vio for dual recording. It will be set by msm_power().
+ */
+ #if defined(CONFIG_MACH_LGE)
+	uint16_t skip_vio;
+ #endif
 };
 
 struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd);

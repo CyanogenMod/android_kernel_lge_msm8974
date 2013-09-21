@@ -147,6 +147,15 @@ struct msm_cpp_buff_queue_info_t {
 	struct list_head native_buff_head;
 };
 
+/* LGE_CHANGE_S, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[Start] */
+#ifdef CONFIG_USE_DUAL_ISP
+struct msm_cpp_work_t {
+  struct work_struct my_work;
+  struct cpp_device *cpp_dev;
+};
+#endif
+/* LGE_CHANGE_E, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[End] */
+
 struct cpp_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
@@ -165,6 +174,13 @@ struct cpp_device {
 	struct mutex mutex;
 	enum cpp_state state;
 	uint8_t is_firmware_loaded;
+/* LGE_CHANGE_S, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[Start] */
+#ifdef CONFIG_USE_DUAL_ISP
+	char *fw_name_bin;
+	struct workqueue_struct *timer_wq;
+	struct msm_cpp_work_t *work;
+#endif
+/* LGE_CHANGE_E, add the dual isp patch code from QCT, 2013.6.20, youngil.yun[End] */
 
 	int domain_num;
 	struct iommu_domain *domain;

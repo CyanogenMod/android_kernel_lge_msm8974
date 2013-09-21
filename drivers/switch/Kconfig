@@ -12,4 +12,17 @@ config SWITCH_GPIO
 	help
 	  Say Y here to enable GPIO based switch support.
 
+config SWITCH_MAX1462X
+	tristate "LGE Headset detection driver(MAX14628)"
+	depends on MACH_LGE
+	default n
+	help
+	  Say Y here to enable GPIO based switch support.
+
+config SWITCH_MAX1462X_WA
+	tristate "LGE Headset detection driver(MAX14628) workaround "
+	depends on MACH_LGE
+	default n
+	help
+	  Say Y here to enable GPIO based switch support.
 endif # SWITCH

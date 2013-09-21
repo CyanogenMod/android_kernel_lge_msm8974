@@ -1958,7 +1958,7 @@ int process_evict(int id)
 
 	edata->passive = true;
 
-	mutex_lock(&sched_mutex);
+	mutex_lock(&free_mutex);
 
 	rc = __evict_common(edata, NULL);
 
@@ -1969,7 +1969,7 @@ int process_evict(int id)
 
 	evictions[id] = edata;
 
-	mutex_unlock(&sched_mutex);
+	mutex_unlock(&free_mutex);
 
 	wait_for_completion(&edata->completion);
 
@@ -1977,7 +1977,7 @@ int process_evict(int id)
 
 skip_eviction:
 	evictions[id] = NULL;
-	mutex_unlock(&sched_mutex);
+	mutex_unlock(&free_mutex);
 	return 0;
 }
 

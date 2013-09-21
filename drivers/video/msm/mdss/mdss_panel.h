@@ -16,6 +16,9 @@
 
 #include <linux/platform_device.h>
 #include <linux/types.h>
+#ifdef CONFIG_MACH_LGE
+#define QCT_UNDERRUN_PATCH
+#endif
 
 /* panel id type */
 struct panel_id {
@@ -103,6 +106,9 @@ enum mdss_intf_events {
 	MDSS_EVENT_CHECK_PARAMS,
 	MDSS_EVENT_CONT_SPLASH_BEGIN,
 	MDSS_EVENT_CONT_SPLASH_FINISH,
+#ifdef CONFIG_OLED_SUPPORT
+	MDSS_EVENT_FIRST_FRAME_UPDATE,
+#endif
 	MDSS_EVENT_FB_REGISTERED,
 	MDSS_EVENT_PANEL_CLK_CTRL,
 	MDSS_EVENT_DSI_CMDLIST_KOFF,
@@ -122,6 +128,12 @@ struct lcd_panel_info {
 	u32 xres_pad;
 	/* Pad height */
 	u32 yres_pad;
+#ifdef CONFIG_OLED_SUPPORT
+	/* Margin width */
+	u32 xres_margin;
+	/* Margin height */
+	u32 yres_margin;
+#endif
 };
 
 
@@ -237,6 +249,10 @@ struct mdss_panel_info {
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
+#ifdef CONFIG_OLED_SUPPORT
+       int blmap_size;
+       char *blmap;
+#endif
 
 	u32 cont_splash_enabled;
 	struct ion_handle *splash_ihdl;
@@ -270,6 +286,21 @@ struct mdss_panel_data {
 	struct mdss_panel_data *next;
 };
 
+#ifdef QCT_UNDERRUN_PATCH
+/**
+ * mdss_panel_get_vtotal - return panel vertical height
+ * @pinfo:	Pointer to panel info containing all panel information
+ *
+ * Returns the total height of the panel including any blanking regions
+ * which are not visible to user but used to calculate panel pixel clock.
+ */
+static inline int mdss_panel_get_vtotal(struct mdss_panel_info *pinfo)
+{
+	return pinfo->yres + pinfo->lcdc.v_back_porch +
+			pinfo->lcdc.v_front_porch +
+			pinfo->lcdc.v_pulse_width;
+}
+#endif
 int mdss_register_panel(struct platform_device *pdev,
 	struct mdss_panel_data *pdata);
 #endif /* MDSS_PANEL_H */

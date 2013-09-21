@@ -33,6 +33,11 @@
 
 #define BUILD_ID_LENGTH 32
 
+#ifdef CONFIG_MACH_LGE
+extern int g_speed_bin;
+extern int g_pvs_bin;
+#endif
+
 enum {
 	HW_PLATFORM_UNKNOWN = 0,
 	HW_PLATFORM_SURF    = 1,
@@ -43,7 +48,7 @@ enum {
 	HW_PLATFORM_MTP  = 8,
 	HW_PLATFORM_LIQUID  = 9,
 	/* Dragonboard platform id is assigned as 10 in CDT */
-	HW_PLATFORM_DRAGON	= 10,
+	HW_PLATFORM_DRAGON = 10,
 	HW_PLATFORM_QRD	= 11,
 	HW_PLATFORM_HRD	= 13,
 	HW_PLATFORM_DTV	= 14,
@@ -64,6 +69,49 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_HRD] = "HRD",
 	[HW_PLATFORM_DTV] = "DTV",
 };
+
+#ifdef CONFIG_MACH_LGE
+/* LGE platform id */
+enum {
+	HW_PLATFORM_LGE_START   = 100,
+	HW_PLATFORM_LGPS11      = 100,
+	HW_PLATFORM_G2_EVB      = 105,
+	HW_PLATFORM_G2_KR       = 111,
+	HW_PLATFORM_G2_ATT 	= 112,
+	HW_PLATFORM_G2_VZW	= 113,
+	HW_PLATFORM_G2_SPR      = 114,
+	HW_PLATFORM_G2_TMO_US   = 115,
+	HW_PLATFORM_G2_DCM	= 116,
+	HW_PLATFORM_G2_CA       = 117,
+	HW_PLATFORM_G2_OPEN_COM = 118,
+	HW_PLATFORM_G2_OPEN_AME = 122,
+	HW_PLATFORM_G2_OPT_AU = 121,
+	HW_PLATFORM_G2_TEL_AU  = 119,
+	HW_PLATFORM_Z_KR	= 130,
+	HW_PLATFORM_VU3_KR      = 144,
+	HW_PLATFORM_G2_KDDI	   = 150,
+	HW_PLATFORM_LGE_INVALID
+};
+
+const char *hw_platform_lge[] = {
+	[HW_PLATFORM_LGPS11 - HW_PLATFORM_LGE_START] 	  = "LGPS11",
+	[HW_PLATFORM_G2_EVB - HW_PLATFORM_LGE_START] 	  = "G2_EVB",
+	[HW_PLATFORM_G2_KR - HW_PLATFORM_LGE_START] 	  = "G2_KR",
+	[HW_PLATFORM_G2_ATT - HW_PLATFORM_LGE_START] 	  = "G2_ATT",
+	[HW_PLATFORM_G2_VZW - HW_PLATFORM_LGE_START] 	  = "G2_VZW",
+	[HW_PLATFORM_G2_SPR - HW_PLATFORM_LGE_START] 	  = "G2_SPR",
+	[HW_PLATFORM_G2_TMO_US - HW_PLATFORM_LGE_START]   = "G2_TMO_US",
+	[HW_PLATFORM_G2_DCM - HW_PLATFORM_LGE_START] 	  = "G2_DCM",
+	[HW_PLATFORM_G2_CA - HW_PLATFORM_LGE_START]       = "G2_CA",
+	[HW_PLATFORM_G2_OPEN_COM - HW_PLATFORM_LGE_START] = "G2_OPEN_COM",
+	[HW_PLATFORM_G2_OPEN_AME - HW_PLATFORM_LGE_START] = "G2_OPEN_AME",
+	[HW_PLATFORM_G2_OPT_AU - HW_PLATFORM_LGE_START] = "G2_OPT_AU",
+	[HW_PLATFORM_G2_TEL_AU - HW_PLATFORM_LGE_START] = "G2_TEL_AU",
+	[HW_PLATFORM_Z_KR - HW_PLATFORM_LGE_START] 	  = "Z_KR",
+	[HW_PLATFORM_VU3_KR - HW_PLATFORM_LGE_START] 	  = "VU3_KR",
+	[HW_PLATFORM_G2_KDDI - HW_PLATFORM_LGE_START] 	= "G2_KDDI",
+};
+#endif
 
 enum {
 	ACCESSORY_CHIP_UNKNOWN = 0,
@@ -384,6 +432,20 @@ static struct socinfo_v1 dummy_socinfo = {
 	.format = 1,
 	.version = 1,
 };
+/*                                                                         */
+#ifndef CONFIG_MACH_MSM8974_G2_KDDI
+u16 *poweron_st = 0;
+uint16_t power_on_status_info_get(void)
+{
+    poweron_st = smem_alloc(SMEM_POWER_ON_STATUS_INFO, sizeof(poweron_st));
+
+    if( poweron_st == NULL ) return 0 ;
+    return *poweron_st;
+}
+EXPORT_SYMBOL(power_on_status_info_get);
+/*                             */
+/*                                                                         */
+#endif
 
 uint32_t socinfo_get_id(void)
 {
@@ -400,6 +462,27 @@ char *socinfo_get_build_id(void)
 {
 	return (socinfo) ? socinfo->v1.build_id : NULL;
 }
+
+/* LGE_CHANGE
+ * implement the userspace interface for reading soc serial number
+ * 2012-01-10 jaeseong.gim@lge.com
+ * modify address of serial number for msm8974
+ * 2013-02-07 duckhwan.lee@lge.com
+ */
+#ifdef CONFIG_ARCH_MSM8974
+#include <linux/io.h>
+uint32_t socinfo_get_serial_number(void)
+{
+    uint32_t serial_number;
+    void __iomem *tmp;
+
+    tmp = ioremap(0xFC4B81F0,0x4);
+    serial_number = (uint32_t)readl(tmp);
+    iounmap(tmp);
+
+	return serial_number;
+}
+#endif
 
 uint32_t socinfo_get_raw_id(void)
 {
@@ -516,6 +599,47 @@ socinfo_show_build_id(struct sys_device *dev,
 	return snprintf(buf, PAGE_SIZE, "%-.32s\n", socinfo_get_build_id());
 }
 
+/* LGE_CHANGE
+ * implement the userspace interface for reading soc serial number
+ * 2012-01-10 jaeseong.gim@lge.com
+ * modify address of serial number for msm8974
+ * 2013-02-07 duckhwan.lee@lge.com
+ * added speed_bin & pvs_bin info
+ * 2013-06-07 fred.cho@lge.com
+ */
+#ifdef CONFIG_ARCH_MSM8974
+#ifdef CONFIG_MACH_LGE
+static ssize_t
+socinfo_show_speed_bin(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", g_speed_bin);
+}
+
+static ssize_t
+socinfo_show_pvs_bin(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", g_pvs_bin);
+}
+#endif
+
+static ssize_t
+socinfo_show_serial_number(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%x\n", socinfo_get_serial_number());
+}
+#endif
+
 static ssize_t
 socinfo_show_raw_id(struct sys_device *dev,
 		    struct sysdev_attribute *attr,
@@ -568,6 +692,22 @@ socinfo_show_platform_type(struct sys_device *dev,
 
 	hw_type = socinfo_get_platform_type();
 	if (hw_type >= HW_PLATFORM_INVALID) {
+#ifdef CONFIG_MACH_LGE
+		/* For lcd density settings */
+		if ((hw_type >= HW_PLATFORM_LGE_START)
+				&& (hw_type < HW_PLATFORM_LGE_INVALID)) {
+			if (hw_platform_lge[hw_type - HW_PLATFORM_LGE_START] != NULL)
+				return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+						hw_platform_lge[hw_type - HW_PLATFORM_LGE_START]);
+		}
+#endif
+#if defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
+		/* For OLED DPI settings */
+		if (hw_type == HW_PLATFORM_Z_KR) {
+			return snprintf(buf, PAGE_SIZE, "%-.32s\n", "ZLGU");
+		}
+
+#endif
 		pr_err("%s: Invalid hardware platform type found\n",
 								   __func__);
 		hw_type = HW_PLATFORM_UNKNOWN;
@@ -772,6 +912,19 @@ static struct sysdev_attribute socinfo_v1_files[] = {
 	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
 	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
 	_SYSDEV_ATTR(build_id, 0444, socinfo_show_build_id, NULL),
+#ifdef CONFIG_MACH_LGE
+	_SYSDEV_ATTR(speed_bin, 0444, socinfo_show_speed_bin, NULL),
+	_SYSDEV_ATTR(pvs_bin, 0444, socinfo_show_pvs_bin, NULL),
+#endif
+/* LGE_CHANGE
+ * implement the userspace interface for reading soc serial number
+ * 2012-01-10 jaeseong.gim@lge.com
+ * modify address of serial number for msm8974
+ * 2013-02-07 duckhwan.lee@lge.com
+ */
+#ifdef CONFIG_ARCH_MSM8974
+	_SYSDEV_ATTR(serial_number, 0444, socinfo_show_serial_number, NULL),
+#endif
 };
 
 static struct sysdev_attribute socinfo_v2_files[] = {

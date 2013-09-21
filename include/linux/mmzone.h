@@ -141,6 +141,13 @@ enum zone_stat_item {
 	NR_SHMEM,		/* shmem pages (included tmpfs/GEM pages) */
 	NR_DIRTIED,		/* page dirtyings since bootup */
 	NR_WRITTEN,		/* page writings since bootup */
+#ifdef CONFIG_LGE_MEMORY_INFO
+	NR_VMALLOC_PAGES,
+	NR_BINDER_PAGES,
+	NR_KGSL_PAGES,
+	NR_ION_PAGES,
+	NR_IOMMU_PAGES,
+#endif
 #ifdef CONFIG_NUMA
 	NUMA_HIT,		/* allocated in intended node */
 	NUMA_MISS,		/* allocated in non intended node */

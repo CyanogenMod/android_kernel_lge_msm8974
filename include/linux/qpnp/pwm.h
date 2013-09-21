@@ -101,7 +101,32 @@ struct pwm_period_config {
  * duty_ms - duty cycle time in ms
  * start_idx - index in the LUT
  */
+
 struct pwm_duty_cycles {
+#ifdef CONFIG_LEDS_PM8941_EMOTIONAL
+	int *duty_pcts0;
+	int *duty_pcts1;
+	int *duty_pcts2;
+	int *duty_pcts3;
+	int *duty_pcts4;
+	int *duty_pcts5;
+	int *duty_pcts6;
+	int *duty_pcts7;
+	int *duty_pcts8;
+	int *duty_pcts12;
+	int *duty_pcts13;
+	int *duty_pcts14;
+	int *duty_pcts17;
+	int *duty_pcts18;
+	int *duty_pcts19;
+	int *duty_pcts20;
+	int *duty_pcts29;
+	int *duty_pcts30;
+	int *duty_pcts31;
+	int *duty_pcts32;
+	int *duty_pcts101;
+	int *duty_pcts102;
+#endif
 	int *duty_pcts;
 	int num_duty_pcts;
 	int duty_ms;

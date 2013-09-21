@@ -184,6 +184,10 @@ int pil_q6v5_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	u32 val;
+#ifdef CONFIG_MACH_LGE
+	if (!strcmp(pil->name, "mba") || !strcmp(pil->name, "modem"))
+		dev_info(pil->dev, "start reseting pil q6v5\n");
+#endif
 
 	/* Assert resets, stop core */
 	val = readl_relaxed(drv->reg_base + QDSP6SS_RESET);
@@ -241,6 +245,11 @@ struct q6v5_data __devinit *pil_q6v5_init(struct platform_device *pdev)
 	struct resource *res;
 	struct pil_desc *desc;
 	int ret;
+
+#ifdef CONFIG_MACH_LGE
+	if (!strcmp(pdev->name, "mss"))
+		dev_info(&pdev->dev, "pil_q6v5_init, %s \n", pdev->name);
+#endif
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)

@@ -438,6 +438,11 @@ static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 	if (!priv->pt.fl_table)
 		goto fail_nomem;
 
+#ifdef CONFIG_LGE_MEMORY_INFO
+	__mod_zone_page_state(page_zone(virt_to_page((void *)priv->pgtable)),
+							NR_IOMMU_PAGES, (1UL << get_order(SZ_16K)));
+#endif
+
 #ifdef CONFIG_IOMMU_PGTABLES_L2
 	priv->pt.redirect = flags & MSM_IOMMU_DOMAIN_PT_CACHEABLE;
 #endif
@@ -467,13 +472,27 @@ static void msm_iommu_domain_destroy(struct iommu_domain *domain)
 
 	if (priv) {
 		fl_table = priv->pt.fl_table;
+#ifdef CONFIG_LGE_MEMORY_INFO
+		for (i = 0; i < NUM_FL_PTE; i++)
+			if ((fl_table[i] & 0x03) == FL_TYPE_TABLE) {
+				__dec_zone_page_state(virt_to_page((void *)(unsigned long) __va(((fl_table[i]) &
+								FL_BASE_MASK))), NR_IOMMU_PAGES);
+				free_page((unsigned long) __va(((fl_table[i]) &
+								FL_BASE_MASK)));
+			}
 
+		__mod_zone_page_state(page_zone(virt_to_page((void *)(unsigned long)priv->pt.fl_table)),
+							NR_IOMMU_PAGES, - (1UL << get_order(SZ_16K)));
+
+		free_pages((unsigned long)priv->pt.fl_table, get_order(SZ_16K));
+#else
 		for (i = 0; i < NUM_FL_PTE; i++)
 			if ((fl_table[i] & 0x03) == FL_TYPE_TABLE)
 				free_page((unsigned long) __va(((fl_table[i]) &
 								FL_BASE_MASK)));
 
 		free_pages((unsigned long)priv->pt.fl_table, get_order(SZ_16K));
+#endif
 		priv->pt.fl_table = NULL;
 	}
 
@@ -655,6 +674,9 @@ static unsigned long *make_second_level(struct msm_iommu_priv *priv,
 		pr_debug("Could not allocate second level table\n");
 		goto fail;
 	}
+#ifdef CONFIG_LGE_MEMORY_INFO
+	__inc_zone_page_state(virt_to_page((void *)sl), NR_IOMMU_PAGES);
+#endif
 	memset(sl, 0, SZ_4K);
 	clean_pte(sl, sl + NUM_SL_PTE, priv->pt.redirect);
 
@@ -909,6 +931,10 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 			if (sl_table[i])
 				used = 1;
 		if (!used) {
+#ifdef CONFIG_LGE_MEMORY_INFO
+			__dec_zone_page_state(virt_to_page((void *)(unsigned long)sl_table),
+								NR_IOMMU_PAGES);
+#endif
 			free_page((unsigned long)sl_table);
 			*fl_pte = 0;
 
@@ -1200,6 +1226,10 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 						break;
 					}
 			if (!used) {
+#ifdef CONFIG_LGE_MEMORY_INFO
+				__dec_zone_page_state(virt_to_page((void *)(unsigned long)sl_table),
+									NR_IOMMU_PAGES);
+#endif
 				free_page((unsigned long)sl_table);
 				*fl_pte = 0;
 

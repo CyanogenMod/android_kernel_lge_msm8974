@@ -23,8 +23,11 @@
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
-
 #include "of_private.h"
+
+#ifdef CONFIG_MACH_LGE
+#include <mach/board_lge.h>
+#endif
 
 LIST_HEAD(aliases_lookup);
 
@@ -275,6 +278,117 @@ int of_device_is_available(const struct device_node *device)
 	return 0;
 }
 EXPORT_SYMBOL(of_device_is_available);
+
+#ifdef CONFIG_MACH_LGE
+int compare_revision(const char *revision)
+{
+	char range = 0;
+	char min_rev_str[16];
+	char max_rev_str[16];
+	char min_rev_no = 0;
+	char max_rev_no = 0;
+	int i = 0, j = 0;
+
+	memset(min_rev_str, 0x0, sizeof(min_rev_str));
+	memset(max_rev_str, 0x0, sizeof(min_rev_str));
+
+	if (revision[0] != '.') {
+		while (revision[i] != 0 && revision[i] != '.')
+			min_rev_str[j++] = revision[i++];
+
+		if (revision[i] == '.' && revision[i + 1] == '.' &&
+				revision[i + 2] == '.') {
+			range = 1;
+			i += 3;
+			j = 0;
+			while (revision[i] != 0)
+				max_rev_str[j++] = revision[i++];
+		}
+	} else {
+		if (revision[i] == '.' && revision[i + 1] == '.' &&
+				revision[i + 2] == '.') {
+			range = 1;
+			i += 3;
+			while (revision[i] != 0)
+				max_rev_str[j++] = revision[i++];
+		}
+	}
+
+	if (!min_rev_str[0]) {
+		min_rev_no = HW_REV_EVB1;
+	} else {
+		for (i = 0; i < HW_REV_MAX; ++i) {
+			if (!strcmp(rev_str[i], min_rev_str)) {
+				min_rev_no = i;
+				break;
+			}
+		}
+
+		if (i == HW_REV_MAX) {
+			pr_err("wrong min revision string = %s\n", min_rev_str);
+			return 0;
+		}
+	}
+
+	if (!max_rev_str[0]) {
+		max_rev_no = HW_REV_MAX - 1;
+	} else {
+		for (i = 0; i < HW_REV_MAX; ++i) {
+			if (!strcmp(rev_str[i], max_rev_str)) {
+				max_rev_no = i;
+				break;
+			}
+		}
+
+		if (i == HW_REV_MAX) {
+			pr_err("wrong max revision string = %s\n", max_rev_str);
+			return 0;
+		}
+	}
+
+	if (range) {
+		if (min_rev_no <= lge_get_board_revno() &&
+				lge_get_board_revno() <= max_rev_no)
+			return 1;
+		else
+			return 0;
+	} else {
+		if (min_rev_no == lge_get_board_revno())
+			return 1;
+		else
+			return 0;
+	}
+}
+
+/**
+ *  of_device_is_available_revision - check if a device is available for use in specific revision
+ *
+ *  @device: Node to check for availability in specific revision
+ *
+ *  Returns 1 if the status property is absent or equal to present revision.
+ *  0 otherwise
+ */
+int of_device_is_available_revision(struct device_node *device)
+{
+	int count;
+	int i;
+	const char *revision = NULL;
+
+	count = of_property_count_strings(device, "revision");
+	if (count < 0)
+		return 1;
+
+	for (i = 0; i < count; i++) {
+		of_property_read_string_index(device, "revision", i, &revision);
+
+		if (compare_revision(revision))
+			return 1;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(of_device_is_available_revision);
+#endif
 
 /**
  *	of_get_parent - Get a node's parent if any

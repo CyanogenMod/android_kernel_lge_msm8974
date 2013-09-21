@@ -720,7 +720,6 @@ enum handoff pixel_rcg_handoff(struct clk *clk)
 		rcg->current_freq->div_src_val &= ~CFG_RCGR_DIV_MASK;
 		rcg->current_freq->div_src_val |= div_val;
 	}
-
 	/* If MND is used, find the rate after the MND division */
 	if ((cfg_regval & MND_MODE_MASK) == MND_DUAL_EDGE_MODE_BVAL) {
 		mval = readl_relaxed(M_REG(rcg));

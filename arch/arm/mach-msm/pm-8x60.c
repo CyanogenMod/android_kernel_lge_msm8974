@@ -60,6 +60,10 @@
 #include "pm-boot.h"
 #include <mach/event_timer.h>
 
+#ifdef CONFIG_LGE_PM
+#include <mach/board_lge.h>
+#endif
+
 #define SCM_L2_RETENTION	(0x2)
 #define SCM_CMD_TERMINATE_PC	(0x2)
 
@@ -1064,6 +1068,10 @@ static int msm_pm_enter(suspend_state_t state)
 			pr_info("%s: power collapse\n", __func__);
 
 		clock_debug_print_enabled();
+
+#ifdef CONFIG_LGE_PM
+		gpio_debug_print();
+#endif
 
 		if (msm_pm_sleep_time_override > 0) {
 			int64_t ns = NSEC_PER_SEC *

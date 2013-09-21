@@ -54,6 +54,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ext4.h>
 
+#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
+#include <mach/board_lge.h>
+#endif
 static struct proc_dir_entry *ext4_proc_root;
 static struct kset *ext4_kset;
 static struct ext4_lazy_init *ext4_li_info;
@@ -437,10 +440,13 @@ static void ext4_journal_commit_callback(journal_t *journal, transaction_t *txn)
 	struct super_block		*sb = journal->j_private;
 	struct ext4_sb_info		*sbi = EXT4_SB(sb);
 	int				error = is_journal_aborted(journal);
-	struct ext4_journal_cb_entry	*jce, *tmp;
+	struct ext4_journal_cb_entry	*jce;
 
+	BUG_ON(txn->t_state == T_FINISHED);
 	spin_lock(&sbi->s_md_lock);
-	list_for_each_entry_safe(jce, tmp, &txn->t_private_list, jce_list) {
+	while (!list_empty(&txn->t_private_list)) {
+		jce = list_entry(txn->t_private_list.next,
+				 struct ext4_journal_cb_entry, jce_list);
 		list_del_init(&jce->jce_list);
 		spin_unlock(&sbi->s_md_lock);
 		jce->jce_func(sb, jce, error);
@@ -497,6 +503,7 @@ void __ext4_error(struct super_block *sb, const char *function,
 	printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: comm %s: %pV\n",
 	       sb->s_id, function, line, current->comm, &vaf);
 	va_end(args);
+	save_error_info(sb, function, line);
 
 	ext4_handle_error(sb);
 }
@@ -654,6 +661,14 @@ void __ext4_abort(struct super_block *sb, const char *function,
 		if (EXT4_SB(sb)->s_journal)
 			jbd2_journal_abort(EXT4_SB(sb)->s_journal, -EIO);
 		save_error_info(sb, function, line);
+	#ifdef CONFIG_MACH_LGE
+	/*
+	2013-07-06, G2-FS@lge.com
+	put panic when FS is re-mounted as Read Only
+	*/
+	panic("EXT4-fs panic from previous error. remounted as RO \n");
+	#endif
+
 	}
 	if (test_opt(sb, ERRORS_PANIC))
 		panic("EXT4-fs panic from previous error\n");
@@ -1814,17 +1829,27 @@ static int ext4_setup_super(struct super_block *sb, struct ext4_super_block *es,
 	if (le32_to_cpu(es->s_rev_level) > EXT4_MAX_SUPP_REV) {
 		ext4_msg(sb, KERN_ERR, "revision level too high, "
 			 "forcing read-only mode");
+		/*LGE_CHANGE G2-FS@lge.com */
 		res = MS_RDONLY;
+		/*LGE_CHANGE G2-FS@lge.com */
 	}
 	if (read_only)
 		goto done;
 	if (!(sbi->s_mount_state & EXT4_VALID_FS))
 		ext4_msg(sb, KERN_WARNING, "warning: mounting unchecked fs, "
 			 "running e2fsck is recommended");
-	else if ((sbi->s_mount_state & EXT4_ERROR_FS))
+	else if ((sbi->s_mount_state & EXT4_ERROR_FS)){
 		ext4_msg(sb, KERN_WARNING,
 			 "warning: mounting fs with errors, "
 			 "running e2fsck is recommended");
+	#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
+	/*
+	 * 2013-07-25, G2-FS@lge.com
+	 * in this case, we need to run e2fsck with j & fy option, let's return EJOURNAL
+	*/
+		res = EJOURNAL;
+	#endif
+	}
 	else if ((__s16) le16_to_cpu(es->s_max_mnt_count) > 0 &&
 		 le16_to_cpu(es->s_mnt_count) >=
 		 (unsigned short) (__s16) le16_to_cpu(es->s_max_mnt_count))
@@ -2966,6 +2991,9 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 	__u64 blocks_count;
 	int err;
 	unsigned int journal_ioprio = DEFAULT_JOURNAL_IOPRIO;
+#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
+	int mountOK=0;
+#endif
 	ext4_group_t first_not_zeroed;
 
 	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
@@ -3131,6 +3159,9 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 		ext4_msg(sb, KERN_WARNING,
 		       "feature flags set on rev 0 fs, "
 		       "running e2fsck is recommended");
+
+	if (test_opt(sb, ERRORS_PANIC))
+		printk("<choi> mount option is panic\n");
 
 	if (IS_EXT2_SB(sb)) {
 		if (ext2_feature_set_ok(sb))
@@ -3591,8 +3622,12 @@ no_journal:
 		ret = -ENOMEM;
 		goto failed_mount4;
 	}
-
+#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
+	mountOK=ext4_setup_super(sb, es, sb->s_flags & MS_RDONLY);
+#else
 	ext4_setup_super(sb, es, sb->s_flags & MS_RDONLY);
+#endif
+
 
 	/* determine the minimum size of new large inodes, if present */
 	if (sbi->s_inode_size > EXT4_GOOD_OLD_INODE_SIZE) {
@@ -3670,32 +3705,64 @@ no_journal:
 		mod_timer(&sbi->s_err_report, jiffies + 300*HZ); /* 5 minutes */
 
 	kfree(orig_data);
+
+#ifdef CONFIG_EXT4_LGE_JOURNAL_RECOVERY
+/*
+ *2013-07-25, G2-FS@lge.com
+ *if 'sbi->s_mount_state & EXT4_ERROR_FS ' mountOK gets EJOURNAL
+ *in this case, we need to run e2fsck with j & fy options
+ *To do this, ext4_fill_super() should return its failure value.
+ *Frst value '3' shows the phone is in the middle of factory reset or the first bootup.
+ *Let's return EJOURNAL when mountOK gets EJOURNAL and frst is not 3.
+*/
+
+if ( (mountOK == EJOURNAL) && (get_lge_frst_status( ) != 3 ) )
+	return -EJOURNAL;
+else
 	return 0;
+#else
+	return 0;
+#endif
+
 
 cantfind_ext4:
 	if (!silent)
 		ext4_msg(sb, KERN_ERR, "VFS: Can't find ext4 filesystem");
+#ifdef CONFIG_MACH_LGE
+/*
+2013-06-14, G2-FS@lge.com
+add return code if ext4 superblock is damaged
+*/
+	ret=-ESUPER;
+#endif
 	goto failed_mount;
 
 failed_mount7:
+	printk(KERN_ERR "EXT4-fs: failed_mount7\n");
 	ext4_unregister_li_request(sb);
 failed_mount6:
+	printk(KERN_ERR "EXT4-fs: failed_mount6\n");
 	ext4_mb_release(sb);
 failed_mount5:
+	printk(KERN_ERR "EXT4-fs: failed_mount5\n");
 	ext4_ext_release(sb);
 	ext4_release_system_zone(sb);
 failed_mount4a:
+	printk(KERN_ERR "EXT4-fs: failed_mount4a\n");
 	dput(sb->s_root);
 	sb->s_root = NULL;
 failed_mount4:
+	printk(KERN_ERR "EXT4-fs: failed_mount4\n");
 	ext4_msg(sb, KERN_ERR, "mount failed");
 	destroy_workqueue(EXT4_SB(sb)->dio_unwritten_wq);
 failed_mount_wq:
+	printk(KERN_ERR "EXT4-fs: failed_mount_wq\n");
 	if (sbi->s_journal) {
 		jbd2_journal_destroy(sbi->s_journal);
 		sbi->s_journal = NULL;
 	}
 failed_mount3:
+	printk(KERN_ERR "EXT4-fs: failed_mount3\n");
 	del_timer(&sbi->s_err_report);
 	if (sbi->s_flex_groups)
 		ext4_kvfree(sbi->s_flex_groups);
@@ -3706,10 +3773,15 @@ failed_mount3:
 	if (sbi->s_mmp_tsk)
 		kthread_stop(sbi->s_mmp_tsk);
 failed_mount2:
+	printk(KERN_ERR "EXT4-fs: failed_mount2\n");
+#ifdef CONFIG_MACH_LGE
+ret=-ESUPER;
+#endif
 	for (i = 0; i < db_count; i++)
 		brelse(sbi->s_group_desc[i]);
 	ext4_kvfree(sbi->s_group_desc);
 failed_mount:
+	printk(KERN_ERR "EXT4-fs: failed_mount\n");
 	if (sbi->s_proc) {
 		remove_proc_entry("options", sbi->s_proc);
 		remove_proc_entry(sb->s_id, ext4_proc_root);
@@ -4105,6 +4177,7 @@ static void ext4_clear_journal_err(struct super_block *sb,
 		ext4_commit_super(sb, 1);
 
 		jbd2_journal_clear_err(journal);
+		jbd2_journal_update_sb_errno(journal);
 	}
 }
 
@@ -4237,6 +4310,16 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 	int i;
 #endif
 	char *orig_data = kstrdup(data, GFP_KERNEL);
+
+#ifdef CONFIG_MACH_LGE
+	/* LGE_UPDATE, 2013/05/07, G2-FS@lge.com
+	 * For more information
+	 */
+	if(*flags & MS_RDONLY)
+		ext4_msg(sb, KERN_INFO, "re-mount start. with ro");
+	else
+		ext4_msg(sb, KERN_INFO, "re-mount start. with rw");
+#endif
 
 	/* Store the original options */
 	lock_super(sb);
@@ -4392,7 +4475,11 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 	if (enable_quota)
 		dquot_resume(sb, -1);
 
+#ifdef CONFIG_MACH_LGE
+	ext4_msg(sb, KERN_INFO, "re-mounted. end. Opts: %s", orig_data);
+#else
 	ext4_msg(sb, KERN_INFO, "re-mounted. Opts: %s", orig_data);
+#endif
 	kfree(orig_data);
 	return 0;
 

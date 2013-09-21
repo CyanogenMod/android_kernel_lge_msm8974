@@ -116,6 +116,7 @@ my %nameexception = (
     '_sinittext'	=> 1,
     'kallsyms_names'	=> 1,
     'kallsyms_num_syms'	=> 1,
+    'kallsyms_type_table' => 1,
     'kallsyms_addresses'=> 1,
     '__this_module'	=> 1,
     '_etext'		=> 1,

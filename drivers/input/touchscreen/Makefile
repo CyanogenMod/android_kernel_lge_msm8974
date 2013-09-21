@@ -78,7 +78,25 @@ obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_MSM_LEGACY)		+= msm_touch.o
 obj-$(CONFIG_TOUCHSCREEN_CY8C_TS)	+= cy8c_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CYTTSP_I2C_QC)       += cyttsp-i2c-qc.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_RMI4_I2C) +=synaptics/
+ifdef CONFIG_MACH_LGE
+ifdef CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB) += lge_touch_core_vu3evb.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB) += touch_synaptics_vu3evb.o
+else
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += lge_touch_core.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += touch_synaptics.o
+endif
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += touch_synaptics_ds5_fw_upgrade.o
+obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4) += DS5/
+endif
 obj-$(CONFIG_TOUCHSCREEN_FT5X06)	+= ft5x06_ts.o
+ifndef CONFIG_MACH_LGE
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_RMI4)		+= synaptics_i2c_rmi4.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_RMI4_DEV)	+= synaptics_rmi_dev.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE) 	+= synaptics_fw_update.o
+endif
+obj-$(CONFIG_TOUCHSCREEN_MMS136)	+= melfas_ts.o
+obj-$(CONFIG_TOUCHSCREEN_MMS136)	+= mms136_ISP_download.o
+obj-$(CONFIG_TOUCHSCREEN_MMS136)	+= mms136_ISC_download.o
+obj-$(CONFIG_TS_INFO_CLASS) += ts_class.o

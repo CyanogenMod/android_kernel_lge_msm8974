@@ -33,4 +33,7 @@ void hdmi_edid_set_video_resolution(void *edid_ctrl, u32 resolution);
 void hdmi_edid_deinit(void *edid_ctrl);
 void *hdmi_edid_init(struct hdmi_edid_init_data *init_data);
 
+#ifdef CONFIG_SLIMPORT_ANX7808
+bool is_slimport_dp(void);
+#endif
 #endif /* __HDMI_EDID_H__ */

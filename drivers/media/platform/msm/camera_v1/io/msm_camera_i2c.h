@@ -19,7 +19,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/msm_camera.h>
 
-#define CONFIG_MSM_CAMERA_I2C_DBG 0
+#define CONFIG_MSM_CAMERA_I2C_DBG 1
 
 #if CONFIG_MSM_CAMERA_I2C_DBG
 #define S_I2C_DBG(fmt, args...) printk(fmt, ##args)

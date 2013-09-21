@@ -25,7 +25,7 @@
 #define CSID_VERSION_V2                      0x02000011
 #define CSID_VERSION_V3                      0x30000000
 
-#define DBG_CSID 0
+#define DBG_CSID 1
 
 #define TRUE   1
 #define FALSE  0
@@ -75,6 +75,16 @@ static void msm_csid_set_debug_reg(void __iomem *csidbase,
 {
 	uint32_t val = 0;
 	val = ((1 << csid_params->lane_cnt) - 1) << 20;
+
+/* soojung.lim@lge.com 2012-12-07
+ * If it is set true, then lots of interrupt is occured.
+ * Only use this for debugging.
+ */
+#ifdef CONFIG_MACH_LGE
+#else
+	msm_camera_io_w(0xffffffff | val, csidbase + CSID_IRQ_MASK_ADDR);
+	msm_camera_io_w(0xffffffff | val, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
+#endif
 	msm_camera_io_w(0x7f010800 | val, csidbase + CSID_IRQ_MASK_ADDR);
 	msm_camera_io_w(0x7f010800 | val, csidbase + CSID_IRQ_CLEAR_CMD_ADDR);
 }
@@ -132,6 +142,8 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	irq = msm_camera_io_r(csid_dev->base + CSID_IRQ_STATUS_ADDR);
 	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
+	pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+		__func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 << CSID_RST_DONE_IRQ_BITSHIFT))
 			complete(&csid_dev->reset_complete);
 	msm_camera_io_w(irq, csid_dev->base + CSID_IRQ_CLEAR_CMD_ADDR);

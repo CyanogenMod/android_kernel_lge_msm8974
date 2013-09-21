@@ -179,6 +179,9 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 		sg = table->sgl;
 		list_for_each_entry_safe(info, tmp_info, &pages_list, list) {
 			struct page *page = info->page;
+#ifdef CONFIG_LGE_MEMORY_INFO
+			__inc_zone_page_state(page, NR_ION_PAGES);
+#endif
 			sg_set_page(sg, page, order_to_size(info->order), 0);
 			sg_dma_address(sg) = sg_phys(sg);
 			sg = sg_next(sg);
@@ -269,7 +272,14 @@ static void ion_iommu_heap_free(struct ion_buffer *buffer)
 		return;
 
 	for_each_sg(table->sgl, sg, table->nents, i)
+#ifdef CONFIG_LGE_MEMORY_INFO
+	{
+		__dec_zone_page_state(sg_page(sg), NR_ION_PAGES);
 		__free_pages(sg_page(sg), get_order(sg_dma_len(sg)));
+	}
+#else
+		__free_pages(sg_page(sg), get_order(sg_dma_len(sg)));
+#endif
 
 	sg_free_table(table);
 	kfree(table);

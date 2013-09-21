@@ -130,10 +130,13 @@ config HAVE_KERNEL_XZ
 config HAVE_KERNEL_LZO
 	bool
 
+config HAVE_KERNEL_LZ4
+	bool
+
 choice
 	prompt "Kernel compression mode"
 	default KERNEL_GZIP
-	depends on HAVE_KERNEL_GZIP || HAVE_KERNEL_BZIP2 || HAVE_KERNEL_LZMA || HAVE_KERNEL_XZ || HAVE_KERNEL_LZO
+	depends on HAVE_KERNEL_GZIP || HAVE_KERNEL_BZIP2 || HAVE_KERNEL_LZMA || HAVE_KERNEL_XZ || HAVE_KERNEL_LZO || HAVE_KERNEL_LZ4
 	help
 	  The linux kernel is a kind of self-extracting executable.
 	  Several compression algorithms are available, which differ
@@ -200,6 +203,18 @@ config KERNEL_LZO
 	  Its compression ratio is the poorest among the 4. The kernel
 	  size is about 10% bigger than gzip; however its speed
 	  (both compression and decompression) is the fastest.
+
+config KERNEL_LZ4
+	bool "LZ4"
+	depends on HAVE_KERNEL_LZ4
+	help
+	  LZ4 is an LZ77-type compressor with a fixed, byte-oriented encoding.
+	  A preliminary version of LZ4 de/compression tool is available at
+	  <https://code.google.com/p/lz4/>.
+
+	  Its compression ratio is worse than LZO. The size of the kernel
+	  is about 8% bigger than LZO. But the decompression speed is
+	  faster than LZO.
 
 endchoice
 
@@ -1017,6 +1032,17 @@ config KALLSYMS_ALL
 	   something like this).
 
 	   Say N unless you really need all symbols.
+
+config KALLSYMS_LINE_LOCATIONS
+	bool "Load source line information debugging kernel with kallsyms"
+	depends on DEBUG_KERNEL && KALLSYMS
+	default n
+	help
+	   Say Y here to let the kernel print out symbolic crash
+	   information which also contains source line information.
+	   This increases the size of the kernel somewhat, as all the
+	   lines for locations tables have to be loaded into the
+	   kernel image to allow address to line lookups.
 
 config HOTPLUG
 	bool "Support for hot-pluggable devices" if EXPERT

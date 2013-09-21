@@ -404,6 +404,20 @@ static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+//[AUDIO_BSP] sehwan.lee@lge.com phone memo [START]
+static int msm_phonememo_voice_mute_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int mute = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: mute=%d\n", __func__, mute);
+
+	voc_set_phonememo_tx_mute(voc_get_session_id(VOICE_SESSION_NAME), TX_PATH, mute);
+
+	return 0;
+}
+//[AUDIO_BSP] sehwan.lee@lge.com phone memo [END]
+
 static int msm_volte_mute_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -559,7 +573,15 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 				msm_voice_rx_device_mute_put),
 	SOC_SINGLE_EXT("Voice Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_voice_mute_get, msm_voice_mute_put),
-	SOC_SINGLE_EXT("Voice Rx Volume", SND_SOC_NOPM, 0, 5, 0,
+//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [START]
+	SOC_SINGLE_EXT("Voice Tx Mute Phonememo", SND_SOC_NOPM, 0, 1, 0,
+				msm_voice_mute_get, msm_phonememo_voice_mute_put),
+//[Audio][BSP] sehwan.lee@lge.com phonememo initial code [END]
+#if defined(CONFIG_SND_VOICE_VOLUME)
+	SOC_SINGLE_EXT("Voice Rx Volume", SND_SOC_NOPM, 0, CONFIG_SND_VOICE_VOLUME, 0,
+#else
+	SOC_SINGLE_EXT("Voice Rx Volume", SND_SOC_NOPM, 0, 9, 0,
+#endif
 				msm_voice_volume_get, msm_voice_volume_put),
 	SOC_ENUM_EXT("TTY Mode", msm_tty_mode_enum[0], msm_voice_tty_mode_get,
 				msm_voice_tty_mode_put),
@@ -570,7 +592,11 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 			msm_volte_rx_device_mute_put),
 	SOC_SINGLE_EXT("VoLTE Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_volte_mute_get, msm_volte_mute_put),
-	SOC_SINGLE_EXT("VoLTE Rx Volume", SND_SOC_NOPM, 0, 5, 0,
+#if defined(CONFIG_SND_VOICE_VOLUME)
+	SOC_SINGLE_EXT("VoLTE Rx Volume", SND_SOC_NOPM, 0, CONFIG_SND_VOICE_VOLUME, 0,
+#else
+	SOC_SINGLE_EXT("VoLTE Rx Volume", SND_SOC_NOPM, 0, 9, 0,
+#endif
 				msm_volte_volume_get, msm_volte_volume_put),
 	SOC_SINGLE_EXT("Voice2 Rx Device Mute", SND_SOC_NOPM, 0, 1, 0,
 		       msm_voice2_rx_device_mute_get,

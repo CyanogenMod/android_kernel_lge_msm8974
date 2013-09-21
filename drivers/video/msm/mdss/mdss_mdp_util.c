@@ -427,7 +427,9 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 	struct ion_client *iclient = mdss_get_ionclient();
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
 		pr_debug("fb mem buf=0x%x\n", data->addr);
-		fput_light(data->srcp_file, data->p_need);
+		if(data->srcp_file!=NULL) {
+			fput_light(data->srcp_file, data->p_need);
+		}
 		data->srcp_file = NULL;
 	} else if (data->srcp_file) {
 		pr_debug("pmem buf=0x%x\n", data->addr);
@@ -574,4 +576,24 @@ u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd)
 			frame_rate = panel_info->clk_rate / pixel_total;
 	}
 	return frame_rate;
+}
+
+int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase)
+{
+	u32 unit, residue;
+
+	if (dst == 0)
+		return -EINVAL;
+
+	unit = 1 << PHASE_STEP_SHIFT;
+	*out_phase = mult_frac(src, unit, dst);
+
+	/* check if overflow is possible */
+	if (src > dst) {
+		residue = *out_phase & (unit - 1);
+		if (residue && ((residue * dst) < (unit - residue)))
+			return -EOVERFLOW;
+	}
+
+	return 0;
 }

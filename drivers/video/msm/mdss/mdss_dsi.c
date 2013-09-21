@@ -22,18 +22,30 @@
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
 
+#ifdef CONFIG_MACH_LGE
+#include <mach/board_lge.h>
+#endif
+
 #include "mdss.h"
 #include "mdss_panel.h"
 #include "mdss_dsi.h"
 #include "mdss_debug.h"
 
 static unsigned char *mdss_dsi_base;
+#ifdef CONFIG_MACH_LGE
+static int mdss_dsi_use_vdd_supply;
+static u32 mdss_dsi_bit_rate;
+extern struct mdss_panel_data *pdata_base;
+#endif
 
 static int mdss_dsi_regulator_init(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct dsi_drv_cm_data *dsi_drv = NULL;
+#ifdef CONFIG_MACH_LGE
+	struct device_node *node = pdev->dev.of_node;
+#endif
 
 	if (!pdev) {
 		pr_err("%s: invalid input\n", __func__);
@@ -52,6 +64,33 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev)
 				ctrl_pdata->power_data.vreg_config,
 				ctrl_pdata->power_data.num_vreg, 1);
 	} else {
+#ifdef CONFIG_MACH_LGE
+		/* if "lge,mdss-dsi-use-vdd-supply" property is not exist, we
+		 * assume that it is used in board. if don't want vdd-supply,
+		 * please use "lge,mdss-dsi-use-vdd-supply=<0>" in your dtsi.
+		 */
+		ret = of_property_read_u32(node, "lge,mdss-dsi-use-vdd-supply",
+				&mdss_dsi_use_vdd_supply);
+		if (ret == -EINVAL)
+			mdss_dsi_use_vdd_supply = 1;
+
+		if (mdss_dsi_use_vdd_supply) {
+			dsi_drv->vdd_vreg = devm_regulator_get(&pdev->dev, "vdd");
+			if (IS_ERR(dsi_drv->vdd_vreg)) {
+				pr_err("%s: could not get vdd vreg, rc = %ld\n",
+						__func__, PTR_ERR(dsi_drv->vdd_vreg));
+				return -ENODEV;
+			}
+
+			ret = regulator_set_voltage(dsi_drv->vdd_vreg, 3000000,
+					3000000);
+			if (ret) {
+				pr_err("%s: set voltage failed on vdd vreg, rc=%d\n",
+						__func__, ret);
+				return -EINVAL;
+			}
+		}
+#else
 		dsi_drv->vdd_vreg = devm_regulator_get(&pdev->dev, "vdd");
 		if (IS_ERR(dsi_drv->vdd_vreg)) {
 			pr_err("%s: could not get vdda vreg, rc=%ld\n",
@@ -66,7 +105,7 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev)
 				__func__, ret);
 			return ret;
 		}
-
+#endif
 		dsi_drv->vdd_io_vreg = devm_regulator_get(&pdev->dev, "vddio");
 		if (IS_ERR(dsi_drv->vdd_io_vreg)) {
 			pr_err("%s: could not get vddio reg, rc=%ld\n",
@@ -101,7 +140,146 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev)
 	return 0;
 }
 
+#if defined(CONFIG_OLED_SUPPORT)
+int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
+{
+	int ret;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	pr_debug("%s: enable=%d\n", __func__, enable);
+
+       // Z OLED power on start
+	if (enable) {
+		if (ctrl_pdata->power_data.num_vreg > 0) {
+			ret = msm_dss_enable_vreg(
+				ctrl_pdata->power_data.vreg_config,
+				ctrl_pdata->power_data.num_vreg, 1);
+			if (ret) {
+				pr_err("%s:Failed to enable regulators.rc=%d\n",
+					__func__, ret);
+				return ret;
+			}
+
+			/*
+			 * A small delay is needed here after enabling
+			 * all regulators and before issuing panel reset
+			 */
+			msleep(20);
+		} else {
+
+			ret = regulator_set_optimum_mode(
+				(ctrl_pdata->shared_pdata).vdd_io_vreg, 100000);
+			if (ret < 0) {
+				pr_err("%s: vdd_io_vreg set opt mode failed.\n",
+					__func__);
+				return ret;
+			}
+
+			ret = regulator_set_optimum_mode(
+				(ctrl_pdata->shared_pdata).vdda_vreg, 100000);
+			if (ret < 0) {
+				pr_err("%s: vdda_vreg set opt mode failed.\n",
+					__func__);
+				return ret;
+			}
+
+			if (gpio_is_valid(ctrl_pdata->disp_en_gpio)){
+				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+				msleep(1);
+			} else
+				pr_err("%s:%d, disp_en_gpio is not valid\n",
+				__func__, __LINE__);
+
+			ret = regulator_enable(
+				(ctrl_pdata->shared_pdata).vdd_io_vreg);
+			if (ret) {
+				pr_err("%s: Failed to enable regulator.\n",
+					__func__);
+				return ret;
+			}
+
+			ret = regulator_enable(
+				(ctrl_pdata->shared_pdata).vdda_vreg);
+			if (ret) {
+				pr_err("%s: Failed to enable regulator.\n",
+					__func__);
+				return ret;
+			}
+			msleep(10);
+		}
+	// Z OLED power off start
+	} else {
+		msleep(20);
+		mdss_dsi_panel_reset(pdata, 0);
+		msleep(20);
+
+		if (ctrl_pdata->power_data.num_vreg > 0) {
+			ret = msm_dss_enable_vreg(
+				ctrl_pdata->power_data.vreg_config,
+				ctrl_pdata->power_data.num_vreg, 0);
+			if (ret) {
+				pr_err("%s: Failed to disable regs.rc=%d\n",
+					__func__, ret);
+				return ret;
+			}
+		} else {
+			ret = regulator_disable(
+				(ctrl_pdata->shared_pdata).vdda_vreg);
+			if (ret) {
+				pr_err("%s: Failed to disable regulator.\n",
+					__func__);
+				return ret;
+			}
+
+#if 0
+			ret = regulator_disable(
+				(ctrl_pdata->shared_pdata).vdd_io_vreg);
+			if (ret) {
+				pr_err("%s: Failed to disable regulator.\n",
+					__func__);
+				return ret;
+			}
+#endif
+			if (gpio_is_valid(ctrl_pdata->disp_en_gpio)){
+				gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
+				msleep(1);
+			} else
+				pr_err("%s:%d, disp_en_gpio is not valid\n",
+				__func__, __LINE__);
+
+			ret = regulator_set_optimum_mode(
+				(ctrl_pdata->shared_pdata).vdd_io_vreg, 100);
+			if (ret < 0) {
+				pr_err("%s: vdd_io_vreg set opt mode failed.\n",
+					__func__);
+				return ret;
+			}
+
+			ret = regulator_set_optimum_mode(
+				(ctrl_pdata->shared_pdata).vdda_vreg, 100);
+			if (ret < 0) {
+				pr_err("%s: vdda_vreg set opt mode failed.\n",
+					__func__);
+				return ret;
+			}
+		}
+	}
+	pr_info("[Zee][OLED] mdss_dsi_panel_power %s\n", enable ? "on" : "off");
+	return 0;
+}
+#else // if not CONFIG_OLED_SUPPORT
+#if defined(CONFIG_MACH_LGE)
+int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
+#else
 static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
+#endif
 {
 	int ret;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -132,6 +310,17 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			 */
 			msleep(20);
 		} else {
+#ifdef CONFIG_MACH_LGE
+			if (mdss_dsi_use_vdd_supply) {
+				ret = regulator_set_optimum_mode
+					((ctrl_pdata->shared_pdata).vdd_vreg, 100000);
+				if (ret < 0) {
+					pr_err("%s: vdd_vreg set opt mode failed.\n",
+							__func__);
+					return ret;
+				}
+			}
+#else
 			ret = regulator_set_optimum_mode(
 				(ctrl_pdata->shared_pdata).vdd_vreg, 100000);
 			if (ret < 0) {
@@ -139,6 +328,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 					 __func__);
 				return ret;
 			}
+#endif
 
 			ret = regulator_set_optimum_mode(
 				(ctrl_pdata->shared_pdata).vdd_io_vreg, 100000);
@@ -165,6 +355,18 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 			}
 			msleep(20);
 
+#ifdef CONFIG_MACH_LGE
+			if (mdss_dsi_use_vdd_supply) {
+				ret = regulator_enable(
+						(ctrl_pdata->shared_pdata).vdd_vreg);
+				if (ret) {
+					pr_err("%s: Failed to enable regulator.\n",
+							__func__);
+					return ret;
+				}
+			}
+			msleep(20);
+#else
 			ret = regulator_enable(
 				(ctrl_pdata->shared_pdata).vdd_vreg);
 			if (ret) {
@@ -173,6 +375,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 				return ret;
 			}
 			msleep(20);
+#endif
 
 			ret = regulator_enable(
 				(ctrl_pdata->shared_pdata).vdda_vreg);
@@ -182,14 +385,31 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 				return ret;
 			}
 		}
-
+#if defined(CONFIG_MACH_LGE)
+		/* LGE_CHANGE_S
+		 * power sequence for LGD_FHD panel
+		 * 2013-04-05, yeonjun.kim@lge.com
+		 */
+		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)){
+			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+			msleep(1);
+		}
+		else
+			pr_debug("%s:%d, reset line not configured\n",
+			   __func__, __LINE__);
+#else
 		if (pdata->panel_info.panel_power_on == 0)
 			mdss_dsi_panel_reset(pdata, 1);
-
+		/* LGE_CHANGE_E */
+#endif
 	} else {
-
+#if !defined(CONFIG_MACH_LGE)
+		/* LGE_CHANGE_S
+		 * power sequence for LGD_FHD panel
+		 * 2013-04-05, yeonjun.kim@lge.com
+		 */
 		mdss_dsi_panel_reset(pdata, 0);
-
+#endif
 		if (ctrl_pdata->power_data.num_vreg > 0) {
 			ret = msm_dss_enable_vreg(
 				ctrl_pdata->power_data.vreg_config,
@@ -200,6 +420,18 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 				return ret;
 			}
 		} else {
+
+#ifdef CONFIG_MACH_LGE
+			if (mdss_dsi_use_vdd_supply) {
+				ret = regulator_disable(
+						(ctrl_pdata->shared_pdata).vdd_vreg);
+				if (ret) {
+					pr_err("%s: Failed to disable regulator.\n",
+							__func__);
+					return ret;
+				}
+			}
+#else
 			ret = regulator_disable(
 				(ctrl_pdata->shared_pdata).vdd_vreg);
 			if (ret) {
@@ -207,7 +439,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 					__func__);
 				return ret;
 			}
-
+#endif
 			ret = regulator_disable(
 				(ctrl_pdata->shared_pdata).vdda_vreg);
 			if (ret) {
@@ -216,6 +448,18 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 				return ret;
 			}
 
+#if defined(CONFIG_MACH_LGE)
+			/* LGE_CHANGE_S
+			 * power sequence for LGD_FHD panel
+			 * 2013-04-09, yeonjun.kim@lge.com
+			 */
+			msleep(1);
+			mdss_dsi_panel_reset(pdata, 0);
+			msleep(1);
+			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
+			msleep(1);
+#endif
+#if !defined(CONFIG_MACH_MSM8974_VU3_KR)
 			ret = regulator_disable(
 				(ctrl_pdata->shared_pdata).vdd_io_vreg);
 			if (ret) {
@@ -223,7 +467,18 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 					__func__);
 				return ret;
 			}
-
+#endif
+#ifdef CONFIG_MACH_LGE
+			if (mdss_dsi_use_vdd_supply) {
+				ret = regulator_set_optimum_mode(
+						(ctrl_pdata->shared_pdata).vdd_vreg, 100);
+				if (ret < 0) {
+					pr_err("%s: vdd_vreg set opt mode failed.\n",
+							__func__);
+					return ret;
+				}
+			}
+#else
 			ret = regulator_set_optimum_mode(
 				(ctrl_pdata->shared_pdata).vdd_vreg, 100);
 			if (ret < 0) {
@@ -231,7 +486,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 					 __func__);
 				return ret;
 			}
-
+#endif
 			ret = regulator_set_optimum_mode(
 				(ctrl_pdata->shared_pdata).vdd_io_vreg, 100);
 			if (ret < 0) {
@@ -249,7 +504,9 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 		}
 	}
 	return 0;
+	pr_info("%s: %s\n", __func__, enable ? "on" : "off");
 }
+#endif
 
 static void mdss_dsi_put_dt_vreg_data(struct device *dev,
 	struct dss_module_power *module_power)
@@ -385,7 +642,11 @@ error:
 	return rc;
 }
 
+#ifdef CONFIG_OLED_SUPPORT
+int mdss_dsi_off(struct mdss_panel_data *pdata)
+#else
 static int mdss_dsi_off(struct mdss_panel_data *pdata)
+#endif
 {
 	int ret = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -405,7 +666,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s+: ctrl=%p ndx=%d\n", __func__,
+	pr_info("%s+: ctrl=%p ndx=%d\n", __func__,
 				ctrl_pdata, ctrl_pdata->ndx);
 
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
@@ -416,11 +677,17 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, 0);
 
+	ret = mdss_dsi_enable_bus_clocks(ctrl_pdata);
+	if (ret) {
+		pr_err("%s: failed to enable bus clocks. rc=%d\n", __func__,
+			ret);
+		mdss_dsi_panel_power_on(pdata, 0);
+		return ret;
+	}
+
 	/* disable DSI phy */
 	mdss_dsi_phy_enable(ctrl_pdata->ctrl_base, 0);
-
 	mdss_dsi_disable_bus_clocks(ctrl_pdata);
-
 	ret = mdss_dsi_panel_power_on(pdata, 0);
 	if (ret) {
 		pr_err("%s: Panel power off failed\n", __func__);
@@ -431,6 +698,9 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 
 	return ret;
 }
+#ifdef CONFIG_OLED_SUPPORT
+EXPORT_SYMBOL(mdss_dsi_off);
+#endif
 
 int mdss_dsi_on(struct mdss_panel_data *pdata)
 {
@@ -456,7 +726,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s+: ctrl=%p ndx=%d\n",
+	pr_info("%s+: ctrl=%p ndx=%d\n",
 				__func__, ctrl_pdata, ctrl_pdata->ndx);
 
 	pinfo = &pdata->panel_info;
@@ -476,9 +746,9 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		mdss_dsi_panel_power_on(pdata, 0);
 		return ret;
 	}
-
 	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
 	mdss_dsi_phy_init(pdata);
+	mdss_dsi_disable_bus_clocks(ctrl_pdata);
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 
@@ -501,7 +771,11 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	vspw = pdata->panel_info.lcdc.v_pulse_width;
 	width = mult_frac(pdata->panel_info.xres, dst_bpp,
 			pdata->panel_info.bpp);
+#ifdef CONFIG_OLED_SUPPORT
+	height = pdata->panel_info.yres + pdata->panel_info.lcdc.yres_margin;
+#else
 	height = pdata->panel_info.yres;
+#endif
 
 	mipi  = &pdata->panel_info.mipi;
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
@@ -558,6 +832,25 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		wmb();
 	}
 
+#if defined(CONFIG_MACH_LGE)
+#if defined(CONFIG_OLED_SUPPORT)
+	msleep(10);
+	mdss_dsi_panel_reset(pdata, 1);
+	msleep(20);
+#else
+	/* LGE_CHANGE_S
+	 * power sequence for LGD_FHD panel
+	 * 2013-04-05, yeonjun.kim@lge.com
+	 */
+	#if defined (CONFIG_MACH_MSM8974_VU3_KR)
+		msleep(40);
+	#else
+		msleep(1);
+	#endif
+	mdss_dsi_panel_reset(pdata, 1);
+#endif
+#endif
+
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
 		mdss_dsi_clk_ctrl(ctrl_pdata, 0);
 
@@ -571,7 +864,7 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	struct mipi_panel_info *mipi;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	pr_debug("%s+:\n", __func__);
+	pr_info("%s\n", __func__);
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -582,6 +875,7 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 				panel_data);
 	mipi  = &pdata->panel_info.mipi;
 
+#ifndef CONFIG_OLED_SUPPORT
 	if (!(ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT)) {
 		ret = ctrl_pdata->on(pdata);
 		if (ret) {
@@ -591,8 +885,8 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 		}
 		ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
 	}
+#endif
 	mdss_dsi_op_mode_config(mipi->mode, pdata);
-
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -603,7 +897,7 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 	int ret = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	pr_debug("%s+:\n", __func__);
+	pr_info("%s\n", __func__);
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -648,8 +942,10 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 	pr_debug("%s+: ctrl=%p ndx=%d\n", __func__,
 				ctrl_pdata, ctrl_pdata->ndx);
 
-	WARN((ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT),
-		"Incorrect Ctrl state=0x%x\n", ctrl_pdata->ctrl_state);
+	/* LGE_CHANGE, command panel does not be powered off */
+	if (pdata->panel_info.type == MIPI_VIDEO_PANEL)
+		WARN((ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT),
+				"Incorrect Ctrl state=0x%x\n", ctrl_pdata->ctrl_state);
 
 	mdss_dsi_sw_reset(pdata);
 	mdss_dsi_host_init(mipi, pdata);
@@ -662,6 +958,16 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 			return ret;
 		}
 	}
+
+/* FixMe AU_106 */
+#ifndef CONFIG_OLED_SUPPORT
+	/* because of redish issue */
+	ctrl_pdata->ctrl_state = CTRL_STATE_MDP_ACTIVE;
+#endif
+
+#if defined(CONFIG_MACH_LGE)
+	pdata_base = pdata;
+#endif
 
 	pr_debug("%s-:End\n", __func__);
 	return ret;
@@ -713,6 +1019,16 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 			rc = -EINVAL;
 		}
 		break;
+#ifdef CONFIG_OLED_SUPPORT
+	case MDSS_EVENT_FIRST_FRAME_UPDATE:
+              /*Event is send only if cont_splash feature is enabled */
+		if (ctrl_pdata->off_cmds.link_state == DSI_HS_MODE) {
+			/* Panel is Enabled already in Bootloader */
+			ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
+			rc = mdss_dsi_blank(pdata);
+		}
+		break;
+#endif
 	case MDSS_EVENT_PANEL_CLK_CTRL:
 		mdss_dsi_clk_req(ctrl_pdata, (int)arg);
 		break;
@@ -926,10 +1242,18 @@ int dsi_panel_device_register(struct platform_device *pdev,
 			+ (panel_data->panel_info.xres)
 			+ (panel_data->panel_info.lcdc.h_front_porch));
 
+#ifdef CONFIG_OLED_SUPPORT
+	v_period = ((panel_data->panel_info.lcdc.v_pulse_width)
+			+ (panel_data->panel_info.lcdc.v_back_porch)
+			+ (panel_data->panel_info.yres)
+			+ (panel_data->panel_info.lcdc.yres_margin)
+			+ (panel_data->panel_info.lcdc.v_front_porch));
+#else
 	v_period = ((panel_data->panel_info.lcdc.v_pulse_width)
 			+ (panel_data->panel_info.lcdc.v_back_porch)
 			+ (panel_data->panel_info.yres)
 			+ (panel_data->panel_info.lcdc.v_front_porch));
+#endif
 
 	mipi  = &panel_data->panel_info.mipi;
 
@@ -971,6 +1295,14 @@ int dsi_panel_device_register(struct platform_device *pdev,
 				(h_period * v_period
 					 * (mipi->frame_rate) * bpp * 8);
 		}
+#ifdef CONFIG_MACH_LGE
+		rc = of_property_read_u32(pdev->dev.of_node, "lge,mdss-dsi-bit-rate",
+				&mdss_dsi_bit_rate);
+		if (rc == 0)
+			panel_data->panel_info.clk_rate = mdss_dsi_bit_rate;
+
+		pr_info("%s: DSI data rate:%u\n", __func__, panel_data->panel_info.clk_rate);
+#endif
 	}
 	pll_divider_config.clk_rate = panel_data->panel_info.clk_rate;
 
@@ -992,6 +1324,10 @@ int dsi_panel_device_register(struct platform_device *pdev,
 	}
 
 	ctrl_pdev = of_find_device_by_node(dsi_ctrl_np);
+#ifdef CONFIG_MACH_LGE
+	if (!ctrl_pdev)
+		return -ENODEV;
+#endif
 	ctrl_pdata = platform_get_drvdata(ctrl_pdev);
 	if (!ctrl_pdata) {
 		pr_err("%s: no dsi ctrl driver data\n", __func__);
@@ -1103,12 +1439,21 @@ int dsi_panel_device_register(struct platform_device *pdev,
 				&(panel_data->panel_info),
 				       sizeof(struct mdss_panel_info));
 
+#ifdef CONFIG_MACH_LGE
+	ctrl_pdata->on = panel_data->on;
+	ctrl_pdata->off = panel_data->off;
+#endif
 	ctrl_pdata->panel_data.set_backlight = panel_data->bl_fnc;
 	ctrl_pdata->bklt_ctrl = panel_data->panel_info.bklt_ctrl;
 	ctrl_pdata->pwm_pmic_gpio = panel_data->panel_info.pwm_pmic_gpio;
 	ctrl_pdata->pwm_period = panel_data->panel_info.pwm_period;
 	ctrl_pdata->pwm_lpg_chan = panel_data->panel_info.pwm_lpg_chan;
 	ctrl_pdata->bklt_max = panel_data->panel_info.bl_max;
+
+#ifdef CONFIG_OLED_SUPPORT
+	ctrl_pdata->panel_data.panel_info.blmap_size = panel_data->panel_info.blmap_size;
+	ctrl_pdata->panel_data.panel_info.blmap = panel_data->panel_info.blmap;
+#endif
 
 	if (ctrl_pdata->bklt_ctrl == BL_PWM)
 		mdss_dsi_panel_pwm_cfg(ctrl_pdata);
@@ -1124,8 +1469,14 @@ int dsi_panel_device_register(struct platform_device *pdev,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
 	ctrl_pdata->ctrl_state = CTRL_STATE_UNKNOWN;
+
+#ifdef CONFIG_MACH_LGE
+	cont_splash_enabled = lge_get_cont_splash_enabled();
+#else
 	cont_splash_enabled = of_property_read_bool(pdev->dev.of_node,
 			"qcom,cont-splash-enabled");
+#endif
+
 	if (!cont_splash_enabled) {
 		pr_info("%s:%d Continuous splash flag not found.\n",
 				__func__, __LINE__);
@@ -1143,19 +1494,11 @@ int dsi_panel_device_register(struct platform_device *pdev,
 			return rc;
 		}
 
-		rc = mdss_dsi_enable_bus_clocks(ctrl_pdata);
-		if (rc) {
-			pr_err("%s: failed to enable bus clocks. rc=%d\n",
-				__func__, rc);
-			rc = mdss_dsi_panel_power_on(
-				&(ctrl_pdata->panel_data), 0);
-			return rc;
-		}
-
 		mdss_dsi_clk_ctrl(ctrl_pdata, 1);
 		ctrl_pdata->ctrl_state |=
 			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
 	}
+
 
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
 	if (rc) {
@@ -1167,8 +1510,10 @@ int dsi_panel_device_register(struct platform_device *pdev,
 		return rc;
 	}
 
+#ifndef CONFIG_MACH_LGE
 	ctrl_pdata->on = panel_data->on;
 	ctrl_pdata->off = panel_data->off;
+#endif
 
 	if (panel_data->panel_info.pdest == DISPLAY_1) {
 		mdss_debug_register_base("dsi0",

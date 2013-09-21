@@ -190,6 +190,17 @@ Optional properties:
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
 
+LG Electronics' additional properties:
+- lge,mdss-dsi-use-vdd-supply: Specifies whether vdd-supply regulator is used in lcd panel of lge boards.
+		0 = No used
+		1 = Used
+		NOTE: Assume that it is used in board if the property is not existed.
+
+- lge,mdss-dsi-byte-clk-rate: Specifies byte clock rate for lge boards
+		0 = calculate byte clock using bpp and lanes automatically
+- lge,mdss-dsi-pixel-clk-rate: Specifies pixel clock rate for lge boards
+		0 = calculate pixel clock using bpp and lanes automatically
+
 Example:
 / {
 	qcom,mdss_dsi_sim_video {

@@ -306,7 +306,7 @@
 #define TAIKO_A_TX_3_4_SAR_ERR_CH4			(0x166)
 #define TAIKO_A_TX_3_4_SAR_ERR_CH4__POR				(0x00)
 #define TAIKO_A_TX_5_6_EN			(0x167)
-#define TAIKO_A_TX_5_6_EN__POR				(0x11)
+#define TAIKO_A_TX_5_6_EN__POR				(0x00)
 #define TAIKO_A_TX_5_6_TEST_EN			(0x168)
 #define TAIKO_A_TX_5_6_TEST_EN__POR				(0xCC)
 #define TAIKO_A_TX_5_6_ADC_CH5			(0x169)

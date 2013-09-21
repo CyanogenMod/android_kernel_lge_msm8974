@@ -78,7 +78,7 @@ struct msm_rtb_state msm_rtb = {
 module_param_named(filter, msm_rtb.filter, uint, 0644);
 module_param_named(enable, msm_rtb.enabled, int, 0644);
 
-static int msm_rtb_panic_notifier(struct notifier_block *this,
+int msm_rtb_panic_notifier(struct notifier_block *this,
 					unsigned long event, void *ptr)
 {
 	msm_rtb.enabled = 0;

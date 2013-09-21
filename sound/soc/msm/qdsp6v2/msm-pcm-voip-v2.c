@@ -238,7 +238,11 @@ static int msm_voip_dtx_mode_get(struct snd_kcontrol *kcontrol,
 static struct snd_kcontrol_new msm_voip_controls[] = {
 	SOC_SINGLE_EXT("Voip Tx Mute", SND_SOC_NOPM, 0, 1, 0,
 				msm_voip_mute_get, msm_voip_mute_put),
-	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, 5, 0,
+#if defined(CONFIG_SND_VOIP_VOLUME)
+	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, CONFIG_SND_VOIP_VOLUME, 0,
+#else
+	SOC_SINGLE_EXT("Voip Rx Volume", SND_SOC_NOPM, 0, 9, 0,
+#endif
 				msm_voip_volume_get, msm_voip_volume_put),
 	SOC_SINGLE_MULTI_EXT("Voip Mode Rate Config", SND_SOC_NOPM, 0, 23850,
 				0, 2, msm_voip_mode_rate_config_get,

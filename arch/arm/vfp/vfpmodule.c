@@ -762,8 +762,15 @@ static int __init vfp_init(void)
 	else
 		pr_err("Failed to create procfs node for VFP bounce reporting\n");
 #endif
+#ifdef CONFIG_MACH_LGE
+	printk(KERN_INFO "VFP support v0.3: Return ");
+#endif
 
 	return 0;
 }
 
+#ifdef CONFIG_MACH_LGE
+rootfs_initcall(vfp_init);
+#else /* origin */
 late_initcall(vfp_init);
+#endif

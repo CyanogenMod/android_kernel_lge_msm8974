@@ -87,6 +87,13 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		"SUnreclaim:     %8lu kB\n"
 		"KernelStack:    %8lu kB\n"
 		"PageTables:     %8lu kB\n"
+#ifdef CONFIG_LGE_MEMORY_INFO
+		"Vmalloc:        %8lu kB\n"
+		"Binder:         %8lu kB\n"
+		"Kgsl:           %8lu kB\n"
+		"Ion:            %8lu kB\n"
+		"Iommu:          %8lu kB\n"
+#endif
 #ifdef CONFIG_QUICKLIST
 		"Quicklists:     %8lu kB\n"
 #endif
@@ -146,6 +153,13 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 		K(global_page_state(NR_SLAB_UNRECLAIMABLE)),
 		global_page_state(NR_KERNEL_STACK) * THREAD_SIZE / 1024,
 		K(global_page_state(NR_PAGETABLE)),
+#ifdef CONFIG_LGE_MEMORY_INFO
+		K(global_page_state(NR_VMALLOC_PAGES)),
+		K(global_page_state(NR_BINDER_PAGES)),
+		K(global_page_state(NR_KGSL_PAGES)),
+		K(global_page_state(NR_ION_PAGES)),
+		K(global_page_state(NR_IOMMU_PAGES)),
+#endif
 #ifdef CONFIG_QUICKLIST
 		K(quicklist_total_size()),
 #endif

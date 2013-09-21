@@ -1355,6 +1355,7 @@ int voc_set_rxtx_port(uint16_t session_id,
 		      uint32_t dev_type);
 int voc_set_rx_vol_index(uint16_t session_id, uint32_t dir, uint32_t voc_idx);
 int voc_set_tx_mute(uint16_t session_id, uint32_t dir, uint32_t mute);
+int voc_set_phonememo_tx_mute(uint16_t session_id, uint32_t dir, uint32_t mute); //[Audio][BSP] sehwan.lee@lge.com phonememo initial code
 int voc_set_rx_device_mute(uint16_t session_id, uint32_t mute);
 int voc_get_rx_device_mute(uint16_t session_id);
 int voc_disable_cvp(uint16_t session_id);
@@ -1363,6 +1364,7 @@ int voc_set_route_flag(uint16_t session_id, uint8_t path_dir, uint8_t set);
 uint8_t voc_get_route_flag(uint16_t session_id, uint8_t path_dir);
 int voc_enable_dtmf_rx_detection(uint16_t session_id, uint32_t enable);
 void voc_disable_dtmf_det_on_active_sessions(void);
+int voice_unmap_cal_blocks(void);
 
 uint16_t voc_get_session_id(char *name);
 
