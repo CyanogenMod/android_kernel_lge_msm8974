@@ -834,13 +834,13 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd)
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct mdss_mdp_ctl *tmp;
 	int ret = 0;
-
 	if (ctl->shared_lock)
 		mutex_lock(ctl->shared_lock);
 
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mfd->lock);
 
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_BEGIN);
 
 	list_for_each_entry_safe(pipe, next, &mdp5_data->pipes_used,
@@ -933,7 +933,7 @@ commit_fail:
 			pr_warn("wait for ping pong on fb%d failed!\n",
 					mfd->index);
 	}
-
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	return ret;
 }
 
