@@ -1065,8 +1065,8 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			mutex_unlock(&inst->lock);
 			break;
 		}
-		if (*num_buffers && *num_buffers >
-			bufreq->buffer_count_actual) {
+		*num_buffers = max(*num_buffers, bufreq->buffer_count_min);
+		if (*num_buffers != bufreq->buffer_count_actual) {
 			property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 			new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
 			new_buf_count.buffer_count_actual = *num_buffers;
