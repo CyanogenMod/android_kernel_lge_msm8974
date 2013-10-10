@@ -1036,7 +1036,7 @@ dhdsdio_clk_devsleep_iovar(dhd_bus_t *bus, bool on)
 			dhdsdio_clkctl(bus, CLK_SDONLY, FALSE);
 		}
 
-		if ((bus->sih->chip == BCM4334_CHIP_ID) && (bus->sih->chiprev == 2)) {
+		if (bus && bus->sih && (bus->sih->chip == BCM4334_CHIP_ID) && (bus->sih->chiprev == 2)) {
 			SPINWAIT((bcmsdh_gpioin(bus->sdh, GPIO_DEV_SRSTATE) != TRUE),
 				GPIO_DEV_SRSTATE_TIMEOUT);
 
@@ -4514,7 +4514,7 @@ dhd_bus_iovar_op(dhd_pub_t *dhdp, const char *name,
 				DHD_INFO(("%s: noted %s update, value now %d\n",
 				          __FUNCTION__, "sd_blocksize", bus->blocksize));
 
-				if (bus->sih->chip == BCM4335_CHIP_ID)
+				if (bus && bus->sih && bus->sih->chip == BCM4335_CHIP_ID)
 					dhd_overflow_war(bus);
 			}
 		}
