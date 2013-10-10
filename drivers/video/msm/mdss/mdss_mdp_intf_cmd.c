@@ -513,6 +513,9 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 		return -ENODEV;
 	}
 
+	list_for_each_entry_safe(handle, tmp, &ctx->vsync_handlers, list)
+		mdss_mdp_cmd_remove_vsync_handler(ctl, handle);
+
 	spin_lock_irqsave(&ctx->clk_lock, flags);
 	if (ctx->rdptr_enabled) {
 		INIT_COMPLETION(ctx->stop_comp);
@@ -533,9 +536,6 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	}
 
 	ctx->panel_on = 0;
-
-	list_for_each_entry_safe(handle, tmp, &ctx->vsync_handlers, list)
-		mdss_mdp_cmd_remove_vsync_handler(ctl, handle);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num,
 				   NULL, NULL);
