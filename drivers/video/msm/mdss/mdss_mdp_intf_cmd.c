@@ -442,7 +442,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	return rc;
 }
 
-int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl, bool handoff)
 {
 	struct mdss_panel_data *pdata;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
