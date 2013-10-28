@@ -1769,6 +1769,11 @@ static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 	}
 	mutex_unlock(&i2c_suspend_lock);
 	TOUCH_INFO_MSG("INTERRUPT_STATUS_REG %x\n", buf);
+
+	input_report_key(ts->input_dev, KEY_POWER, BUTTON_PRESSED);
+	input_report_key(ts->input_dev, KEY_POWER, BUTTON_RELEASED);
+	input_sync(ts->input_dev);
+
 	if( buf & 0x04 )
 		kobject_uevent_env(&lge_touch_sys_device.kobj, KOBJ_CHANGE, touch_wakeup_gesture);
 	else
@@ -2846,9 +2851,6 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 		queue_delayed_work(touch_wq, &ts->work_gesture_wakeup,
 				msecs_to_jiffies(0));
 		touch_enable_irq(ts->client->irq);
-		input_report_key(ts->input_dev, KEY_POWER, BUTTON_PRESSED);
-		input_report_key(ts->input_dev, KEY_POWER, BUTTON_RELEASED);
-		input_sync(ts->input_dev);
 		return IRQ_HANDLED;
 	}
 #endif
