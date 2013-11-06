@@ -1,6 +1,7 @@
 config ARM
 	bool
 	default y
+	select ARCH_USE_BUILTIN_BSWAP
 	select HAVE_DMA_API_DEBUG
 	select HAVE_IDE if PCI || ISA || PCMCIA
 	select HAVE_DMA_CONTIGUOUS if (CPU_V6 || CPU_V6K || CPU_V7)
