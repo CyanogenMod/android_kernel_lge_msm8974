@@ -29,10 +29,6 @@
 #include <mach/msm_iommu_priv.h>
 #include <mach/socinfo.h>
 
-#ifdef CONFIG_MACH_LGE
-#define QMC_PATCH
-#endif
-
 struct msm_iova_data {
 	struct rb_node node;
 	struct mem_pool *pools;
@@ -556,17 +552,10 @@ int msm_unregister_domain(struct iommu_domain *domain)
 
 	ida_simple_remove(&domain_nums, data->domain_num);
 
-	for (i = 0; i < data->npools; ++i){
-#ifdef QMC_PATCH
-		/* LGE_CHANGE
-		 * This is w/a code for avoiding kernel crash
-		 * case# 01250901
-		 * 2013-07-22, baryun.hwang@lge.com
-		 */
-		if(data->pools[i].gpool != NULL)
-#endif
+	for (i = 0; i < data->npools; ++i)
+		if (data->pools[i].gpool)
 			gen_pool_destroy(data->pools[i].gpool);
-	}
+
 	kfree(data->pools);
 	kfree(data);
 	return 0;
