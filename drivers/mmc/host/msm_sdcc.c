@@ -4324,6 +4324,27 @@ retry:
 			mmc_hostname(mmc), __func__);
 		msmsdcc_dump_sdcc_state(host);
 		rc = -EAGAIN;
+
+		/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-03-12, testcode for sd error debugging */
+		#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
+		{
+			extern int lge_get_board_revno(void);
+			int bcmdhd_id = 2; // sdcc 2
+			#if defined(CONFIG_MACH_MSM8974_G2_KR) 
+			if (3 /*HW_REV_B*/ < lge_get_board_revno()) {
+			bcmdhd_id = 3; //sdcc 3
+			}
+			#elif defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI)
+			bcmdhd_id = 3; //sdcc 3
+			#endif						
+			if( host->pdev->id == bcmdhd_id )
+			{
+			    rc = 0;
+			    //panic("Failed to tune.\n"); // please contact hayun.kim@lge.com
+			}
+		}
+		#endif
+		/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-03-12, testcode for sd error debugging */
 	}
 
 kfree:
