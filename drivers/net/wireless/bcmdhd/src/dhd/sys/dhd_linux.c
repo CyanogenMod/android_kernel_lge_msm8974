@@ -6293,6 +6293,7 @@ static void dhd_hang_process(struct work_struct *work)
 #if defined(WL_CFG80211)
 		wl_cfg80211_hang(dev, WLAN_REASON_UNSPECIFIED);
 #endif
+	        dhd->pub.hang_was_sent = 0;
 	}
 }
 
