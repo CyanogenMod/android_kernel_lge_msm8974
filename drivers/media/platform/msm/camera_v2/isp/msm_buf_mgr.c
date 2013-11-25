@@ -600,7 +600,7 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 				buf_info->tv, buf_info->frame_id);
 	} else {
 		bufq = msm_isp_get_bufq(buf_mgr, info->handle);
-		if (BUF_SRC(bufq->stream_id)) {
+		if (bufq && BUF_SRC(bufq->stream_id)) {
 			rc = msm_isp_put_buf(buf_mgr,
 					info->handle, info->buf_idx);
 			if (rc < 0) {
