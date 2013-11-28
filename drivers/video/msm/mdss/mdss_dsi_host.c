@@ -1451,13 +1451,6 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		cnt = len + 6; /* 4 bytes header + 2 bytes crc */
 	}
 
-	dsi_ctrl = MIPI_INP((ctrl->ctrl_base) + 0x0004);
-	video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
-	if (video_mode) {
-		data = dsi_ctrl | 0x04; /* CMD_MODE_EN */
-		MIPI_OUTP((ctrl->ctrl_base) + 0x0004, data);
-	}
-
 	tp = &ctrl->tx_buf;
 	rp = &ctrl->rx_buf;
 
@@ -1518,9 +1511,6 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 	mdss_dsi_cmd_dma_rx(ctrl, rp, cnt);
-
-	if (video_mode)
-		MIPI_OUTP((ctrl->ctrl_base) + 0x0004, dsi_ctrl); /* restore */
 
 	if (no_max_pkt_size) {
 		/*
@@ -1684,8 +1674,10 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	data &= ~DSI_INTR_VIDEO_DONE_MASK;
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 #else
-	data = MIPI_INP((ctrl->ctrl_base) + 0x0004);
+	/* DSI_INTL_CTRL */
+	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
 	data |= DSI_INTR_VIDEO_DONE_MASK;
+
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 
 	spin_lock_irqsave(&ctrl->mdp_lock, flag);
@@ -1696,7 +1688,7 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	wait_for_completion_timeout(&ctrl->video_comp,
 			msecs_to_jiffies(VSYNC_PERIOD * 4));
 
-	data = MIPI_INP((ctrl->ctrl_base) + 0x0004);
+	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
 	data &= ~DSI_INTR_VIDEO_DONE_MASK;
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 #endif
