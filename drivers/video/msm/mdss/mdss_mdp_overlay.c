@@ -760,8 +760,12 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
 
-	if (ctl->power_on)
+	if (ctl->power_on) {
+		if (!is_mdss_iommu_attached() &&
+					!mfd->panel_info->cont_splash_enabled)
+			mdss_iommu_attach(mdp5_data->mdata);
 		return 0;
+        }
 
 	if(mfd->index == 0)
 		pr_info("starting fb%d overlay\n", mfd->index);
@@ -877,6 +881,10 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct mdss_mdp_ctl *tmp;
 	int ret = 0;
+
+	if (!is_mdss_iommu_attached() && !mfd->panel_info->cont_splash_enabled)
+		mdss_iommu_attach(mdp5_data->mdata);
+
 	if (ctl->shared_lock)
 		mutex_lock(ctl->shared_lock);
 
