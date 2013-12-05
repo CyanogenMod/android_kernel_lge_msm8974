@@ -16,9 +16,6 @@
 
 #include <linux/platform_device.h>
 #include <linux/types.h>
-#ifdef CONFIG_MACH_LGE
-#define QCT_UNDERRUN_PATCH
-#endif
 
 /* panel id type */
 struct panel_id {

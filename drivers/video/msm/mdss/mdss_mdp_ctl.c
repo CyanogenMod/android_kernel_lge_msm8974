@@ -41,10 +41,6 @@ enum {
 #define MDSS_MDP_PERF_UPDATE_BUS BIT(1)
 #define MDSS_MDP_PERF_UPDATE_ALL -1
 
-#ifdef CONFIG_MACH_LGE
-#define QCT_UNDERRUN_PATCH
-#endif
-
 #ifdef CONFIG_OLED_SUPPORT
 /* LGE_CHANGE
  * This is for slimport underrun(plug/unplug) patch from case#01249713
@@ -181,7 +177,6 @@ static int mdss_mdp_ctl_perf_commit(struct mdss_data_type *mdata, u32 flags)
 	return 0;
 }
 
-#ifdef QCT_UNDERRUN_PATCH
 /**
  * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
@@ -255,7 +250,6 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 
 	return 0;
 }
-#endif
 
 static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 				       u32 *bus_ab_quota, u32 *bus_ib_quota,
@@ -272,7 +266,6 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 	*bus_ib_quota = 0;
 	*clk_rate = 0;
 
-#ifdef QCT_UNDERRUN_PATCH
 	if (!mixer->rotator_mode) {
 		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 			pinfo = &mixer->ctl->panel_data->panel_info;
@@ -295,61 +288,13 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 			*bus_ib_quota = *bus_ab_quota;
 		}
 	}
-#else
-	if (mixer->rotator_mode) {
-		pipe = mixer->stage_pipe[0]; /* rotator pipe */
-		v_total = pipe->flags & MDP_ROT_90 ? pipe->dst.w : pipe->dst.h;
-	} else {
-		int is_writeback = false;
-		if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
-			struct mdss_panel_info *pinfo;
-			pinfo = &mixer->ctl->panel_data->panel_info;
-			fps = mdss_panel_get_framerate(pinfo);
-#ifdef CONFIG_OLED_SUPPORT
-		     if(ctl->intf_num == MDSS_MDP_INTF1) {
-			    v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
-				      pinfo->lcdc.yres_margin +
-				      pinfo->lcdc.v_front_porch +
-				      pinfo->lcdc.v_pulse_width);
-		     } else {
-			    v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
-				      pinfo->lcdc.v_front_porch +
-				      pinfo->lcdc.v_pulse_width);
-		     }
-#else
-			v_total = (pinfo->yres + pinfo->lcdc.v_back_porch +
-				   pinfo->lcdc.v_front_porch +
-				   pinfo->lcdc.v_pulse_width);
-#endif
-
-			if (pinfo->type == WRITEBACK_PANEL)
-				is_writeback = true;
-		} else {
-			v_total = mixer->height;
-
-			is_writeback = true;
-		}
-		*clk_rate = mixer->width * v_total * fps;
-		if (is_writeback) {
-			/* perf for bus writeback */
-			*bus_ab_quota = fps * mixer->width * mixer->height * 3;
-			*bus_ab_quota >>= MDSS_MDP_BUS_FACTOR_SHIFT;
-			*bus_ib_quota = *bus_ab_quota;
-		}
-	}
-#endif
 	for (i = 0; i < MDSS_MDP_MAX_STAGE; i++) {
-#ifdef QCT_UNDERRUN_PATCH
 		struct mdss_mdp_perf_params perf;
-#else
-		u32 ib_quota;
-#endif
 
 		pipe = mixer->stage_pipe[i];
 		if (pipe == NULL)
 			continue;
 
-#ifdef QCT_UNDERRUN_PATCH
 		if (mdss_mdp_perf_calc_pipe(pipe, &perf))
 			continue;
 
@@ -357,35 +302,6 @@ static void mdss_mdp_perf_mixer_update(struct mdss_mdp_mixer *mixer,
 		ib_total += perf.ib_quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
 		if (perf.mdp_clk_rate > max_clk_rate)
 			max_clk_rate = perf.mdp_clk_rate;
-#else
-		quota = fps * pipe->src.w * pipe->src.h;
-		if (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420)
-			quota = (quota * 3) / 2;
-		else
-			quota *= pipe->src_fmt->bpp;
-
-		rate = pipe->dst.w;
-		if (pipe->src.h > pipe->dst.h)
-			rate = (rate * pipe->src.h) / pipe->dst.h;
-
-		rate *= v_total * fps;
-		if (mixer->rotator_mode) {
-			rate /= 4; /* block mode fetch at 4 pix/clk */
-			quota *= 2; /* bus read + write */
-			ib_quota = quota;
-		} else {
-			ib_quota = (quota / pipe->dst.h) * v_total;
-		}
-
-
-		pr_debug("mixer=%d pnum=%d clk_rate=%u bus ab=%u ib=%u\n",
-			 mixer->num, pipe->num, rate, quota, ib_quota);
-
-		ab_total += quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
-		ib_total += ib_quota >> MDSS_MDP_BUS_FACTOR_SHIFT;
-		if (rate > max_clk_rate)
-			max_clk_rate = rate;
-#endif
 	}
 
 	*bus_ab_quota += ab_total;

@@ -49,7 +49,6 @@
 
 #ifdef CONFIG_MACH_LGE
 #define QCT_AUTO_PLL_PATCH
-#define QCT_UNDERRUN_PATCH
 #endif
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
@@ -402,13 +401,11 @@ struct mdss_overlay_private {
 	bool mixer_swap;
 };
 
-#ifdef QCT_UNDERRUN_PATCH
 struct mdss_mdp_perf_params {
 	u32 ib_quota;
 	u32 ab_quota;
 	u32 mdp_clk_rate;
 };
-#endif
 
 #define is_vig_pipe(_pipe_id_) ((_pipe_id_) <= MDSS_MDP_SSPP_VIG2)
 static inline void mdss_mdp_ctl_write(struct mdss_mdp_ctl *ctl,

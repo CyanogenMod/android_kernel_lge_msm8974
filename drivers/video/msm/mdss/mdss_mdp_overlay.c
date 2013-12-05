@@ -39,9 +39,6 @@
 #define BORDERFILL_NDX	0x0BF000BF
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
-#ifdef CONFIG_MACH_LGE
-#define QCT_UNDERRUN_PATCH
-#endif
 
 static atomic_t ov_active_panels = ATOMIC_INIT(0);
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
@@ -319,7 +316,6 @@ static int mdss_mdp_overlay_rotator_setup(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
-#ifdef QCT_UNDERRUN_PATCH
 static int _mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_data_type *mdata = pipe->mixer->ctl->mdata;
@@ -345,7 +341,6 @@ static int _mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 
 	return 0;
 }
-#endif
 
 static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 {
@@ -623,13 +618,11 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 	}
 
-#ifdef QCT_UNDERRUN_PATCH
 	ret = _mdp_pipe_tune_perf(pipe);
 	if (ret) {
 		pr_debug("unable to satisfy performance. ret=%d\n", ret);
 		goto exit_fail;
 	}
-#endif
 
 	ret = __mdss_mdp_overlay_setup_scaling(pipe);
 	if (ret)
@@ -644,10 +637,8 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->params_changed++;
 
 	req->id = pipe->ndx;
-#ifdef QCT_UNDERRUN_PATCH
 	req->horz_deci = pipe->horz_deci;
 	req->vert_deci = pipe->vert_deci;
-#endif
 
 	*ppipe = pipe;
 
