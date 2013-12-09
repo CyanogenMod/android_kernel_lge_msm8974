@@ -3678,13 +3678,6 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 		}
 		host->rescan_disable = 0;
 		spin_unlock_irqrestore(&host->lock, flags);
-#ifdef CONFIG_BCMDHD_MODULE
-		/* This patch is for nonremovable 0 case of BCM WiFi */
-		if(host->card && mmc_card_sdio(host->card)) {
-			printk("J:%s-mmc_card_sdio, host->index=%d\n", __FUNCTION__, host->index);
-			return 0;
-		}
-#endif //CONFIG_BCMDHD_MODULE
 		mmc_detect_change(host, 0);
 		break;
 
