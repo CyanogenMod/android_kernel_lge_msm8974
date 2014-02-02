@@ -43,6 +43,11 @@
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
+#define DEF_MIDDLE_GRID_STEP           		(14)
+#define DEF_HIGH_GRID_STEP             		(20)
+#define DEF_MIDDLE_GRID_LOAD			(65)
+#define DEF_HIGH_GRID_LOAD			(89)
+#define DEF_OPTIMAL_FREQ			(1574400)
 
 /*
  * The polling frequency of this governor depends on the capability of
@@ -145,6 +150,12 @@ static struct dbs_tuners {
 	int          powersave_bias;
 	unsigned int io_is_busy;
 	unsigned int input_boost;
+	unsigned int optimal_max_freq;
+	unsigned int middle_grid_step;
+	unsigned int high_grid_step;
+	unsigned int middle_grid_load;
+	unsigned int high_grid_load;
+	unsigned int debug_mask;
 } dbs_tuners_ins = {
 	.up_threshold_multi_core = DEF_FREQUENCY_UP_THRESHOLD,
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
@@ -152,12 +163,22 @@ static struct dbs_tuners {
 	.down_differential = DEF_FREQUENCY_DOWN_DIFFERENTIAL,
 	.down_differential_multi_core = MICRO_FREQUENCY_DOWN_DIFFERENTIAL,
 	.up_threshold_any_cpu_load = DEF_FREQUENCY_UP_THRESHOLD,
+	.middle_grid_step = DEF_MIDDLE_GRID_STEP,
+	.high_grid_step = DEF_HIGH_GRID_STEP,
+	.middle_grid_load = DEF_MIDDLE_GRID_LOAD,
+	.high_grid_load = DEF_HIGH_GRID_LOAD,
 	.ignore_nice = 0,
 	.powersave_bias = 0,
 	.sync_freq = 0,
 	.optimal_freq = 0,
 	.input_boost = 0,
+	.optimal_max_freq = DEF_OPTIMAL_FREQ,
+	.debug_mask=0,
 };
+
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+extern int boost_freq;
+#endif
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
@@ -320,8 +341,14 @@ show_one(sampling_down_factor, sampling_down_factor);
 show_one(ignore_nice_load, ignore_nice);
 show_one(optimal_freq, optimal_freq);
 show_one(up_threshold_any_cpu_load, up_threshold_any_cpu_load);
+show_one(middle_grid_step, middle_grid_step);
+show_one(high_grid_step, high_grid_step);
+show_one(middle_grid_load, middle_grid_load);
+show_one(high_grid_load, high_grid_load);
 show_one(sync_freq, sync_freq);
 show_one(input_boost, input_boost);
+show_one(optimal_max_freq, optimal_max_freq);
+show_one(debug_mask,debug_mask);
 
 static ssize_t show_powersave_bias
 (struct kobject *kobj, struct attribute *attr, char *buf)
@@ -492,6 +519,84 @@ static ssize_t store_up_threshold_any_cpu_load(struct kobject *a,
 		return -EINVAL;
 	}
 	dbs_tuners_ins.up_threshold_any_cpu_load = input;
+	return count;
+}
+
+static ssize_t store_middle_grid_step(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.middle_grid_step = input;
+	return count;
+}
+
+static ssize_t store_high_grid_step(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.high_grid_step = input;
+	return count;
+}
+
+static ssize_t store_optimal_max_freq(struct kobject *a, struct attribute *b,
+				   const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+
+	ret = sscanf(buf, "%u", &input);
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.optimal_max_freq = input;
+	return count;
+}
+
+static ssize_t store_middle_grid_load(struct kobject *a,
+			struct attribute *b, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.middle_grid_load = input;
+	return count;
+}
+
+static ssize_t store_high_grid_load(struct kobject *a,
+			struct attribute *b, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.high_grid_load = input;
+	return count;
+}
+
+static ssize_t store_debug_mask(struct kobject *a,
+			struct attribute *b, const char *buf, size_t count)
+{
+	unsigned int input;
+	int ret;
+	ret = sscanf(buf, "%u", &input);
+
+	if (ret != 1)
+		return -EINVAL;
+	dbs_tuners_ins.debug_mask= input;
 	return count;
 }
 
@@ -696,6 +801,12 @@ define_one_global_rw(optimal_freq);
 define_one_global_rw(up_threshold_any_cpu_load);
 define_one_global_rw(sync_freq);
 define_one_global_rw(input_boost);
+define_one_global_rw(optimal_max_freq);
+define_one_global_rw(middle_grid_step);
+define_one_global_rw(high_grid_step);
+define_one_global_rw(middle_grid_load);
+define_one_global_rw(high_grid_load);
+define_one_global_rw(debug_mask);
 
 static struct attribute *dbs_attributes[] = {
 	&sampling_rate_min.attr,
@@ -708,9 +819,15 @@ static struct attribute *dbs_attributes[] = {
 	&io_is_busy.attr,
 	&up_threshold_multi_core.attr,
 	&optimal_freq.attr,
+	&optimal_max_freq.attr,
 	&up_threshold_any_cpu_load.attr,
 	&sync_freq.attr,
 	&input_boost.attr,
+	&middle_grid_step.attr,
+	&high_grid_step.attr,
+	&middle_grid_load.attr,
+	&high_grid_load.attr,
+	&debug_mask.attr,
 	NULL
 };
 
@@ -857,13 +974,40 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	load_at_max_freq = (cur_load * policy->cur)/policy->cpuinfo.max_freq;
 
 	cpufreq_notify_utilization(policy, load_at_max_freq);
+
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+	if (boost_freq == 2) {
+		if(policy->cur < policy->max){
+			dbs_freq_increase(policy, policy->max);
+		}
+		return;
+	}
+#endif
 	/* Check for frequency increase */
 	if (max_load_freq > dbs_tuners_ins.up_threshold * policy->cur) {
+		int freq_target, freq_div;
+		freq_target=0; freq_div=0;
+
+		if(load_at_max_freq > dbs_tuners_ins.high_grid_load){
+			freq_div = (policy->max * dbs_tuners_ins.high_grid_step) / 100;
+			freq_target = min(policy->max, policy->cur + freq_div);
+		} else if(load_at_max_freq > dbs_tuners_ins.middle_grid_load){
+			freq_div = (policy->max * dbs_tuners_ins.middle_grid_step) / 100;
+			freq_target = min(policy->max, policy->cur + freq_div);
+		} else {
+			if(policy->max < dbs_tuners_ins.optimal_max_freq)
+				freq_target = policy->max;
+			else
+				freq_target = dbs_tuners_ins.optimal_max_freq;
+
+		}
+
 		/* If switching to max speed, apply sampling_down_factor */
 		if (policy->cur < policy->max)
 			this_dbs_info->rate_mult =
 				dbs_tuners_ins.sampling_down_factor;
-		dbs_freq_increase(policy, policy->max);
+
+		dbs_freq_increase(policy, freq_target);
 		return;
 	}
 
@@ -894,7 +1038,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	/*
 	 * The optimal frequency is the frequency that is the lowest that
 	 * can support the current CPU usage without triggering the up
-	 * policy. To be safe, we focus 10 points under the threshold.
+	 * policy. To be safe, we focus DOWN_DIFFERENTIALDOWN_DIFFERENTIAL points under the threshold.
 	 */
 	if (max_load_freq <
 	    (dbs_tuners_ins.up_threshold - dbs_tuners_ins.down_differential) *
@@ -1066,6 +1210,7 @@ bail_acq_sema_failed:
 	return;
 }
 
+
 static int dbs_migration_notify(struct notifier_block *nb,
 				unsigned long target_cpu, void *arg)
 {
@@ -1181,6 +1326,15 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		return;
 	}
 
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+	if (boost_freq == 1) {
+		if (!strcmp((char*)(handle->dev->name), "qpnp_pon")){
+			printk(KERN_ERR "ws->name=%s, boost_Freq=%d\n", handle->dev->name, boost_freq);
+			boost_freq++;
+			printk(KERN_ERR "ws->name=%s, boost_Freq=%d\n", handle->dev->name, boost_freq);
+		}
+	}
+#endif
 	for_each_online_cpu(i)
 		queue_work_on(i, dbs_wq, &per_cpu(dbs_refresh_work, i).work);
 }
@@ -1369,6 +1523,11 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
+#ifdef CONFIG_MACH_LGE
+		/* If device is being removed, skip set limits */
+		if (!this_dbs_info->cur_policy)
+			break;
+#endif
 		mutex_lock(&this_dbs_info->timer_mutex);
 		if (policy->max < this_dbs_info->cur_policy->cur)
 			__cpufreq_driver_target(this_dbs_info->cur_policy,
