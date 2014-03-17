@@ -2822,9 +2822,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		msm_host->mmc->caps |= MMC_CAP_SET_XPC_180 |
 					MMC_CAP_SET_XPC_300|
 					MMC_CAP_SET_XPC_330;
-#ifndef CONFIG_MACH_MSM8974_EMMC_HW_RESET
-	msm_host->mmc->caps |= MMC_CAP_HW_RESET;
-#endif
+
 	msm_host->mmc->caps2 |= msm_host->pdata->caps2;
 	msm_host->mmc->caps2 |= MMC_CAP2_CORE_RUNTIME_PM;
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR;

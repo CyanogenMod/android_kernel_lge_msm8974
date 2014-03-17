@@ -2647,23 +2647,19 @@ int mmc_can_reset(struct mmc_card *card)
 	if (mmc_card_sdio(card))
 		return 0;
 
-#ifdef CONFIG_MACH_MSM8974_EMMC_HW_RESET
 	if (mmc_card_mmc(card) && (card->host->caps & MMC_CAP_HW_RESET)) {
 		rst_n_function = card->ext_csd.rst_n_function;
 		if ((rst_n_function & EXT_CSD_RST_N_EN_MASK) !=
-		    EXT_CSD_RST_N_ENABLED) {
-		    printk("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
+		    EXT_CSD_RST_N_ENABLED)
+	#ifdef CONFIG_MACH_LGE
+		{
+			printk("%s: mmc, MMC_CAP_HW_RESET, rst_n_function=0x%02x\n", __func__, rst_n_function);
 			return 0;
 		}
-	}
-#else
-	if (mmc_card_mmc(card)) {
-		rst_n_function = card->ext_csd.rst_n_function;
-		if ((rst_n_function & EXT_CSD_RST_N_EN_MASK) !=
-		    EXT_CSD_RST_N_ENABLED)
+	#else
 			return 0;
+	#endif
 	}
-#endif
 	return 1;
 }
 EXPORT_SYMBOL(mmc_can_reset);
@@ -2675,10 +2671,6 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	if (!host->bus_ops->power_restore)
 		return -EOPNOTSUPP;
 
-#ifndef CONFIG_MACH_MSM8974_EMMC_HW_RESET
-	if (!(host->caps & MMC_CAP_HW_RESET))
-		return -EOPNOTSUPP;
-#endif
 	if (!card)
 		return -EINVAL;
 
@@ -2688,21 +2680,10 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	mmc_host_clk_hold(host);
 	mmc_set_clock(host, host->f_init);
 
-#ifdef CONFIG_MACH_MSM8974_EMMC_HW_RESET
-	if (mmc_card_mmc(card) && host->ops->hw_reset) {
-		printk("%s: mmc, host->ops->hw_reset\n", __func__);
+	if (mmc_card_mmc(card) && host->ops->hw_reset)
 		host->ops->hw_reset(host);
-	}
-	else {
-		printk("%s: mmc_power_cycle\n", __func__);
+	else
 		mmc_power_cycle(host);
-	}
-#else
-	if (mmc_card_sd(card))
-		mmc_power_cycle(host);
-	else if (host->ops->hw_reset)
-		host->ops->hw_reset(host);
-#endif
 
 	/* If the reset has happened, then a status command will fail */
 	if (check) {
