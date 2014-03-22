@@ -2025,7 +2025,6 @@ static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 		}
 	}
 unlock:
-
 	/* Release GPU-CPU sync Lock here */
 	_iommu_unlock(iommu);
 

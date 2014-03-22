@@ -191,12 +191,16 @@ fail_pt:
 static unsigned int kgsl_sync_get_timestamp(
 	struct kgsl_sync_timeline *ktimeline, enum kgsl_timestamp_type type)
 {
-	struct kgsl_context *context = idr_find(&ktimeline->device->context_idr,
-						ktimeline->context_id);
-	if (context == NULL)
-		return 0;
+	unsigned int ret = 0;
 
-	return kgsl_readtimestamp(ktimeline->device, context, type);
+	struct kgsl_context *context = kgsl_context_get(ktimeline->device,
+			ktimeline->context_id);
+
+	if (context)
+		ret = kgsl_readtimestamp(ktimeline->device, context, type);
+
+	kgsl_context_put(context);
+	return ret;
 }
 
 static void kgsl_sync_timeline_value_str(struct sync_timeline *sync_timeline,
@@ -226,7 +230,6 @@ static void kgsl_sync_timeline_release_obj(struct sync_timeline *sync_timeline)
 	 */
 	BUG_ON(sync_timeline && (sync_timeline->destroyed != true));
 }
-
 static const struct sync_timeline_ops kgsl_sync_timeline_ops = {
 	.driver_name = "kgsl-timeline",
 	.dup = kgsl_sync_pt_dup,
@@ -247,7 +250,7 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 	char ktimeline_name[sizeof(context->timeline->name)] = {};
 	snprintf(ktimeline_name, sizeof(ktimeline_name),
 		"%s_%.15s(%d)-%.15s(%d)-%d",
-		context->dev_priv->device->name,
+		context->device->name,
 		current->group_leader->comm, current->group_leader->pid,
 		current->comm, current->pid, context->id);
 
@@ -258,7 +261,7 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 
 	ktimeline = (struct kgsl_sync_timeline *) context->timeline;
 	ktimeline->last_timestamp = 0;
-	ktimeline->device = context->dev_priv->device;
+	ktimeline->device = context->device;
 	ktimeline->context_id = context->id;
 
 	return 0;
@@ -333,7 +336,7 @@ int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_waiter *kwaiter)
 	if (kwaiter == NULL)
 		return 0;
 
-	if(sync_fence_cancel_async(kwaiter->fence,
+	if (sync_fence_cancel_async(kwaiter->fence,
 		(struct sync_fence_waiter *) kwaiter) == 0) {
 		sync_fence_put(kwaiter->fence);
 		kfree(kwaiter);
