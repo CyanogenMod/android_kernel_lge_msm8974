@@ -535,6 +535,20 @@
 	/*	status = "ok"; */ /* Disable sdcc. We use sdhci instead of sdcc, G2-FS@lge.com */
 		status = "disable";
 	};
+
+        qcom,ion {   
+                compatible = "qcom,msm-ion";
+                #address-cells = <1>;
+                #size-cells = <0>;
+ 
+                qcom,ion-heap@23 { /* OTHER PIL HEAP */
+                        compatible = "qcom,msm-ion-reserve";
+                        reg = <23>;
+                        qcom,heap-align = <0x1000>;
+                        qcom,memory-fixed = <0x05d00000 0x1e00000>;
+                        qcom,ion-heap-type = "CARVEOUT";
+                };
+        };
 };
 
 &sdcc1 {
