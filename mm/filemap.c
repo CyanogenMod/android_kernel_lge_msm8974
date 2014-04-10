@@ -35,7 +35,6 @@
 #include <linux/memcontrol.h>
 #include <linux/cleancache.h>
 #include "internal.h"
-#include "../fs/sreadahead_prof.h"
 
 /*
  * FIXME: remove all knowledge of the buffer layer from the core VM
@@ -1661,15 +1660,6 @@ int filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		/* No page in the page cache at all */
 		do_sync_mmap_readahead(vma, ra, file, offset);
 		count_vm_event(PGMAJFAULT);
-		/* LGE_CHANGE_S
-		*
-		* Profile files related to pgmajfault during 1st booting
-		* in order to use the data as readahead args
-		*
-		* matia.kim@lge.com 20130612
-		*/
-		sreadahead_prof(file, 0, 0);
-		/* LGE_CHANGE_E */
 		mem_cgroup_count_vm_event(vma->vm_mm, PGMAJFAULT);
 		ret = VM_FAULT_MAJOR;
 retry_find:
