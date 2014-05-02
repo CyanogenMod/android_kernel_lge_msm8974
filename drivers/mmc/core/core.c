@@ -2141,7 +2141,13 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 	spin_unlock_irqrestore(&host->lock, flags);
 #endif
 	host->detect_change = 1;
-
+#ifdef CONFIG_MACH_LGE
+/*
+                                           
+                                                                           
+ */
+	wake_lock(&host->detect_wake_lock);
+#endif
 	mmc_schedule_delayed_work(&host->detect, delay);
 }
 
@@ -3275,7 +3281,14 @@ void mmc_rescan(struct work_struct *work)
  out:
 	if (extend_wakelock)
 		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
-
+#ifdef CONFIG_MACH_LGE
+/*
+                                           
+                                                                           
+ */
+	else
+		wake_unlock(&host->detect_wake_lock);
+#endif
 	if (host->caps & MMC_CAP_NEEDS_POLL)
 		mmc_schedule_delayed_work(&host->detect, HZ);
 }
