@@ -106,9 +106,6 @@ static u32 mdss_fb_pseudo_palette[16] = {
 #define INIT_HD_IMAGE_FILE "/initlogo_hd.rle"
 #define INIT_FHD_IMAGE_FILE "/initlogo_fhd.rle"
 #define INIT_UVGA_IMAGE_FILE "/initlogo_uvga.rle"
-#if defined(CONFIG_MACH_MSM8974_G2_DCM)
-#define INIT_DCM_IMAGE_FILE "/initlogo_dcm_xi.rle"
-#endif
 
 extern int load_888rle_image(char *filename);
 #endif
@@ -384,11 +381,7 @@ static int mdss_fb_draw_bootlogo(struct msm_fb_data_type *mfd)
 
 	mdss_fb_open(mfd->fbi, 0);
 	if (fbi->var.xres >= 1080) {
-#if defined(CONFIG_MACH_MSM8974_G2_DCM)
-		if (load_888rle_image(INIT_DCM_IMAGE_FILE) < 0)
-#else
 		if (load_888rle_image(INIT_FHD_IMAGE_FILE) < 0)
-#endif
 			printk(KERN_WARNING "fail to load 888 rle image\n");
 	}
 	else if (fbi->var.xres == 960 && fbi->var.yres == 1280) {
@@ -707,12 +700,8 @@ static int mdss_fb_probe(struct platform_device *pdev)
 #endif /* CONFIG_LGE_ESD_CHECK */
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
- #if defined(CONFIG_MACH_MSM8974_G2_DCM)
-	if ((lge_get_boot_mode()!=LGE_BOOT_MODE_MINIOS)&&(lge_get_boot_mode()!=LGE_BOOT_MODE_CHARGERLOGO))
- #else
 	if ((lge_get_boot_mode()!=LGE_BOOT_MODE_MINIOS)&&(lge_get_boot_mode()!=LGE_BOOT_MODE_CHARGERLOGO)&&!lge_get_cont_splash_enabled())
-#endif
-	mdss_fb_draw_bootlogo(mfd);
+		mdss_fb_draw_bootlogo(mfd);
 #endif
 
 #if defined(CONFIG_MACH_LGE)
