@@ -86,7 +86,7 @@ config BCMDHD_CONFIG_PATH
 config BCMDHD_GPIO_WL_RESET
 	depends on BCMDHD
 	int "GPIO to the Reset"
-	default 82
+	default 36
 	---help---
 	  GPIO to the Reset
 
@@ -100,7 +100,7 @@ config BCMDHD_HOSTWAKEUP_USE_GPIO
 config BCMDHD_GPIO_WL_HOSTWAKEUP
 	depends on BCMDHD && BCMDHD_HOSTWAKEUP_USE_GPIO = y
 	int "GPIO to the Host Wakeup"
-	default 81
+	default 35
 	---help---
 	  GPIO to the Host Wakeup
 
