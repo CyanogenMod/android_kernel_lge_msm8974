@@ -284,7 +284,7 @@ static void bluesleep_sleep_work(struct work_struct *work)
 			return;
 		}
 
-		if (msm_hs_tx_empty(bsi->uport)) {
+		if (1==1 /*msm_hs_tx_empty(bsi->uport)*/) {
 			BT_DBG("going to sleep...");
 			set_bit(BT_ASLEEP, &flags);
 			/*Deactivating UART */
