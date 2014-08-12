@@ -2887,6 +2887,9 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	#endif
 	msm_host->mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
+	msm_host->mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
+	msm_host->mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
+	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
 	populate_hpi_mode(pdev, msm_host);
 
 	if (msm_host->pdata->nonremovable)
@@ -2905,6 +2908,10 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 			goto vreg_deinit;
 		}
 	}
+
+    #ifdef CONFIG_MACH_LGE
+	irq_set_irq_wake(host->mmc->hotplug.irq, 1);
+    #endif
 
 	if (dma_supported(mmc_dev(host->mmc), DMA_BIT_MASK(32))) {
 		host->dma_mask = DMA_BIT_MASK(32);
@@ -2933,7 +2940,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		pr_err("%s: %s: pm_runtime_set_active failed: err: %d\n",
 		       mmc_hostname(host->mmc), __func__, ret);
-	else
+	else if (mmc_use_core_runtime_pm(host->mmc))
 		pm_runtime_enable(&pdev->dev);
 
 	/* Successful initialization */
@@ -3052,12 +3059,18 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 static int sdhci_msm_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+
+    #ifndef CONFIG_MACH_LGE
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+    #endif
+
 	int ret = 0;
 
+    #ifndef CONFIG_MACH_LGE
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_cd_gpio_free(msm_host->mmc);
+    #endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -3073,10 +3086,15 @@ out:
 static int sdhci_msm_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+
+    #ifndef CONFIG_MACH_LGE
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+    #endif
+
 	int ret = 0;
 
+    #ifndef CONFIG_MACH_LGE
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		ret = mmc_cd_gpio_request(msm_host->mmc,
 				msm_host->pdata->status_gpio);
@@ -3084,6 +3102,7 @@ static int sdhci_msm_resume(struct device *dev)
 			pr_err("%s: %s: Failed to request card detection IRQ %d\n",
 					mmc_hostname(host->mmc), __func__, ret);
 	}
+    #endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
@@ -3111,6 +3130,7 @@ static const struct dev_pm_ops sdhci_msm_pmops = {
 #endif
 static const struct of_device_id sdhci_msm_dt_match[] = {
 	{.compatible = "qcom,sdhci-msm"},
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_msm_dt_match);
 
