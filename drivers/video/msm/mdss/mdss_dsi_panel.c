@@ -73,6 +73,8 @@ static char *on_cmds, *off_cmds;
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
+static struct dsi_panel_cmds cabc_sre_sequence;
+
 #if defined(CONFIG_BACKLIGHT_LM3630)
 extern void lm3630_lcd_backlight_set_level(int level);
 #endif /* CONFIG_BACKLIGHT_LMXXXX */
@@ -164,6 +166,67 @@ static struct img_tune_cmds_desc *img_tune_cmds_set;
 
 static int bl_tune_mode = 1;	// Default value : use the blmap
 #endif
+
+int mdss_dsi_panel_update_sre(struct mdss_panel_data *pdata, u32 bl_level)
+{
+	int ret = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo = NULL;
+
+	if (pdata == NULL)
+		return -EINVAL;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata, panel_data);
+	pinfo = &(ctrl_pdata->panel_data.panel_info);
+
+	if (!pinfo->cabc_mode || !pinfo->cabc_bl_max || !pinfo->sre_bl_threshold)
+		return 0;
+
+	// disable CABC above some backlight value since it's not effective at high
+	// brightness. optionally enable SRE when it's even higher to melt faces off.
+	if ((!pinfo->cabc_active || pinfo->sre_active) && bl_level <= pinfo->cabc_bl_max) {
+		pinfo->cabc_active = true;
+		pinfo->sre_active = false;
+		ret = mdss_dsi_update_cabc_level(ctrl_pdata);
+	} else if (bl_level > pinfo->cabc_bl_max) {
+		if (pinfo->sre_enabled && !pinfo->sre_active && bl_level >= pinfo->sre_bl_threshold) {
+			pinfo->cabc_active = false;
+			pinfo->sre_active = true;
+			ret = mdss_dsi_update_cabc_level(ctrl_pdata);
+		} else if (pinfo->cabc_active || pinfo->sre_active) {
+			pinfo->cabc_active = false;
+			pinfo->sre_active = false;
+			ret = mdss_dsi_update_cabc_level(ctrl_pdata);
+		}
+	}
+	return ret;
+}
+
+int mdss_dsi_panel_set_sre(struct mdss_panel_data *pdata, bool enable)
+{
+	int ret = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo = NULL;
+
+    if (pdata == NULL) {
+	    pr_err("%s: Invalid input data\n", __func__);
+	    return -EINVAL;
+    }
+
+    ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata, panel_data);
+	pinfo = &(ctrl_pdata->panel_data.panel_info);
+
+    if (!pinfo->cabc_available || !pinfo->sre_available ||
+            enable == pinfo->sre_enabled)
+        return 0;
+
+	mutex_lock(&config_mutex);
+	pinfo->sre_enabled = enable;
+	pinfo->sre_active = false;
+	mutex_unlock(&config_mutex);
+
+	return ret;
+}
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -1164,6 +1227,15 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 	}
 	for (i = 0; i < len; i++)
 		phy_params.laneCfg[i] = data[i];
+
+	rc = mdss_dsi_parse_dcs_cmds(np, &cabc_sre_sequence,
+		"qcom,mdss-dsi-sre-ui-command", "qcom,mdss-dsi-off-command-state");
+
+	pinfo->sre_available = rc == 0 ? 1 : 0;
+
+	of_property_read_u32(np, "qcom,mdss-dsi-bl-sre-level", &pinfo->sre_bl_threshold);
+
+	of_property_read_u32(np, "qcom,mdss-dsi-bl-cabc-max-level", &pinfo->cabc_bl_max);
 
 	panel_data->panel_info.mipi.dsi_phy_db = &phy_params;
 

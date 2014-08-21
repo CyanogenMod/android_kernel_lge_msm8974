@@ -305,6 +305,13 @@ struct mdss_panel_info {
 	struct fbc_panel_info fbc;
 	struct mipi_panel_info mipi;
 	struct lvds_panel_info lvds;
+
+#ifdef CONFIG_MACH_LGE
+	int sre_available;
+	bool sre_enabled;
+	bool sre_active;
+	int sre_bl_threshold;
+#endif
 };
 
 struct mdss_panel_data {

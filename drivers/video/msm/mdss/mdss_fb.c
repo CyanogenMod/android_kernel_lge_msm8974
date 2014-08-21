@@ -315,6 +315,8 @@ static void mdss_fb_parse_dt_split(struct msm_fb_data_type *mfd)
 	}
 }
 
+extern int mdss_dsi_panel_set_sre(struct mdss_panel_data *panel_data, bool enable);
+
 static int pcc_r = 32768, pcc_g = 32768, pcc_b = 32768;
 static ssize_t mdss_get_rgb(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -377,6 +379,29 @@ static ssize_t mdss_set_rgb(struct device *dev,
 	return -EINVAL;
 }
 
+static ssize_t mdss_get_sre(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_data *pdata = dev_get_platdata(&mfd->pdev->dev);
+	return sprintf(buf, "%d\n", pdata->panel_info.sre_enabled);
+}
+
+static ssize_t mdss_set_sre(struct device *dev,
+							   struct device_attribute *attr,
+							   const char *buf, size_t count)
+{
+	int value = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_panel_data *pdata = dev_get_platdata(&mfd->pdev->dev);
+
+	sscanf(buf, "%du", &value);
+	mdss_dsi_panel_set_sre(pdata, value > 0);
+	return count;
+}
+
 static ssize_t mdss_fb_get_split(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -406,12 +431,14 @@ static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO, mdss_fb_get_split, NULL);
 static DEVICE_ATTR(show_blank_event, S_IRUGO, mdss_mdp_show_blank_event, NULL);
 static DEVICE_ATTR(rgb, S_IRUGO | S_IWUSR | S_IWGRP, mdss_get_rgb, mdss_set_rgb);
+static DEVICE_ATTR(sre, S_IRUGO | S_IWUSR | S_IWGRP, mdss_get_sre, mdss_set_sre);
 
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
 	&dev_attr_show_blank_event.attr,
 	&dev_attr_rgb.attr,
+	&dev_attr_sre.attr,
 	NULL,
 };
 
@@ -1022,6 +1049,7 @@ static void mdss_fb_chargerlogo_backlight(struct msm_fb_data_type *mfd, u32 bkl_
 	}
 
 }
+extern int mdss_dsi_panel_update_sre(struct mdss_panel_data *pdata, u32 bl_level);
 #endif
 
 /* must call this function from within mfd->bl_lock */
@@ -1065,6 +1093,10 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		pdata->set_backlight(pdata, temp);
 		mfd->bl_level = bkl_lvl;
 		mfd->bl_level_old = temp;
+
+#ifdef CONFIG_MACH_OPPO
+		mdss_dsi_panel_update_sre(pdata, bkl_lvl);
+#endif
 
 		if (mfd->mdp.update_ad_input) {
 			mutex_unlock(&mfd->bl_lock);

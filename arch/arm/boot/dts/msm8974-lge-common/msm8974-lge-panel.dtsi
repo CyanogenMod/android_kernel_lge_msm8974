@@ -277,6 +277,8 @@
 		qcom,mdss-pan-underflow-clr = <0xff>;
 		qcom,mdss-pan-bl-ctrl = "bl_ctrl_wled";
 		qcom,mdss-pan-bl-levels = <1 255>;
+		qcom,mdss-dsi-bl-sre-level = <254>;
+		qcom,mdss-dsi-bl-cabc-max-level = <225>;
 		qcom,mdss-pan-dsi-mode = <1>;
 		qcom,mdss-vsync-enable = <1>;
 		qcom,mdss-hw-vsync-mode = <1>;
@@ -298,6 +300,8 @@
 		qcom,mdss-pan-wr-mem-continue = <0x3c>;
 		qcom,mdss-pan-wr-mem-start = <0x2c>;
 		qcom,mdss-pan-insert-dcs-cmd = <1>;
+		qcom,mdss-dsi-sre-ui-command = [15 01 00 00 10 00 02 55 60
+			05 01 00 00 10 00 02 29 00];
 		qcom,panel-phy-regulatorSettings = [
 			07 09 03 00  /* Regualotor settings */
 			20 00 01];
@@ -523,6 +527,8 @@
 		qcom,mdss-pan-underflow-clr = <0xff>;
 		qcom,mdss-pan-bl-ctrl = "bl_ctrl_wled";
 		qcom,mdss-pan-bl-levels = <1 255>;
+		qcom,mdss-dsi-bl-sre-level = <254>;
+		qcom,mdss-dsi-bl-cabc-max-level = <225>;
 		qcom,mdss-pan-dsi-mode = <1>;
 		qcom,mdss-vsync-enable = <1>;
 		qcom,mdss-hw-vsync-mode = <1>;
@@ -544,6 +550,8 @@
 		qcom,mdss-pan-wr-mem-continue = <0x3c>;
 		qcom,mdss-pan-wr-mem-start = <0x2c>;
 		qcom,mdss-pan-insert-dcs-cmd = <1>;
+		qcom,mdss-dsi-sre-ui-command = [15 01 00 00 10 00 02 55 60
+			05 01 00 00 10 00 02 29 00];
 		qcom,panel-phy-regulatorSettings = [
 			07 09 03 00  /* Regualotor settings */
 			20 00 01];
