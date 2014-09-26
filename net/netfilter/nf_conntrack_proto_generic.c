@@ -12,25 +12,43 @@
 #include <linux/netfilter.h>
 #include <net/netfilter/nf_conntrack_l4proto.h>
 
-static unsigned int nf_ct_generic_timeout __read_mostly = 600*HZ;
+static unsigned int nf_ct_generic_timeout __read_mostly;
+
+static bool nf_generic_should_process(u8 proto)
+{
+	switch (proto) {
+#ifdef CONFIG_NF_CT_PROTO_SCTP_MODULE
+	case IPPROTO_SCTP:
+		return false;
+#endif
+#ifdef CONFIG_NF_CT_PROTO_DCCP_MODULE
+	case IPPROTO_DCCP:
+		return false;
+#endif
+#ifdef CONFIG_NF_CT_PROTO_GRE_MODULE
+	case IPPROTO_GRE:
+		return false;
+#endif
+#ifdef CONFIG_NF_CT_PROTO_UDPLITE_MODULE
+	case IPPROTO_UDPLITE:
+		return false;
+#endif
+	default:
+		return true;
+	}
+}
 
 static bool generic_pkt_to_tuple(const struct sk_buff *skb,
 				 unsigned int dataoff,
 				 struct nf_conntrack_tuple *tuple)
 {
-	tuple->src.u.all = 0;
-	tuple->dst.u.all = 0;
-
-	return true;
+	return false;
 }
 
 static bool generic_invert_tuple(struct nf_conntrack_tuple *tuple,
 				 const struct nf_conntrack_tuple *orig)
 {
-	tuple->src.u.all = 0;
-	tuple->dst.u.all = 0;
-
-	return true;
+	return false;
 }
 
 /* Print out the per-protocol part of the tuple. */
@@ -54,55 +72,15 @@ static int generic_packet(struct nf_conn *ct,
 			  unsigned int hooknum,
 			  unsigned int *timeout)
 {
-	nf_ct_refresh_acct(ct, ctinfo, skb, *timeout);
-	return NF_ACCEPT;
+	return NF_DROP;
 }
 
 /* Called when a new connection for this protocol found. */
 static bool generic_new(struct nf_conn *ct, const struct sk_buff *skb,
 			unsigned int dataoff, unsigned int *timeouts)
 {
-	return true;
+	return false
 }
-
-#if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
-
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nfnetlink_cttimeout.h>
-
-static int generic_timeout_nlattr_to_obj(struct nlattr *tb[], void *data)
-{
-	unsigned int *timeout = data;
-
-	if (tb[CTA_TIMEOUT_GENERIC_TIMEOUT])
-		*timeout =
-		    ntohl(nla_get_be32(tb[CTA_TIMEOUT_GENERIC_TIMEOUT])) * HZ;
-	else {
-		/* Set default generic timeout. */
-		*timeout = nf_ct_generic_timeout;
-	}
-
-	return 0;
-}
-
-static int
-generic_timeout_obj_to_nlattr(struct sk_buff *skb, const void *data)
-{
-	const unsigned int *timeout = data;
-
-	NLA_PUT_BE32(skb, CTA_TIMEOUT_GENERIC_TIMEOUT, htonl(*timeout / HZ));
-
-	return 0;
-
-nla_put_failure:
-        return -ENOSPC;
-}
-
-static const struct nla_policy
-generic_timeout_nla_policy[CTA_TIMEOUT_GENERIC_MAX+1] = {
-	[CTA_TIMEOUT_GENERIC_TIMEOUT]	= { .type = NLA_U32 },
-};
-#endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
 
 #ifdef CONFIG_SYSCTL
 static struct ctl_table_header *generic_sysctl_header;
@@ -141,15 +119,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_generic __read_mostly =
 	.packet			= generic_packet,
 	.get_timeouts		= generic_get_timeouts,
 	.new			= generic_new,
-#if IS_ENABLED(CONFIG_NF_CT_NETLINK_TIMEOUT)
-	.ctnl_timeout		= {
-		.nlattr_to_obj	= generic_timeout_nlattr_to_obj,
-		.obj_to_nlattr	= generic_timeout_obj_to_nlattr,
-		.nlattr_max	= CTA_TIMEOUT_GENERIC_MAX,
-		.obj_size	= sizeof(unsigned int),
-		.nla_policy	= generic_timeout_nla_policy,
-	},
-#endif /* CONFIG_NF_CT_NETLINK_TIMEOUT */
 #ifdef CONFIG_SYSCTL
 	.ctl_table_header	= &generic_sysctl_header,
 	.ctl_table		= generic_sysctl_table,
