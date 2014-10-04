@@ -648,6 +648,7 @@ static void zram_init_device(struct zram *zram, struct zram_meta *meta)
 
 	/* zram devices sort of resembles non-rotational disks */
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, zram->disk->queue);
+	queue_flag_clear_unlocked(QUEUE_FLAG_ADD_RANDOM, zram->disk->queue);
 
 	zram->meta = meta;
 	zram->init_done = 1;
@@ -1072,3 +1073,4 @@ MODULE_PARM_DESC(num_devices, "Number of zram devices");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Nitin Gupta <ngupta@vflare.org>");
 MODULE_DESCRIPTION("Compressed RAM Block Device");
+
