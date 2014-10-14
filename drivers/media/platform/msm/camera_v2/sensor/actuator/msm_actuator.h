@@ -85,9 +85,10 @@ struct msm_actuator_ctrl_t {
 	uint32_t total_steps;
 	uint16_t pwd_step;
 	uint16_t initial_code;
-	struct msm_camera_i2c_reg_tbl *i2c_reg_tbl;
+	struct msm_camera_i2c_reg_array *i2c_reg_tbl;
 	uint16_t i2c_tbl_index;
 	enum cci_i2c_master_t cci_master;
+	uint32_t subdev_id;
 /* LGE_CHANGE_S [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */
 	struct wake_lock        camera_wake_lock;
 /* LGE_CHANGE_E [20130622][youngbae.choi@lge.com] : To enter the deep sleep after finish camera close */

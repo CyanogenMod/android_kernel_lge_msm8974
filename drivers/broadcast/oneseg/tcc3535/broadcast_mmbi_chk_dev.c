@@ -3,13 +3,13 @@
 #endif
 
 #include <linux/miscdevice.h>
-#include <linux/module.h>	/*        */
+#include <linux/module.h>	/* module */
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/kernel.h>	/*        */
+#include <linux/kernel.h>	/* printk */
 #include <linux/types.h>
 #include <linux/stat.h>
 #include <linux/fcntl.h>
@@ -20,13 +20,13 @@
 #include <asm/uaccess.h>
 #include <linux/cdev.h>
 
-#include <linux/kernel.h>	/*        */
+#include <linux/kernel.h>	/* printk */
 #include <linux/proc_fs.h>
 #include <linux/errno.h>
-#include <linux/sched.h>	/*             */
+#include <linux/sched.h>	/* task_struct */
 #include <linux/timer.h>
 #include <linux/time.h>
-#include <linux/delay.h>	/*       */
+#include <linux/delay.h>	/* sleep */
 #include <linux/types.h>
 #include <linux/stat.h>
 #include <linux/fcntl.h>
@@ -35,11 +35,6 @@
 #include "broadcast_mmbi_chk_dev.h"
 
 #define BROADCAST_MMBI_CHK_DEV_NUM_DEVS 	1
-
-#ifdef _MODEL_F9J_
-#define MMB_CHK_DEV_EAR_ANTENNA
-extern void isdbt_hw_set_antenna_mode(int antenna_mode);
-#endif
 
 static struct class *broadcast_mmbi_chk_dev_class;
 static dev_t broadcast_mmbi_chk_dev;
@@ -61,13 +56,13 @@ static mmbi_chk_dev_uim_info_t g_uim_info;
 static mmbi_chk_dev_antenna_info_t g_antenna_info = {0,};
 
 
-/*                                                                       
-                      
-                   
-                                                                  
+/************************************************************************
+ * open() system call.
+ * [User Interface]
+ *     int    open( const char "/dev/broadcast_chkdev0", O_RDWR );
  */
-/* 
-                  
+/**
+	open System Call.
 */
 
 static int broadcast_mmbi_chk_dev_open(struct inode *inode, struct file *filp)
@@ -77,13 +72,13 @@ static int broadcast_mmbi_chk_dev_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-/*                                                                       
-                                      
-                   
-                              
+/************************************************************************
+ * release() .... close() system call.
+ * [User Interface]
+ *     int    close( int fd );
  */
-/* 
-                   
+/**
+	close System Call.
 */
 
 static int broadcast_mmbi_chk_dev_close(struct inode *inode, struct file *filp)
@@ -92,13 +87,13 @@ static int broadcast_mmbi_chk_dev_close(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-/*                                                                       
-                      
-                   
-                                                                                           
+/************************************************************************
+ * read() system call.
+ * [User Interface]
+ *     ssize_t    read( struct file *filp, char __user *buff, size_t count, loff_t *offp );
  */
-/* 
-                  
+/**
+	read System Call.
 */
 
 static ssize_t broadcast_mmbi_chk_dev_read(struct file *filp, char *buf, size_t count, loff_t * f_pos)
@@ -107,13 +102,13 @@ static ssize_t broadcast_mmbi_chk_dev_read(struct file *filp, char *buf, size_t 
 	return 0;
 }
 
-/*                                                                       
-                       
-                   
-                                                                                            
+/************************************************************************
+ * write() system call.
+ * [User Interface]
+ *     ssize_t    write( struct file *filp, char __user *buff, size_t count, loff_t *offp );
  */
-/* 
-                   
+/**
+	write System Call.
 */
 static int broadcast_mmbi_chk_dev_write(struct file *filp, const char __user * buf, size_t count, loff_t * f_pos)
 {
@@ -122,8 +117,8 @@ static int broadcast_mmbi_chk_dev_write(struct file *filp, const char __user * b
 	return 0;
 }
 
-/* 
-                         
+/**
+	System Call driver open.
 */
 static int broadcast_mmbi_chk_dev_driver_open(unsigned long arg)
 {
@@ -148,14 +143,14 @@ static int broadcast_mmbi_chk_dev_driver_open(unsigned long arg)
 	return 0;
 }
 
-/* 
-                          
+/**
+	System Call. driver close
 */
 static int broadcast_mmbi_chk_dev_driver_close(unsigned long arg)
 {
-	//                                                               
-	//                                   
-	//                                              
+	//ioctl_monitor_info_t *user_info = (ioctl_monitor_info_t *) arg;
+	//ioctl_monitor_info_t system_info;//
+	//size_t tmpsize = sizeof(ioctl_monitor_info_t);
 
 	printk("broadcast_mmbi_chk_dev_write!!!\n");
 
@@ -167,8 +162,8 @@ static int broadcast_mmbi_chk_dev_driver_close(unsigned long arg)
 	return 0;
 }
 
-/* 
-                               
+/**
+	System Call. driver rf setting
 */
 static int broadcast_mmbi_chk_dev_set_rf(unsigned long arg)
 {
@@ -189,8 +184,8 @@ static int broadcast_mmbi_chk_dev_set_rf(unsigned long arg)
 }
 
 
-/* 
-                               
+/**
+	System Call. driver ch setting
 */
 static int broadcast_mmbi_chk_dev_set_channel(unsigned long arg)
 {
@@ -210,8 +205,8 @@ static int broadcast_mmbi_chk_dev_set_channel(unsigned long arg)
 	return 0;
 }
 
-/* 
-                                       
+/**
+	System Call. driver monitor app. start
 */
 static int broadcast_mmbi_chk_dev_set_monitor_app(unsigned long arg)
 {
@@ -226,14 +221,14 @@ static int broadcast_mmbi_chk_dev_set_monitor_app(unsigned long arg)
 
 	g_monitor_info.monitor_app = system_info.monitor_app;
 	
-	//                                                                                     
+	//printk("broadcast_mmbi_chk_dev_set_monitor_app %d!!!\n", g_monitor_info.monitor_app);
 	
 	return 0;
 }
 
 
-/* 
-                                     
+/**
+	System Call. driver sig_info setting
 */
 static int broadcast_mmbi_chk_dev_set_sig_info(unsigned long arg)
 {
@@ -246,28 +241,28 @@ static int broadcast_mmbi_chk_dev_set_sig_info(unsigned long arg)
 		return -EFAULT;
 	}
 	
-	//                                                   
+	//printk("broadcast_mmbi_chk_dev_set_sig_info!!!\n");
 
 	memcpy(&g_monitor_info.sig_info, &system_info.sig_info, sizeof(ioctl_sig_info_t));
 	
 	return 0;
 }
 
-/* 
-                                     
+/**
+	System Call. driver sig_info getting
 */
 static int broadcast_mmbi_chk_dev_get_sig_info(unsigned long arg)
 {
-	//                                                               
-	//                                   
+	//ioctl_monitor_info_t *user_info = (ioctl_monitor_info_t *) arg;
+	//ioctl_monitor_info_t system_info;//
 	size_t tmpsize = sizeof(ioctl_monitor_info_t);
 
-	//                                                   
+	//printk("broadcast_mmbi_chk_dev_get_sig_info!!!\n");
 
-	//                                                         
-	//                                                     
-	//                
-	// 
+	//if (copy_from_user(&system_info, (void *)arg, tmpsize)) {
+	//	printk("copy_from_user failed. (len:%d)\n",tmpsize);
+	//	return -EFAULT;
+	//}
 
 	if (copy_to_user((void *)arg, (void *)&g_monitor_info, tmpsize)) 
 	{
@@ -310,7 +305,7 @@ static int broadcast_mmbi_chk_dev_get_uim_info(unsigned long arg)
 	return 0;
 }
 
-//                                                                      
+//For Auto switching Antenna //0->default Retractable, 1->auto switching
 static int broadcast_mmbi_chk_dev_set_antenna_info(unsigned long arg)
 {
 	mmbi_chk_dev_antenna_info_t *antenna_info = (mmbi_chk_dev_antenna_info_t *) arg;
@@ -331,14 +326,14 @@ static int broadcast_mmbi_chk_dev_set_antenna_info(unsigned long arg)
 	return 0;
 }
 
-/*                                                                       
-                       
-                   
-                                                      
-                                                                                                   
+/************************************************************************
+ * ioctl() system call.
+ * [User Interface]
+ *     int    ioctl( int fd, unsigned long cmd, ... );
+ *     int    ioctl( struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg );
  */
-/* 
-                    
+/**
+	ioctl System Call..
 */
 static long broadcast_mmbi_chk_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -395,12 +390,12 @@ static long broadcast_mmbi_chk_dev_ioctl(struct file *filp, unsigned int cmd, un
 }
 
 static struct file_operations broadcast_mmbi_chk_dev_fops = {
-	owner:	THIS_MODULE,		/*       */
-	read:	broadcast_mmbi_chk_dev_read,		/*                          */
-	write:	broadcast_mmbi_chk_dev_write,		/*                           */
-	unlocked_ioctl:	broadcast_mmbi_chk_dev_ioctl,	/*                                    */
-	open:	broadcast_mmbi_chk_dev_open,		/*                          */
-	release:broadcast_mmbi_chk_dev_close,		/*                           */
+	owner:	THIS_MODULE,		/* owner */
+	read:	broadcast_mmbi_chk_dev_read,		/* read() system call entry */
+	write:	broadcast_mmbi_chk_dev_write,		/* write() system call entry */
+	unlocked_ioctl:	broadcast_mmbi_chk_dev_ioctl,	/* unlocked_ioctl() system call entry */
+	open:	broadcast_mmbi_chk_dev_open,		/* open() system call entry */
+	release:broadcast_mmbi_chk_dev_close,		/* close() system call entry */
 };
 
 //    
@@ -468,12 +463,12 @@ int broadcast_mmbi_chk_dev_drv_start(void)
 EXPORT_SYMBOL(broadcast_mmbi_chk_dev_drv_start);
 
 
-/*                                                                       
-                        
-                              
+/************************************************************************
+ * initialization module
+ *  called by insmod function.
  */
-/* 
-                                        
+/**
+	__init System Call. (called by Kernel.)
 */
 static int __init proc_init_module(void)
 {
@@ -481,21 +476,21 @@ static int __init proc_init_module(void)
 	return 0;
 }
 
-/*                                                                       
-                  
-                              
+/************************************************************************
+ * cleanup module.
+ *  called  by rmmod function.
  */
-/* 
-                                        
-                                          
+/**
+	__exit System Call. (called by Kernel.)
+	It is called as an end processing module.
 */
 static void __exit proc_cleanup_module(void)
 {
 
 }
 
-/*                                  */
+/* Declare entry and exit functions */
 module_init(proc_init_module);
 module_exit(proc_cleanup_module);
-/*                */
+/* End of Program */
 

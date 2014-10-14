@@ -48,24 +48,22 @@ TCBB_FUNC I32S TcpalPrintLog(const I08S * _fmt, ...);
 TCBB_FUNC I32S TcpalPrintErr(const I08S * _fmt, ...);
 TCBB_FUNC I32S TcpalPrintStatus(const I08S * _fmt, ...);
 
-/*               */
+/* For TimeCheck */
 #define TCPAL_MAX_TIMECNT 0xFFFFFFFFUL
 TCBB_FUNC TcpalTime_t TcpalGetCurrentTimeCount_ms(void);
 TCBB_FUNC TcpalTime_t TcpalGetTimeIntervalCount_ms(TcpalTime_t
 						   _startTimeCount);
 
-/*           */
+/* for sleep */
 TCBB_FUNC void TcpalmSleep(I32S _ms);
 TCBB_FUNC void TcpaluSleep(I32S _us);
 TCBB_FUNC void TcpalmDelay(I32S _ms);
 
-/*                                  */
-TCBB_FUNC void *TcpalMalloc(I32U _size);
-TCBB_FUNC I32S TcpalFree(void *_ptr);
+/* for memory allocation, free, set */
 TCBB_FUNC void *TcpalMemset(void *_dest, I32U _data, I32U _cnt);
 TCBB_FUNC void *TcpalMemcpy(void *_dest, const void *_src, I32U _cnt);
 
-/*               */
+/* For Semaphore */
 #define TCPAL_INFINITE_SEMAPHORE  0xFFFFFFFFUL
 
 TCBB_FUNC I32S TcpalCreateSemaphore(TcpalSemaphore_t * _semaphore,

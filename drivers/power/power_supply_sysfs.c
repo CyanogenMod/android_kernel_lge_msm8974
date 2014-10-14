@@ -35,8 +35,8 @@
  * (as a macro let's say).
  */
 
-/* BEGIN : janghyun.baek@lge.com 2012-12-26 Temporarily change mode to 777
- * debug power sysfs node */
+/*                                                                        
+                          */
 #ifdef CONFIG_LGE_PM
 #define PSEUDO_BATT_ATTR(_name)						\
 {									\
@@ -64,7 +64,7 @@
 	.store = power_supply_store_property,				\
 }
 #endif
-/* END : janghyun.baek@lge.com 2012-12-26 */
+/*                                        */
 
 static struct device_attribute power_supply_attrs[];
 
@@ -85,8 +85,8 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"Unknown", "N/A", "Trickle", "Fast"
 	};
 	static char *health_text[] = {
-		"Unknown", "Good", "Overheat", "Dead", "Over voltage",
-		"Unspecified failure", "Cold",
+		"Unknown", "Good", "Overheat", "Warm", "Dead", "Over voltage",
+		"Unspecified failure", "Cold", "Cool"
 	};
 	static char *technology_text[] = {
 		"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
@@ -234,7 +234,12 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(voltage_min_design),
 	POWER_SUPPLY_ATTR(voltage_now),
 	POWER_SUPPLY_ATTR(voltage_avg),
+	POWER_SUPPLY_ATTR(input_voltage_regulation),
+	POWER_SUPPLY_ATTR(voltage_ocv),
 	POWER_SUPPLY_ATTR(current_max),
+	POWER_SUPPLY_ATTR(input_current_max),
+	POWER_SUPPLY_ATTR(input_current_trim),
+	POWER_SUPPLY_ATTR(input_current_settled),
 	POWER_SUPPLY_ATTR(current_now),
 	POWER_SUPPLY_ATTR(current_avg),
 	POWER_SUPPLY_ATTR(power_now),
@@ -246,6 +251,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_now),
 	POWER_SUPPLY_ATTR(charge_avg),
 	POWER_SUPPLY_ATTR(charge_counter),
+	POWER_SUPPLY_ATTR(charge_counter_shadow),
 	POWER_SUPPLY_ATTR(energy_full_design),
 	POWER_SUPPLY_ATTR(energy_empty_design),
 	POWER_SUPPLY_ATTR(energy_full),
@@ -255,6 +261,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(capacity),
 	POWER_SUPPLY_ATTR(capacity_level),
 	POWER_SUPPLY_ATTR(temp),
+	POWER_SUPPLY_ATTR(temp_cool),
+	POWER_SUPPLY_ATTR(temp_warm),
 	POWER_SUPPLY_ATTR(temp_ambient),
 	POWER_SUPPLY_ATTR(time_to_empty_now),
 	POWER_SUPPLY_ATTR(time_to_empty_avg),
@@ -273,18 +281,18 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(removed),
 #endif
 #if defined(CONFIG_LGE_CURRENTNOW)
-	/* kwangdo.yi@lge.com [jointlab] Thu 04 Apr 2013 S
-	   sysfs for reading current now
-	 */
+	/*                                                
+                                 
+  */
 	POWER_SUPPLY_CN_ATTR(current_now, 0444),
 	POWER_SUPPLY_CN_ATTR(enable_bms, 0644),
-	/* kwangdo.yi@lge.com [jointlab] Thu 04 Apr 2013 E */
+	/*                                                 */
 #endif
 #ifdef CONFIG_FTT_CHARGER_V3
 	POWER_SUPPLY_ATTR(ftt_anntena_level),
 #endif
 #ifdef CONFIG_MAX17050_FUELGAUGE
-	/* junnyoung.jang@lge.com 20130420 Add battery condition */
+	/*                                                       */
 	POWER_SUPPLY_ATTR(battery_condition),
 	POWER_SUPPLY_ATTR(battery_age),
 #endif

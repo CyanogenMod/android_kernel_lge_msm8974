@@ -54,12 +54,20 @@
 #define AUDIO_SET_ASM_CUSTOM_TOPOLOGY	_IOW(AUDIO_IOCTL_MAGIC, \
 			(AUDIO_MAX_COMMON_IOCTL_NUM+24), unsigned)
 #define AUDIO_SET_SPEAKER_PROT _IOW(AUDIO_IOCTL_MAGIC, 25, \
-		struct msm_spk_prot_cfg)
+			struct msm_spk_prot_cfg)
 #define AUDIO_GET_SPEAKER_PROT _IOR(AUDIO_IOCTL_MAGIC, 26, \
-		struct msm_spk_prot_status)
+			struct msm_spk_prot_status)
 #define AUDIO_SET_AANC_CAL		_IOW(AUDIO_IOCTL_MAGIC, \
 			(AUDIO_MAX_COMMON_IOCTL_NUM+27), unsigned)
-#define	AUDIO_MAX_ACDB_IOCTL	(AUDIO_MAX_COMMON_IOCTL_NUM+30)
+#define AUDIO_REGISTER_VOCPROC_VOL_TABLE	_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+28), unsigned)
+#define AUDIO_DEREGISTER_VOCPROC_VOL_TABLE	_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+29), unsigned)
+#define AUDIO_SET_HW_DELAY_RX	_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+30), struct hw_delay)
+#define AUDIO_SET_HW_DELAY_TX	_IOW(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_COMMON_IOCTL_NUM+31), struct hw_delay)
+#define	AUDIO_MAX_ACDB_IOCTL	(AUDIO_MAX_COMMON_IOCTL_NUM+40)
 
 /* ACDB structures */
 struct cal_block {
@@ -90,6 +98,11 @@ struct msm_spk_prot_cfg {
 struct msm_spk_prot_status {
 	int r0;
 	int status;
+};
+
+struct hw_delay {
+	uint32_t num_entries;
+	void *delay_info;
 };
 
 /* For Real-Time Audio Calibration */

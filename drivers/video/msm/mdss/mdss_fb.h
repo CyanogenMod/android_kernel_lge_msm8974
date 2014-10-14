@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/notifier.h>
 
 #include "mdss_panel.h"
+#include "mdss_mdp_splash_logo.h"
 
 #define MSM_FB_DEFAULT_PAGE_SIZE 2
 #define MFD_KEY  0x11161126
@@ -41,6 +42,32 @@
 #define  MIN(x, y) (((x) < (y)) ? (x) : (y))
 #endif
 
+/**
+ * enum mdp_notify_event - Different frame events to indicate frame update state
+ *
+ * @MDP_NOTIFY_FRAME_BEGIN:	Frame update has started, the frame is about to
+ *				be programmed into hardware.
+ * @MDP_NOTIFY_FRAME_READY:	Frame ready to be kicked off, this can be used
+ *				as the last point in time to synchronized with
+ *				source buffers before kickoff.
+ * @MDP_NOTIFY_FRAME_FLUSHED:	Configuration of frame has been flushed and
+ *				DMA transfer has started.
+ * @MDP_NOTIFY_FRAME_DONE:	Frame DMA transfer has completed.
+ *				- For video mode panels this will indicate that
+ *				  previous frame has been replaced by new one.
+ *				- For command mode/writeback frame done happens
+ *				  as soon as the DMA of the frame is done.
+ * @MDP_NOTIFY_FRAME_TIMEOUT:	Frame DMA transfer has failed to complete within
+ *				a fair amount of time.
+ */
+enum mdp_notify_event {
+	MDP_NOTIFY_FRAME_BEGIN = 1,
+	MDP_NOTIFY_FRAME_READY,
+	MDP_NOTIFY_FRAME_FLUSHED,
+	MDP_NOTIFY_FRAME_DONE,
+	MDP_NOTIFY_FRAME_TIMEOUT,
+};
+
 struct disp_info_type_suspend {
 	int op_enable;
 	int panel_power_on;
@@ -52,7 +79,6 @@ struct disp_info_notify {
 	struct completion comp;
 	struct mutex lock;
 	int value;
-	int is_suspend;
 };
 
 struct msm_sync_pt_data {
@@ -97,22 +123,27 @@ struct msm_mdp_interface {
 	int (*update_ad_input)(struct msm_fb_data_type *mfd);
 	int (*panel_register_done)(struct mdss_panel_data *pdata);
 	u32 (*fb_stride)(u32 fb_index, u32 xres, int bpp);
+	int (*splash_init_fnc)(struct msm_fb_data_type *mfd);
 	struct msm_sync_pt_data *(*get_sync_fnc)(struct msm_fb_data_type *mfd,
 				const struct mdp_buf_sync *buf_sync);
 	void *private1;
 };
 
 #define IS_CALIB_MODE_BL(mfd) (((mfd)->calib_mode) & MDSS_CALIB_MODE_BL)
-
-struct msm_fb_backup_type {
-	struct fb_info info;
-	struct mdp_display_commit disp_commit;
-};
+#define MDSS_BRIGHT_TO_BL(out, v, bl_max, max_bright) do {\
+					out = (2 * (v) * (bl_max) + max_bright)\
+					/ (2 * max_bright);\
+					} while (0)
 
 struct mdss_fb_proc_info {
 	int pid;
 	u32 ref_cnt;
 	struct list_head list;
+};
+
+struct msm_fb_backup_type {
+	struct fb_info info;
+	struct mdp_display_commit disp_commit;
 };
 
 struct msm_fb_data_type {
@@ -144,6 +175,8 @@ struct msm_fb_data_type {
 	unsigned long cursor_buf_phys;
 	unsigned long cursor_buf_iova;
 
+	int ext_ad_ctrl;
+	u32 ext_bl_ctrl;
 	u32 calib_mode;
 	u32 bl_level;
 	u32 bl_scale;
@@ -177,10 +210,11 @@ struct msm_fb_data_type {
 	struct completion power_set_comp;
 	u32 is_power_setting;
 
+	struct msm_fb_splash_info splash_info;
+
 	u32 dcm_state;
 	struct list_head proc_list;
 };
-
 #ifdef CONFIG_MACH_LGE
 int mdss_dsi_panel_invert(u32 enable);
 #endif
@@ -213,5 +247,4 @@ struct sync_fence *mdss_fb_sync_get_fence(struct sw_sync_timeline *timeline,
 				const char *fence_name, int val);
 int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp);
 int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state);
-int mdss_fb_suspres_panel(struct device *dev, void *data);
 #endif /* MDSS_FB_H */

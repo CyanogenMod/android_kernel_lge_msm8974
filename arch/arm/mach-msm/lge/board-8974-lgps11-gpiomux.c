@@ -145,12 +145,6 @@ static struct gpiomux_setting gpio_spi_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting gpio_spi_susp_config = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
 static struct gpiomux_setting gpio_spi_cs1_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_6MA,
@@ -608,36 +602,31 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	{
 		.gpio      = 0,		/* BLSP1 QUP SPI_DATA_MOSI */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &gpio_spi_config,
-			[GPIOMUX_SUSPENDED] = &gpio_spi_susp_config,
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
 	{
 		.gpio      = 1,		/* BLSP1 QUP SPI_DATA_MISO */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &gpio_spi_config,
-			[GPIOMUX_SUSPENDED] = &gpio_spi_susp_config,
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
 	{
 		.gpio      = 3,		/* BLSP1 QUP SPI_CLK */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &gpio_spi_config,
-			[GPIOMUX_SUSPENDED] = &gpio_spi_susp_config,
+			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
 		},
 	},
 	{
 		.gpio      = 9,		/* BLSP1 QUP SPI_CS2A_N */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &gpio_spi_cs2_config,
-			[GPIOMUX_SUSPENDED] = &gpio_spi_susp_config,
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs2_config,
 		},
 	},
 	{
 		.gpio      = 8,		/* BLSP1 QUP SPI_CS1_N */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &gpio_spi_cs1_config,
-			[GPIOMUX_SUSPENDED] = &gpio_spi_susp_config,
+			[GPIOMUX_SUSPENDED] = &gpio_spi_cs1_config,
 		},
 	},
 #endif
@@ -1219,27 +1208,27 @@ static struct msm_gpiomux_config sensor_configs[] __initdata = {
 
 #if defined(CONFIG_LGE_SM100) || defined(CONFIG_TSPDRV)
 static struct gpiomux_setting vibrator_suspend_cfg = {
-       .func = GPIOMUX_FUNC_GPIO,
-       .drv = GPIOMUX_DRV_2MA,
-       .pull = GPIOMUX_PULL_DOWN,
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct gpiomux_setting vibrator_active_cfg_gpio27 = {
-       .func = GPIOMUX_FUNC_6,
-       .drv = GPIOMUX_DRV_2MA,
-       .pull = GPIOMUX_PULL_NONE,
+	.func = GPIOMUX_FUNC_6,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting vibrator_active_cfg_gpio85 = {
-       .func = GPIOMUX_FUNC_GPIO,
-       .drv = GPIOMUX_DRV_2MA,
-       .pull = GPIOMUX_PULL_NONE,
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting vibrator_active_cfg_gpio89 = {
-       .func = GPIOMUX_FUNC_GPIO,
-       .drv = GPIOMUX_DRV_2MA,
-       .pull = GPIOMUX_PULL_NONE,
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct msm_gpiomux_config vibrator_configs[] = {
@@ -1551,7 +1540,7 @@ void __init msm_8974_init_gpiomux(void)
 	msm_gpiomux_install(sensor_configs, ARRAY_SIZE(sensor_configs));
 #endif
 #if defined(CONFIG_LGE_SM100) || defined(CONFIG_TSPDRV)
-       msm_gpiomux_install(vibrator_configs, ARRAY_SIZE(vibrator_configs));
+	msm_gpiomux_install(vibrator_configs, ARRAY_SIZE(vibrator_configs));
 #endif
 #ifdef CONFIG_EARJACK_DEBUGGER
 	msm_gpiomux_install(msm_earjack_debugger_configs,
