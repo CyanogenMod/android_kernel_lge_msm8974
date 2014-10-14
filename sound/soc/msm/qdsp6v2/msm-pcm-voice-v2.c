@@ -51,7 +51,7 @@ static struct snd_pcm_hardware msm_pcm_hardware = {
 
 	.fifo_size =            0,
 };
-static int is_volte(struct msm_voice *pvolte)
+static bool is_volte(struct msm_voice *pvolte)
 {
 	if (pvolte == &voice_info[VOLTE_SESSION_INDEX])
 		return true;
@@ -59,9 +59,17 @@ static int is_volte(struct msm_voice *pvolte)
 		return false;
 }
 
-static int is_voice2(struct msm_voice *pvoice2)
+static bool is_voice2(struct msm_voice *pvoice2)
 {
 	if (pvoice2 == &voice_info[VOICE2_SESSION_INDEX])
+		return true;
+	else
+		return false;
+}
+
+static bool is_qchat(struct msm_voice *pqchat)
+{
+	if (pqchat == &voice_info[QCHAT_SESSION_INDEX])
 		return true;
 	else
 		return false;
@@ -75,6 +83,8 @@ static uint32_t get_session_id(struct msm_voice *pvoc)
 		session_id = voc_get_session_id(VOLTE_SESSION_NAME);
 	else if (is_voice2(pvoc))
 		session_id = voc_get_session_id(VOICE2_SESSION_NAME);
+	else if (is_qchat(pvoc))
+		session_id = voc_get_session_id(QCHAT_SESSION_NAME);
 	else
 		session_id = voc_get_session_id(VOICE_SESSION_NAME);
 
@@ -119,6 +129,10 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	} else if (!strncmp("Voice2", substream->pcm->id, 6)) {
 		voice = &voice_info[VOICE2_SESSION_INDEX];
 		pr_debug("%s: Open Voice2 Substream Id=%s\n",
+			 __func__, substream->pcm->id);
+	} else if (!strncmp("QCHAT", substream->pcm->id, 5)) {
+		voice = &voice_info[QCHAT_SESSION_INDEX];
+		pr_debug("%s: Open QCHAT Substream Id=%s\n",
 			 __func__, substream->pcm->id);
 	} else {
 		voice = &voice_info[VOICE_SESSION_INDEX];
@@ -286,7 +300,7 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *prtd = runtime->private_data;
-	uint16_t session_id = get_session_id(prtd);
+	uint32_t session_id = get_session_id(prtd);
 	enum voice_lch_mode lch_mode;
 	int ret = 0;
 
@@ -382,7 +396,6 @@ static int msm_voice_mute_put(struct snd_kcontrol *kcontrol,
 done:
 	return ret;
 }
-
 
 static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
@@ -502,12 +515,36 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static __devinit int msm_pcm_probe(struct platform_device *pdev)
 {
+	int rc;
+
+	if (!is_voc_initialized()) {
+		pr_debug("%s: voice module not initialized yet, deferring probe()\n",
+		       __func__);
+
+		rc = -EPROBE_DEFER;
+		goto done;
+	}
+
+	rc = voc_alloc_cal_shared_memory();
+	if (rc == -EPROBE_DEFER) {
+		pr_debug("%s: memory allocation for calibration deferred %d\n",
+			 __func__, rc);
+
+		goto done;
+	} else if (rc < 0) {
+		pr_err("%s: memory allocation for calibration failed %d\n",
+		       __func__, rc);
+	}
+
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", "msm-pcm-voice");
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	return snd_soc_register_platform(&pdev->dev,
-				   &msm_soc_platform);
+	rc = snd_soc_register_platform(&pdev->dev,
+				       &msm_soc_platform);
+
+done:
+	return rc;
 }
 
 static int msm_pcm_remove(struct platform_device *pdev)

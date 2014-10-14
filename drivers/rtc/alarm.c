@@ -22,6 +22,7 @@
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/wakelock.h>
+#include <linux/zwait.h>
 
 #include <asm/mach/time.h>
 
@@ -622,6 +623,31 @@ static struct platform_driver alarm_driver = {
 	}
 };
 
+#ifdef CONFIG_ZERO_WAIT
+static int zw_alarm_notifier_call(struct notifier_block *nb,
+			unsigned long state, void *ptr)
+{
+	switch (state) {
+	case ZW_STATE_OFF:
+		alarm_driver.suspend = alarm_suspend;
+		alarm_driver.resume = alarm_resume;
+		break;
+
+	case ZW_STATE_ON_SYSTEM:
+	case ZW_STATE_ON_USER:
+		alarm_driver.suspend = NULL;
+		alarm_driver.resume = NULL;
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block zw_alarm_nb = {
+	.notifier_call = zw_alarm_notifier_call,
+};
+#endif /* CONFIG_ZERO_WAIT */
+
 static int __init alarm_late_init(void)
 {
 	unsigned long   flags;
@@ -640,6 +666,11 @@ static int __init alarm_late_init(void)
 			timespec_to_ktime(timespec_sub(tmp_time, system_time));
 
 	spin_unlock_irqrestore(&alarm_slock, flags);
+
+#ifdef CONFIG_ZERO_WAIT
+	zw_notifier_chain_register(&zw_alarm_nb, NULL);
+#endif
+
 	return 0;
 }
 

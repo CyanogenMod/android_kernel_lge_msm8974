@@ -111,7 +111,7 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 		sdhci_readl(host, SDHCI_INT_ENABLE),
 		sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
 	pr_info(DRIVER_NAME ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
-		sdhci_readw(host, SDHCI_AUTO_CMD_ERR),
+		host->auto_cmd_err_sts,
 		sdhci_readw(host, SDHCI_SLOT_INT_STATUS));
 	pr_info(DRIVER_NAME ": Caps:     0x%08x | Caps_1:   0x%08x\n",
 		sdhci_readl(host, SDHCI_CAPABILITIES),
@@ -745,7 +745,18 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL)
 		return 0xE;
+#ifndef CONFIG_MACH_LGE
+	/*                                          */
+	/* QCT Case : 01383733 TD: 135796/OFFICIAL EVENT */
+	/* we agree that below code is not appied */
+	/* Hardware Interrupt occurs, since Data Timeout is longer than hadware interrupt time */
 
+	/* During initialization, don't use max timeout as the clock is slow */
+	if ((host->quirks2 & SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT) &&
+		(host->clock > 400000)) {
+		return 0xF;
+	}
+#endif
 	/* Unspecified timeout, assume max */
 	if (!data && !cmd->cmd_timeout_ms)
 		return 0xE;
@@ -1492,7 +1503,6 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	struct sdhci_host *host;
 	bool present;
 	unsigned long flags;
-	u32 tuning_opcode;
 
 	host = mmc_priv(mmc);
 
@@ -1530,19 +1540,23 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	/* If polling, assume that the card is always present. */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
-	#ifdef CONFIG_MACH_LGE
-	/* LGE_UPDATE, 2013/07/19, G2-FS@lge.com
-	 * When sd doesn't exist physically, do finish tasklet-schedule.
-	 */
+#ifdef CONFIG_MACH_LGE
+	/*                                      
+                                                                 
+  */
 		{
-			if(mmc->index==2)
+#ifndef CONFIG_MACH_MSM8974_B1_KR
+			if (mmc->index == 2)
+#else
+			if (mmc->index == 1)
+#endif
 				present = mmc_cd_get_status(mmc);
 			else
 				present = true;
 		}
-	#else
+#else
 		present = true;
-	#endif
+#endif
 	else
 		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
 				SDHCI_CARD_PRESENT;
@@ -1564,20 +1578,13 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		    (mrq->cmd->opcode != MMC_SEND_TUNING_BLOCK_HS200) &&
 		    (host->flags & SDHCI_NEEDS_RETUNING) &&
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ))) {
-			if (mmc->card) {
-				/* eMMC uses cmd21 but sd and sdio use cmd19 */
-				tuning_opcode =
-					mmc->card->type == MMC_TYPE_MMC ?
-					MMC_SEND_TUNING_BLOCK_HS200 :
-					MMC_SEND_TUNING_BLOCK;
 				host->mrq = NULL;
 				spin_unlock_irqrestore(&host->lock, flags);
-				sdhci_execute_tuning(mmc, tuning_opcode);
+				sdhci_execute_tuning(mmc, mrq->cmd->opcode);
 				spin_lock_irqsave(&host->lock, flags);
 
 				/* Restore original mmc_request structure */
 				host->mrq = mrq;
-			}
 		}
 
 		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
@@ -1994,10 +2001,10 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 			host->ops->check_power_status(host, REQ_BUS_OFF);
 
 		#ifdef CONFIG_MACH_LGE
-		/* LGU_UPDATE, 2013/07/17, G2-FS@lge.com
-		 * It maybe need more time.
-		 */
-		 usleep_range(10000, 15000);
+		/*                                      
+                             
+   */
+		usleep_range(10000, 15000);
 		#else
 		/* Wait for 1ms as per the spec */
 		usleep_range(1000, 1500);
@@ -2028,10 +2035,10 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 	err = sdhci_do_start_signal_voltage_switch(host, ios);
 
 	#ifdef CONFIG_MACH_LGE
-	/* LGE_UPDATE, 2013/07/17, G2-FS@lge.com
-	 * When err is -EAGAIN, baby one more time.
-	 */
-	if(err == -EAGAIN )
+	/*                                      
+                                            
+  */
+	if (err == -EAGAIN)
 	{
 		usleep_range(5000, 5500);
 		err = sdhci_do_start_signal_voltage_switch(host, ios);
@@ -2087,7 +2094,7 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	if (host->ops->execute_tuning) {
 		spin_unlock(&host->lock);
 		enable_irq(host->irq);
-		host->ops->execute_tuning(host, opcode);
+		err = host->ops->execute_tuning(host, opcode);
 		disable_irq(host->irq);
 		spin_lock(&host->lock);
 		goto out;
@@ -2450,6 +2457,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	host->mrq = NULL;
 	host->cmd = NULL;
 	host->data = NULL;
+	host->auto_cmd_err_sts = 0;
 
 #ifndef SDHCI_USE_LEDS_CLASS
 	sdhci_deactivate_led(host);
@@ -2541,8 +2549,8 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (intmask & SDHCI_INT_AUTO_CMD_ERR) {
 		auto_cmd_status = host->auto_cmd_err_sts;
-		pr_info("%s: %s: AUTO CMD err sts 0x%08x\n", mmc_hostname(host->mmc),
-				__func__, auto_cmd_status);
+		pr_err("%s: %s: AUTO CMD err sts 0x%08x\n",
+			mmc_hostname(host->mmc), __func__, auto_cmd_status);
 		if (auto_cmd_status & (SDHCI_AUTO_CMD12_NOT_EXEC |
 				       SDHCI_AUTO_CMD_INDEX_ERR |
 				       SDHCI_AUTO_CMD_ENDBIT_ERR))
@@ -2704,13 +2712,13 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			pr_msg = true;
 		}
 		if (pr_msg) {
-			#ifdef CONFIG_MACH_LGE
-			if(intmask & SDHCI_INT_DATA_CRC)
+#ifdef CONFIG_MACH_LGE
+			if (intmask & SDHCI_INT_DATA_CRC)
 				printk(KERN_INFO "[LGE][MMC][%-18s( )]intmask is SDHCI_INT_DATA_CRC\n", __func__);
 
-			if(intmask & SDHCI_INT_DATA_TIMEOUT)
+			if (intmask & SDHCI_INT_DATA_TIMEOUT)
 				printk(KERN_INFO "[LGE][MMC][%-18s( )]intmask is SDHCI_INT_DATA_TIMEOUT\n", __func__);
-			#endif
+#endif
 
 			pr_err("%s: data txfr (0x%08x) error: %d after %lld ms\n",
 			       mmc_hostname(host->mmc), intmask,
@@ -2819,7 +2827,8 @@ again:
 
 	if (intmask & SDHCI_INT_CMD_MASK) {
 		if (intmask & SDHCI_INT_AUTO_CMD_ERR)
-			host->auto_cmd_err_sts = sdhci_readw(host, SDHCI_AUTO_CMD_ERR);
+			host->auto_cmd_err_sts = sdhci_readw(host,
+					SDHCI_AUTO_CMD_ERR);
 		sdhci_writel(host, intmask & SDHCI_INT_CMD_MASK,
 			SDHCI_INT_STATUS);
 		if ((host->quirks2 & SDHCI_QUIRK2_SLOW_INT_CLR) &&

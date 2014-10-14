@@ -176,8 +176,7 @@ enum hal_property {
 	HAL_PARAM_VENC_MAX_NUM_B_FRAMES,
 	HAL_PARAM_BUFFER_ALLOC_MODE,
 	HAL_PARAM_VDEC_FRAME_ASSEMBLY,
-	HAL_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC,
-	HAL_PARAM_VENC_PRESERVE_TEXT_QUALITY,
+	HAL_PARAM_VDEC_CONCEAL_COLOR,
 };
 
 enum hal_domain {
@@ -185,6 +184,22 @@ enum hal_domain {
 	HAL_VIDEO_DOMAIN_ENCODER,
 	HAL_VIDEO_DOMAIN_DECODER,
 	HAL_UNUSED_DOMAIN = 0x10000000,
+};
+
+enum multi_stream {
+	HAL_VIDEO_DECODER_NONE = 0x00000000,
+	HAL_VIDEO_DECODER_PRIMARY = 0x00000001,
+	HAL_VIDEO_DECODER_SECONDARY = 0x00000002,
+	HAL_VIDEO_DECODER_BOTH_OUTPUTS = 0x00000004,
+	HAL_VIDEO_UNUSED_OUTPUTS = 0x10000000,
+};
+
+enum hal_core_capabilities {
+	HAL_VIDEO_ENCODER_ROTATION_CAPABILITY = 0x00000001,
+	HAL_VIDEO_ENCODER_SCALING_CAPABILITY = 0x00000002,
+	HAL_VIDEO_ENCODER_DEINTERLACE_CAPABILITY = 0x00000004,
+	HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY = 0x00000008,
+	HAL_VIDEO_UNUSED_CAPABILITY      = 0x10000000,
 };
 
 enum hal_video_codec {
@@ -202,7 +217,8 @@ enum hal_video_codec {
 	HAL_VIDEO_CODEC_VP6      = 0x00000400,
 	HAL_VIDEO_CODEC_VP7      = 0x00000800,
 	HAL_VIDEO_CODEC_VP8      = 0x00001000,
-	HAL_VIDEO_CODEC_HEVC     = 0x00010000,
+	HAL_VIDEO_CODEC_HEVC     = 0x00002000,
+	HAL_VIDEO_CODEC_HEVC_HYBRID     = 0x00004000,
 	HAL_UNUSED_CODEC = 0x10000000,
 };
 
@@ -317,6 +333,7 @@ enum hal_h264_level {
 	HAL_H264_LEVEL_42 = 0x00002000,
 	HAL_H264_LEVEL_5  = 0x00004000,
 	HAL_H264_LEVEL_51 = 0x00008000,
+	HAL_H264_LEVEL_52 = 0x00010000,
 	HAL_UNUSED_H264_LEVEL = 0x10000000,
 };
 
@@ -793,14 +810,6 @@ struct hal_h264_vui_timing_info {
 	u32 time_scale;
 };
 
-struct hal_h264_vui_bitstream_restrc {
-	u32 enable;
-};
-
-struct hal_preserve_text_quality {
-	u32 enable;
-};
-
 enum vidc_resource_id {
 	VIDC_RESOURCE_OCMEM = 0x00000001,
 	VIDC_UNUSED_RESORUCE = 0x10000000,
@@ -877,9 +886,9 @@ enum hal_event_type {
 };
 
 enum buffer_mode_type {
-	HAL_BUFFER_MODE_STATIC,
-	HAL_BUFFER_MODE_RING,
-	HAL_BUFFER_MODE_DYNAMIC,
+	HAL_BUFFER_MODE_STATIC = 0x001,
+	HAL_BUFFER_MODE_RING = 0x010,
+	HAL_BUFFER_MODE_DYNAMIC = 0x100,
 };
 
 struct hal_buffer_alloc_mode {
@@ -1028,7 +1037,7 @@ struct vidc_hal_session_init_done {
 	struct hal_nal_stream_format_supported nal_stream_format;
 	struct hal_intra_refresh intra_refresh;
 	struct hal_seq_header_info seq_hdr_info;
-	u32 alloc_mode_out;
+	enum buffer_mode_type alloc_mode_out;
 };
 
 struct buffer_requirements {
@@ -1051,6 +1060,14 @@ enum fw_info {
 	FW_REGISTER_SIZE,
 	FW_IRQ,
 	FW_INFO_MAX,
+};
+
+enum dev_info {
+	DEV_CLOCK_COUNT,
+	DEV_CLOCK_ENABLED,
+	DEV_PWR_COUNT,
+	DEV_PWR_ENABLED,
+	DEV_INFO_MAX
 };
 
 #define call_hfi_op(q, op, args...)			\
@@ -1106,11 +1123,14 @@ struct hfi_device {
 	int (*load_fw)(void *dev);
 	void (*unload_fw)(void *dev);
 	int (*get_fw_info)(void *dev, enum fw_info info);
+	int (*get_info) (void *dev, enum dev_info info);
 	int (*get_stride_scanline)(int color_fmt, int width,
 		int height,	int *stride, int *scanlines);
 	int (*capability_check)(u32 fourcc, u32 width,
 		u32 *max_width, u32 *max_height);
 	int (*session_clean)(void *sess);
+	int (*get_core_capabilities)(void);
+	int (*power_enable)(void *dev);
 };
 
 typedef void (*hfi_cmd_response_callback) (enum command_response cmd,

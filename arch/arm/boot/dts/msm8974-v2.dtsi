@@ -17,6 +17,21 @@
  */
 
 /include/ "msm8974.dtsi"
+
+/include/ "msm-pm8x41-rpm-regulator.dtsi"
+/include/ "msm-pm8841.dtsi"
+&spmi_bus {
+	pm8941_lsid0: qcom,pm8941@0 {
+		reg = <0x0>;
+	};
+	pm8941_lsid1: qcom,pm8941@1 {
+		reg = <0x1>;
+	};
+};
+/include/ "msm-pm8941.dtsi"
+/include/ "msm8974-regulator.dtsi"
+/include/ "msm8974-clock.dtsi"
+
 /include/ "msm8974-v2-iommu.dtsi"
 /include/ "msm8974-v2-iommu-domains.dtsi"
 /include/ "msm8974-v2-pm.dtsi"
@@ -72,6 +87,7 @@
 	qcom,mdss-has-bwc;
 	qcom,mdss-has-decimation;
 	qcom,mdss-ad-off = <0x0013100 0x00013300>;
+	vdd-cx-supply = <&pm8841_s2_corner>;
 };
 
 &mdss_hdmi_tx {
@@ -106,7 +122,7 @@
 	qcom,dec-ocmem-ab-ib = <0 0>,
 		<176000 519000>,
 		<456000 519000>,
-		<864000 519000>,
+		<864000 629000>,
 		<1728000 1038000>,
 		<2766000 1661000>,
 		<3456000 2076000>,
@@ -121,18 +137,35 @@
 		<49880000 1496000>;
 	qcom,dec-ddr-ab-ib = <0 0>,
 		<208000 303000>,
-		<536000 303000>,
-		<1012000 303000>,
-		<2024000 606000>,
-		<3240000 970000>,
-		<4048000 1212000>,
-		<4264000 1279000>;
-	qcom,iommu-groups = <&venus_domain_ns &venus_domain_sec_bitstream
-			&venus_domain_sec_pixel &venus_domain_sec_non_pixel>;
-	qcom,iommu-group-buffer-types = <0xfff 0x91 0x42 0x120>;
-	qcom,buffer-type-tz-usage-table = <0x91 0x1>,
-					<0x42 0x2>,
-					<0x120 0x3>;
+		<536000 1600000>,
+		<1012000 1600000>,
+		<2024000 1600000>,
+		<3240000 1600000>,
+		<4048000 1600000>,
+		<4264000 1600000>;
+	qcom,buffer-type-tz-usage-table = <0x241 0x1>,
+					<0x106 0x2>,
+					<0x480 0x3>;
+	qcom,vidc-iommu-domains {
+		qcom,domain-ns {
+			qcom,vidc-domain-phandle = <&venus_domain_ns>;
+			qcom,vidc-partition-buffer-types = <0x7ff>,
+							<0x800>;
+		};
+		qcom,domain-sec-bs {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
+			qcom,vidc-partition-buffer-types = <0x241>;
+		};
+		qcom,domain-sec-px {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
+			qcom,vidc-partition-buffer-types = <0x106>;
+		};
+		qcom,domain-sec-np {
+			qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
+			qcom,vidc-partition-buffer-types = <0x480>;
+		};
+	};
+
 };
 
 &krait_pdn {
@@ -141,4 +174,43 @@
 
 &tspp {
 	vdd_cx-supply = <&pm8841_s2_corner>;
+};
+
+&krait_regulator_pmic {
+	status = "ok";
+
+	qcom,ctl@2000 {
+		status = "ok";
+	};
+
+	qcom,ps@2100 {
+		status = "ok";
+	};
+
+	qcom,freq@2200 {
+		status = "ok";
+	};
+};
+
+&cci {
+
+	qcom,camera@6e {
+		qcom,vdd-cx-supply = <&pm8841_s2>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
+	};
+
+	qcom,camera@20 {
+		qcom,vdd-cx-supply = <&pm8841_s2>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
+	};
+
+	qcom,camera@6c {
+		qcom,vdd-cx-supply = <&pm8841_s2>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
+	};
+
+	qcom,camera@90 {
+		qcom,vdd-cx-supply = <&pm8841_s2>;
+		qcom,vdd-cx-name = "qcom,vdd-cx";
+	};
 };

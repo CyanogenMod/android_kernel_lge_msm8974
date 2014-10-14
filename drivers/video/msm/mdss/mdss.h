@@ -23,6 +23,8 @@
 
 #include <mach/iommu_domains.h>
 
+#include "mdss_panel.h"
+
 #define MDSS_REG_WRITE(addr, val) writel_relaxed(val, mdss_res->mdp_base + addr)
 #define MDSS_REG_READ(addr) readl_relaxed(mdss_res->mdp_base + addr)
 
@@ -58,18 +60,38 @@ struct mdss_hw_settings {
 	u32 val;
 };
 
+struct mdss_debug_inf {
+	void *debug_data;
+	int (*debug_dump_stats)(void *data, char *buf, int len);
+	void (*debug_enable_clock)(int on);
+};
+
+#define MDSS_IRQ_SUSPEND	-1
+#define MDSS_IRQ_RESUME		1
+#define MDSS_IRQ_REQ		0
+
+struct mdss_intr {
+	/* requested intr */
+	u32 req;
+	/* currently enabled intr */
+	u32 curr;
+	int state;
+	spinlock_t lock;
+};
+
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
 	struct regulator *fs;
+	struct regulator *vdd_cx;
+	bool batfet_required;
+	struct regulator *batfet;
 	u32 max_mdp_clk_rate;
 
 	struct platform_device *pdev;
 	char __iomem *mdp_base;
 	size_t mdp_reg_size;
 	char __iomem *vbif_base;
-
-	struct mutex reg_lock;
 
 	u32 irq;
 	u32 irq_mask;
@@ -78,6 +100,7 @@ struct mdss_data_type {
 	u32 has_bwc;
 	u32 has_decimation;
 	u8 has_wfd_blk;
+	u8 has_wb_ad;
 
 	u32 mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
@@ -97,6 +120,9 @@ struct mdss_data_type {
 	u32 smp_mb_per_pipe;
 
 	u32 rot_block_size;
+
+	u32 max_bw_low;
+	u32 max_bw_high;
 
 	struct mdss_hw_settings *hw_settings;
 
@@ -120,19 +146,24 @@ struct mdss_data_type {
 	void *video_intf;
 	u32 nintf;
 
+	u32 pp_bus_hdl;
+	struct mdss_mdp_ad *ad_off;
 	struct mdss_ad_info *ad_cfgs;
 	u32 nad_cfgs;
+	u32 nmax_concurrent_ad_hw;
 	struct workqueue_struct *ad_calc_wq;
+
+	struct mdss_intr hist_intr;
 
 	struct ion_client *iclient;
 	int iommu_attached;
 	struct mdss_iommu_map_type *iommu_map;
 
 	struct early_suspend early_suspend;
-	void *debug_data;
-	struct completion iommu_attach_done;
+	struct mdss_debug_inf debug_inf;
 	int current_bus_idx;
 	bool mixer_switched;
+	struct mdss_panel_cfg pan_cfg;
 };
 extern struct mdss_data_type *mdss_res;
 
