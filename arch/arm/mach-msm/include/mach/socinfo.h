@@ -32,6 +32,7 @@
 #define SOCINFO_VERSION_MINOR(ver) (ver & 0x0000ffff)
 
 #ifdef CONFIG_OF
+#define of_board_is_cdp()	of_machine_is_compatible("qcom,cdp")
 #define of_board_is_sim()	of_machine_is_compatible("qcom,sim")
 #define of_board_is_rumi()	of_machine_is_compatible("qcom,rumi")
 #define of_board_is_fluid()	of_machine_is_compatible("qcom,fluid")
@@ -41,12 +42,15 @@
 #define of_board_is_cdp()	of_machine_is_compatible("qcom,cdp")
 #define of_board_is_mtp()	of_machine_is_compatible("qcom,mtp")
 #define of_board_is_qrd()	of_machine_is_compatible("qcom,qrd")
+#define of_board_is_xpm()	of_machine_is_compatible("qcom,xpm")
+#define of_board_is_skuf()	of_machine_is_compatible("qcom,skuf")
 
 #define machine_is_msm8974()	of_machine_is_compatible("qcom,msm8974")
 #define machine_is_msm9625()	of_machine_is_compatible("qcom,msm9625")
 #define machine_is_msm8610()	of_machine_is_compatible("qcom,msm8610")
 #define machine_is_msm8226()	of_machine_is_compatible("qcom,msm8226")
 #define machine_is_apq8074()	of_machine_is_compatible("qcom,apq8074")
+#define machine_is_msm8926()	of_machine_is_compatible("qcom,msm8926")
 
 #define early_machine_is_msm8610()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8610")
@@ -69,12 +73,15 @@
 #define of_board_is_cdp()		0
 #define of_board_is_mtp()		0
 #define of_board_is_qrd()		0
+#define of_board_is_xpm()		0
+#define of_board_is_skuf()		0
 
 #define machine_is_msm8974()		0
 #define machine_is_msm9625()		0
 #define machine_is_msm8610()		0
 #define machine_is_msm8226()		0
 #define machine_is_apq8074()		0
+#define machine_is_msm8926()		0
 
 #define early_machine_is_msm8610()	0
 #define early_machine_is_mpq8092()	0

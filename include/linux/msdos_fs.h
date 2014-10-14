@@ -102,11 +102,11 @@ struct __fat_dirent {
 #define FAT_IOCTL_GET_ATTRIBUTES	_IOR('r', 0x10, __u32)
 #define FAT_IOCTL_SET_ATTRIBUTES	_IOW('r', 0x11, __u32)
 #define VFAT_IOCTL_GET_VOLUME_ID	_IOR('r', 0x12, __u32)
-/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [START]*/
+/*                                                                                         */
 #ifdef CONFIG_LGE_B2B_VMWARE
 #define FAT_IOCTL_VMW_EXTEND		_IO('r', 0x42)
 #endif
-/*2013-05-02 Hyoungtaek-Lim[hyoungtaek.lim@lge.com)[g2/vmware/vzw,att]VMware Switch [END]*/
+/*                                                                                       */
 
 struct fat_boot_sector {
 	__u8	ignored[3];	/* Boot strap short or near jump */
@@ -164,7 +164,7 @@ struct msdos_dir_entry {
 	__le16	cdate;		/* Creation date */
 	__le16	adate;		/* Last access date */
 	__le16	starthi;	/* High 16 bits of cluster in FAT32 */
-	__le16	time,date,start;/* time, date and first cluster */
+	__le16	time, date, start;/* time, date and first cluster */
 	__le32	size;		/* file size (in bytes) */
 };
 

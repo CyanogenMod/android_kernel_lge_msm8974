@@ -55,10 +55,10 @@ extern "C" {
 #define ISDB_TMCC_RETRY        	(1)
 
 /*
-                              
-                            
-                                
-                              
+full seg :	invalid min : 80 ms
+1 seg :		invalid min : 90 ms
+tmm13 seg :	invalid min : 110 ms
+tmm1 seg :	invalid min : 90 ms
 */
 
 typedef enum {

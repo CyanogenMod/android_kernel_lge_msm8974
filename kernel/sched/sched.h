@@ -80,7 +80,7 @@ extern struct mutex sched_domains_mutex;
 struct cfs_rq;
 struct rt_rq;
 
-extern struct list_head task_groups;
+static LIST_HEAD(task_groups);
 
 struct cfs_bandwidth {
 #ifdef CONFIG_CFS_BANDWIDTH

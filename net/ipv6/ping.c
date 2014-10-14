@@ -199,7 +199,10 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	if (hlimit < 0)
 		hlimit = ip6_dst_hoplimit(dst);
 
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
 	lock_sock(sk);
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */
+
 	err = ip6_append_data(sk, ping_getfrag, &pfh, len,
 			      0, hlimit,
 			      np->tclass, NULL, &fl6, rt,
@@ -214,10 +217,15 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 						 (struct icmp6hdr *) &pfh.icmph,
 						 len);
 	}
-	release_sock(sk);
 
-	if (err)
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
+	release_sock(sk);
+	if(err)
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */		
 		return err;
 
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [START] */
 	return len;
+/* 2013-11-25 hobbes.song LGP_DATA_CTS_IPV6_PINGTEST [END] */
+
 }

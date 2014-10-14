@@ -26,7 +26,7 @@ between Telechips and Company.
 #include "tcpal_os.h"
 #include "tcc353x_api.h"
 
-/*                  */
+/* extern functions */
 extern I32S Tcc353xOpen(I32S _moduleIndex,
 			Tcc353xOption_t * _Tcc353xOption);
 extern I32S Tcc353xClose(I32S _moduleIndex);
@@ -105,9 +105,9 @@ extern I32S Tcc353xSetGpioControl(I32S _moduleIndex, I32S _diversityIndex,
 				  I32S _gpioNum, I32S _value);
 
 
-/*               */
+/* global values */
 Tcc353xApiControl_t Tcc353xApiControl[TCC353X_MAX][TCC353X_DIVERSITY_MAX];
-/*                         */
+/* for prevent null access */
 I32U Tcc353xApiControlAddress[TCC353X_MAX] = { 0, 0 };
 
 #define MAX_TMM_FREQ_TABLE_NUM	33
@@ -124,23 +124,23 @@ I32S TmmFrequencyTable[MAX_TMM_FREQ_TABLE_NUM] = {
 I32U userStopCmd[TCC353X_MAX] = { 0, 0 };
 I32U workingForFlag[TCC353X_MAX] = { 0, 0 };
 
-/*                                                                     
-                
-                  
-              
-                           
-             
-                                  
-                                                        
-                                                         
-                                               
-                                     
-               
-                    
-         
-                                                          
-                                 
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiOpen
+ * Description
+ * 	Openning tcc353x driver
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * 	_Tcc353xOption : Options for driver setting
+ * 	_optionSize : size of option data
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	please complete command interface(i2c/tccspi) setting,
+ *	power control before api open 
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiOpen(I32S _moduleIndex, Tcc353xOption_t * _Tcc353xOption,
 		    I32S _optionSize)
 {
@@ -219,23 +219,23 @@ I32S Tcc353xApiOpen(I32S _moduleIndex, Tcc353xOption_t * _Tcc353xOption,
 	return ret;
 }
 
-/*                                                                     
-                
-                  
-              
-                               
-             
-                                  
-                                                        
-                                                         
-                                   
-                                
-                                       
-               
-                    
-         
-        
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiInit
+ * Description
+ * 	Initializing tcc353x driver
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_coldbootData : Data of asm file
+ *	_codeSize : Coldbootdata size
+ *	_streamFormat : stream format option
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	None
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiInit(I32S _moduleIndex, I08U * _coldbootData,
 		    I32S _codeSize, Tcc353xStreamFormat_t * _streamFormat)
 {
@@ -255,20 +255,20 @@ I32S Tcc353xApiInit(I32S _moduleIndex, I08U * _coldbootData,
 	return ret;
 }
 
-/*                                                                     
-                
-                   
-              
-                
-             
-                                  
-                                                        
-                                                         
-               
-                    
-         
-        
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiClose
+ * Description
+ * 	Close Driver
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	None
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiClose(I32S _moduleIndex)
 {
 	I32S ret;
@@ -283,22 +283,22 @@ I32S Tcc353xApiClose(I32S _moduleIndex)
 	return ret;
 }
 
-/*                                                                     
-                
-                                   
-              
-                                      
-             
-                             
-                                                        
-                                                         
-                                               
-                                     
-               
-                    
-         
-                                
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiChangeToDiversityMode
+ * Description
+ * 	Change dual mode to diversity mode
+ * Parameters
+ * 	_mergeIndex : merge index
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * 	_Tcc353xOption : Options for driver setting
+ * 	_optionSize : size of option data
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Especially when using 2chips
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiChangeToDiversityMode (I32S _mergeIndex, 
 				      Tcc353xOption_t * _Tcc353xOption,
 				      I32S _optionSize)
@@ -337,22 +337,22 @@ I32S Tcc353xApiChangeToDiversityMode (I32S _mergeIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                              
-              
-                                      
-             
-                               
-                                                        
-                                                         
-                                               
-                                     
-               
-                    
-         
-                                
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiChangeToDualMode
+ * Description
+ * 	Change diversity mode to dual mode
+ * Parameters
+ * 	_devideIndex : devide index
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * 	_Tcc353xOption : Options for driver setting
+ * 	_optionSize : size of option data
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Especially when using 2chips
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiChangeToDualMode (I32S _devideIndex, 
 				 Tcc353xOption_t * _Tcc353xOption,
 				 I32S _optionSize)
@@ -374,7 +374,7 @@ I32S Tcc353xApiChangeToDualMode (I32S _devideIndex,
 
 	ret = Tcc353xChangeToDualMode(_devideIndex, _Tcc353xOption);
 
-	/*                           */
+	/* to disable mailbox access */
 	for(i = _devideIndex; i<numberOfBaseband; i++)
 		Tcc353xApiControl[0][i].status = TCC353X_STATUS_CLOSED;
 	for(i = 0; i<_devideIndex; i++)
@@ -393,20 +393,20 @@ I32S Tcc353xApiChangeToDualMode (I32S _devideIndex,
 }
 
 
-/*                                                                     
-                
-                             
-              
-                                  
-             
-                                  
-                                                        
-                                                         
-               
-                    
-         
-        
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiCheckConditions
+ * Description
+ * 	Check api condition for access
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	None
+ ---------------------------------------------------------------------*/
 static I32S Tcc353xApiCheckConditions(I32S _moduleIndex)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -453,7 +453,7 @@ static I32S Tcc353xGetLockTimeOut(I32S _moduleIndex, I32S _step,
 			    _tuneOption->tmmSet == C_1st_13Seg ||
 			    _tuneOption->tmmSet == C_2nd_13Seg ||
 			    _tuneOption->tmmSet == UserDefine_Tmm13Seg) {
-				/*      */
+				/*13seg */
 				segments = 13;
 			} else {
 				segments = 1;
@@ -472,35 +472,35 @@ static I32S Tcc353xGetLockTimeOut(I32S _moduleIndex, I32S _step,
 	}
 
 	if (_step == 1) {
-		/*          */
+		/* cto only */
 		if(segments == 13 && tmmMode == 0) {
-			/*              */
+			/* isdb-t 13seg */
 			ret =
 			(ISDB_AGC_LOCK + ISDB_CTO_LOCK)
 			*ISDB_CTO_RETRY;
 		}
 		else if(segments == 13 && tmmMode == 1) {
-			/*            */
+			/* tmm 13 seg */
 			ret =
 			(ISDB_AGC_LOCK_TMM_13 + ISDB_CTO_LOCK_TMM_13)
 			*ISDB_CTO_RETRY;
 		}
 		else if(segments == 1 && tmmMode == 1) {
-			/*           */
+			/* tmm 1 seg */
 			ret =
 			(ISDB_AGC_LOCK_TMM_1 + ISDB_CTO_LOCK_TMM_1)
 			*ISDB_CTO_RETRY;
 		}
 		else {
-			/*       */
+			/* 1 seg */
 			ret =
 			(ISDB_AGC_LOCK_P_1 + ISDB_CTO_LOCK_P_1)
 			*ISDB_CTO_RETRY;
 		}
 	} else if (_step==2) {
-		/*     */
+		/* cfo */
 		if(segments == 13 && tmmMode == 0) {
-			/*              */
+			/* isdb-t 13seg */
 			ret =
 				(ISDB_AGC_LOCK + 
 				ISDB_CTO_LOCK+
@@ -508,7 +508,7 @@ static I32S Tcc353xGetLockTimeOut(I32S _moduleIndex, I32S _step,
 				*ISDB_CFO_RETRY;
 		}
 		else if(segments == 13 && tmmMode == 1) {
-			/*            */
+			/* tmm 13 seg */
 			ret =
 				(ISDB_AGC_LOCK_TMM_13 +
 				ISDB_CTO_LOCK_TMM_13 +
@@ -516,7 +516,7 @@ static I32S Tcc353xGetLockTimeOut(I32S _moduleIndex, I32S _step,
 				*ISDB_CFO_RETRY;
 		}
 		else if(segments == 1 && tmmMode == 1) {
-			/*           */
+			/* tmm 1 seg */
 			ret =
 				(ISDB_AGC_LOCK_TMM_1 +
 				ISDB_CTO_LOCK_TMM_1 +
@@ -524,7 +524,7 @@ static I32S Tcc353xGetLockTimeOut(I32S _moduleIndex, I32S _step,
 				*ISDB_CFO_RETRY;
 		}
 		else {
-			/*       */
+			/* 1 seg */
 			ret =
 				(ISDB_AGC_LOCK_P_1 +
 				ISDB_CTO_LOCK_P_1 +
@@ -532,44 +532,44 @@ static I32S Tcc353xGetLockTimeOut(I32S _moduleIndex, I32S _step,
 				*ISDB_CFO_RETRY;
 		}
 	} else {
-		/*      */
+		/* tmcc */
 		if(segments == 13 && tmmMode == 0) {
-			/*              */
+			/* isdb-t 13seg */
 			ret = (ISDB_TMCC_LOCK * ISDB_TMCC_RETRY);
 		}
 		else if(segments == 13 && tmmMode == 1) {
-			/*            */
+			/* tmm 13 seg */
 			ret = (ISDB_TMCC_LOCK_TMM_13 * ISDB_TMCC_RETRY);
 		}
 		else if(segments == 1 && tmmMode == 1) {
-			/*           */
+			/* tmm 1 seg */
 			ret = (ISDB_TMCC_LOCK_TMM_1 * ISDB_TMCC_RETRY);
 		}
 		else {
-			/*       */
+			/* 1 seg */
 			ret = (ISDB_TMCC_LOCK_P_1 * ISDB_TMCC_RETRY);
 		}
 	}
 	return (I32S)(ret);
 }
 
-/*                                                                     
-                
-                      
-              
-                                     
-             
-                                  
-                                                        
-                                                         
-                                              
-                                    
-                                  
-               
-                    
-         
-        
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiWaitLock
+ * Description
+ * 	Checking frequency locking status
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_tuneOption : Option of tunning parameter, 
+ * 		      refefr Tcc353xTuneOptions
+ *	_fastScan : MODE3, 1/8 GI only 
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	None
+ ---------------------------------------------------------------------*/
 static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 			Tcc353xTuneOptions * _tuneOption, I32S _fastScan)
 {
@@ -589,18 +589,18 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 
 	workingForFlag[_moduleIndex] = 1;
 
-	/*                                            
-                      
-                       
-                  
-  */
+	/* -------------------------------------------
+	 * 0. AGC Lock : wait
+	 * 1. CTO & CFO Detect
+	 * 2. TMCC Detect
+	 */
 
 	tickMs = 10;
 
 	timeOut =
 	    Tcc353xGetLockTimeOut(_moduleIndex, 1, _fastScan,
 				     _tuneOption);
-	/*            */
+	/* CTO Detect */
 	subLockOk = 0;
 	tickCount = (I32S) ((timeOut+tickMs-1) / tickMs);
 
@@ -629,7 +629,7 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 			lock.TMCC |= lockSub.TMCC;
 		}
 
-		/*              */
+		/* lock Success */
 		if (lock.CTO && lock.CFO && lock.TMCC) {
 			workingForFlag[_moduleIndex] = 0;
 			return TCC353X_RETURN_SUCCESS;
@@ -647,12 +647,12 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 		}
 	}
 
-	if (subLockOk == 0)	{/*           */
+	if (subLockOk == 0)	{/* lock Fail */
 		workingForFlag[_moduleIndex] = 0;
 		return TCC353X_RETURN_FAIL;
 	}
 
-	/*            */
+	/* CFO Detect */
 	timeOut =
 	    Tcc353xGetLockTimeOut(_moduleIndex, 2, _fastScan,
 				     _tuneOption);
@@ -684,7 +684,7 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 			lock.TMCC |= lockSub.TMCC;
 		}
 
-		/*              */
+		/* lock Success */
 		if (lock.CTO && lock.CFO && lock.TMCC) {
 			workingForFlag[_moduleIndex] = 0;
 			return TCC353X_RETURN_SUCCESS;
@@ -702,16 +702,16 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 		}
 	}
 
-	if (subLockOk == 0)	{/*           */
+	if (subLockOk == 0)	{/* lock Fail */
 		workingForFlag[_moduleIndex] = 0;
 		return TCC353X_RETURN_FAIL;
 	}
-	/*             */
+	/* TMCC Detect */
 	timeOut =
 	    Tcc353xGetLockTimeOut(_moduleIndex, 3, _fastScan,
 				     _tuneOption);
 
-	subLockOk = 0;
+	/*subLockOk = 0;*/
 	tickCount = (I32S) ((timeOut+tickMs-1) / tickMs);
 
 	startTime = TcpalGetCurrentTimeCount_ms();
@@ -739,9 +739,9 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 			lock.TMCC |= lockSub.TMCC;
 		}
 		if (lock.CTO && lock.CFO && lock.TMCC) {
-			subLockOk = 1;
+			/*subLockOk = 1;*/
 			workingForFlag[_moduleIndex] = 0;
-			return TCC353X_RETURN_SUCCESS;	/*              */
+			return TCC353X_RETURN_SUCCESS;	/* lock Success */
 		} else {
 			if (TcpalGetTimeIntervalCount_ms(startTime) >
 			    timeOut) {
@@ -754,83 +754,83 @@ static I32S Tcc353xApiWaitLock(I32S _moduleIndex,
 	return TCC353X_RETURN_FAIL;
 }
 
-/*                                                                     
-                           
-  
-  
-                                       
-                                     
-  
-  
-              
-                                               
-                                              
-                                             
-                                             
-                                                       
-                               
-  
-  
-         
-                               
-                                                              
-                                                              
-                                                              
-  
-                                                   
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-                                                           
-  
-                                                                      */
+/*---------------------------------------------------------------------
+ * Tcc353xTuneOptions Guide
+ *
+ *
+ * Zero IF - rfIfType : TCC353X_ZERO_IF
+ * Low IF - rfIfType : TCC353X_LOW_IF
+ *
+ *
+ * segmentType
+ * - TCC353X_ISDBT_1_OF_13SEG : ISDB-T 1Segment
+ * - TCC353X_ISDBT_13SEG : ISDB-T Full Segment
+ * - TCC353X_ISDBTSB_1SEG : ISDB-Tsb 1Segment
+ * - TCC353X_ISDBTSB_3SEG : ISDB-Tsb 3Segment
+ * - TCC353X_ISDBTSB_1_OF_3SEG : ISDB-Tsb 1 of 3Segment
+ * - TCC353X_ISDBTMM : ISDB-Tmm
+ *
+ *
+ * tmmSet
+ * - CaseA/B/C_(n)th_(x)segment
+ *   - Case A : 1seg 1seg 1seg 1seg 1seg 1seg 1seg 13seg 13seg
+ *   - Case B : 13seg 1seg 1seg 1seg 1seg 1seg 1seg 1seg 13seg
+ *   - Case C : 13seg 13seg 1seg 1seg 1seg 1seg 1seg 1seg 1seg
+ *
+ *       CASE A             CASE B           CASE C
+ * Seg13-1seg_1  |   Seg11-13seg_1 =     Seg11-13seg_1 =
+ * Seg11-1seg_2  |   Seg9--13seg_1 |     Seg9--13seg_1 |
+ * Seg9--1seg_3  |   Seg7--13seg_1 |     Seg7--13seg_1 |
+ * Seg7--1seg_4  |   Seg5--13seg_1 |     Seg5--13seg_1 |
+ * Seg5--1seg_5  |   Seg3--13seg_1 |     Seg3--13seg_1 |
+ * Seg3--1seg_6  |   Seg1--13seg_1 |     Seg1--13seg_1 |
+ * Seg1--1seg_7  =   Seg0--13seg_1 |     Seg0--13seg_1 |
+ * Seg11-13seg_1=    Seg2--13seg_1 | =   Seg2--13seg_1 |
+ * Seg9--13seg_1|    Seg4--13seg_1 | |   Seg4--13seg_1 |
+ * Seg7--13seg_1|    Seg6--13seg_1 | |   Seg6--13seg_1 |
+ * Seg5--13seg_1|    Seg8--13seg_1 | |   Seg8--13seg_1 |
+ * Seg3--13seg_1|    Seg10-13seg_1 | |   Seg10-13seg_1 |
+ * Seg1--13seg_1|    Seg12-13seg_1 = |   Seg12-13seg_1 =
+ * Seg0--13seg_1|    Seg13-1seg_1    |   Seg11-13seg_2 =
+ * Seg2--13seg_1|    Seg11-1seg_2    |   Seg9--13seg_2 |
+ * Seg4--13seg_1|    Seg9--1seg_3    |   Seg7--13seg_2 |
+ * Seg6--13seg_1|    Seg7--1seg_4    |   Seg5--13seg_2 |
+ * Seg8--13seg_1|    Seg5--1seg_5    |   Seg3--13seg_2 |
+ * Seg10-13seg_1|    Seg3--1seg_6    |   Seg1--13seg_2 |
+ * Seg12-13seg_1=    Seg1--1seg_7    =   Seg0--13seg_2 |
+ * Seg11-13seg_2=    Seg11-13seg_2 =     Seg2--13seg_2 |  =
+ * Seg9--13seg_2|    Seg9--13seg_2 |     Seg4--13seg_2 |  |
+ * Seg7--13seg_2|    Seg7--13seg_2 |     Seg6--13seg_2 |  |
+ * Seg5--13seg_2|    Seg5--13seg_2 |     Seg8--13seg_2 |  |
+ * Seg3--13seg_2|    Seg3--13seg_2 |     Seg10-13seg_2 |  |
+ * Seg1--13seg_2|    Seg1--13seg_2 |     Seg12-13seg_2 =  |
+ * Seg0--13seg_2|    Seg0--13seg_2 |     Seg13-1seg_1     |
+ * Seg2--13seg_2|    Seg2--13seg_2 |     Seg11-1seg_2     |
+ * Seg4--13seg_2|    Seg4--13seg_2 |     Seg9--1seg_3     |
+ * Seg6--13seg_2|    Seg6--13seg_2 |     Seg7--1seg_4     |
+ * Seg8--13seg_2|    Seg8--13seg_2 |     Seg5--1seg_5     |
+ * Seg10-13seg_2|    Seg10-13seg_2 |     Seg3--1seg_6     |
+ * Seg12-13seg_2=    Seg12-13seg_2 =     Seg1--1seg_7     =
+ *
+ ---------------------------------------------------------------------*/
 
-/*                                                                     
-                
-                           
-              
-                  
-             
-                                  
-                                                        
-                                                         
-                                     
-                                              
-                                    
-               
-                    
-         
-                                       
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiChannelSearch
+ * Description
+ * 	Channel search
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_frequency : Input frequency (khz)
+ *	_tuneOption : Option of tunning parameter, 
+ * 		      refefr Tcc353xTuneOptions
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Including lock status check routine
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiChannelSearch(I32S _moduleIndex, I32S _frequency,
 			     Tcc353xTuneOptions * _tuneOption)
 {
@@ -840,7 +840,7 @@ I32S Tcc353xApiChannelSearch(I32S _moduleIndex, I32S _frequency,
 	subret =
 	    Tcc353xApiChannelSelect(_moduleIndex, _frequency, _tuneOption);
 	if (subret == TCC353X_RETURN_SUCCESS) {
-		/*            */
+		/* lock check */
 		if (Tcc353xApiWaitLock(_moduleIndex, _tuneOption, 0) ==
 		    TCC353X_RETURN_SUCCESS)
 			ret = TCC353X_RETURN_SUCCESS;
@@ -853,23 +853,23 @@ I32S Tcc353xApiChannelSearch(I32S _moduleIndex, I32S _frequency,
 	return ret;
 }
 
-/*                                                                     
-                
-                           
-              
-                  
-             
-                                  
-                                                        
-                                                         
-                                     
-                                              
-                                    
-               
-                    
-         
-                                         
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiChannelSelect
+ * Description
+ * 	Channel select
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_frequency : Input frequency (khz)
+ *	_tuneOption : Option of tunning parameter, 
+ * 		      refefr Tcc353xTuneOptions
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Not include lock status check routine
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiChannelSelect(I32S _moduleIndex, I32S _frequency,
 			     Tcc353xTuneOptions * _tuneOption)
 {
@@ -884,7 +884,7 @@ I32S Tcc353xApiChannelSelect(I32S _moduleIndex, I32S _frequency,
 	    TCC353X_RETURN_SUCCESS) {
 		ret = TCC353X_RETURN_FAIL;
 	} else {
-		/*                                                            */
+		/* check tmmm frequency and then change tmmm mode & frequency */
 		Tcc353xApiControl[_moduleIndex][0].tmmMode = 0;
 
 		if(inputOption.segmentType == TCC353X_ISDBT_13SEG ||
@@ -925,7 +925,7 @@ I32S Tcc353xApiChannelSelect(I32S _moduleIndex, I32S _frequency,
 			else 
 				Tcc353xApiControl[_moduleIndex][0].tmmSegments = 1;
 		} else {
-			/*      */
+			/* none */
 		}
 
 		subret =
@@ -940,26 +940,26 @@ I32S Tcc353xApiChannelSelect(I32S _moduleIndex, I32S _frequency,
 	return ret;
 }
 
-/*                                                                     
-                
-                           
-              
-                      
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                                     
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiGetLockStatus
+ * Description
+ * 	Get locking status
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ * 	_isdbLock : lock status structure
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiGetLockStatus(I32S _moduleIndex, I32S _diversityIndex,
 			     IsdbLock_t * _isdbLock)
 {
@@ -981,26 +981,26 @@ I32S Tcc353xApiGetLockStatus(I32S _moduleIndex, I32S _diversityIndex,
 }
 
 
-/*                                                                     
-                
-                        
-              
-                
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-               
-                              
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiGetEwsFlag
+ * Description
+ * 	Get EWS Flag
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ * Return value
+ * 	TCC353X_RETURN_FAIL : Fail
+ *	others : EWS Flag
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiGetEwsFlag(I32S _moduleIndex, I32S _diversityIndex)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -1023,28 +1023,28 @@ I32S Tcc353xApiGetEwsFlag(I32S _moduleIndex, I32S _diversityIndex)
 	return ret;
 }
 
-/*                                                                     
-                
-                          
-              
-                          
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                              
-                        
-                        
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiRegisterRead
+ * Description
+ * 	Read baseband register
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_address : Register address
+ *	_data : Register data
+ *	_size : Register size
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiRegisterRead(I32S _moduleIndex, I32S _diversityIndex,
 			    I08U _address, I08U * _data, I32U _size)
 {
@@ -1062,28 +1062,28 @@ I32S Tcc353xApiRegisterRead(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                           
-              
-                           
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                              
-                        
-                        
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiRegisterWrite
+ * Description
+ * 	Write baseband register
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_address : Register address
+ *	_data : Register data
+ *	_size : Register size
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiRegisterWrite(I32S _moduleIndex, I32S _diversityIndex,
 			     I08U _address, I08U * _data, I32U _size)
 {
@@ -1102,28 +1102,28 @@ I32S Tcc353xApiRegisterWrite(I32S _moduleIndex, I32S _diversityIndex,
 
 }
 
-/*                                                                     
-                
-                            
-              
-                    
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                              
-                        
-                        
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiRfRegisterRead
+ * Description
+ * 	Read rf register
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_address : Register address
+ *	_data : Register data
+ *	_size : Register size
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiRfRegisterRead(I32S _moduleIndex, I32S _diversityIndex,
 			      I08U _address, I32U * _data)
 {
@@ -1140,28 +1140,28 @@ I32S Tcc353xApiRfRegisterRead(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                             
-              
-                     
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                              
-                        
-                        
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiRfRegisterWrite
+ * Description
+ * 	Write rf register
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_address : Register address
+ *	_data : Register data
+ *	_size : Register size
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiRfRegisterWrite(I32S _moduleIndex, I32S _diversityIndex,
 			       I08U _address, I32U _data)
 {
@@ -1177,21 +1177,21 @@ I32S Tcc353xApiRfRegisterWrite(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                             
-              
-                     
-             
-                                  
-                                                        
-                                                         
-                                       
-               
-                    
-         
-                                  
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiSetStreamFormat
+ * Description
+ * 	Set stream format
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_streamFormat : stream format option
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Plase set after Tcc353xApiInit
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiSetStreamFormat(I32S _moduleIndex,
 			       Tcc353xStreamFormat_t * _streamFormat)
 {
@@ -1207,21 +1207,21 @@ I32S Tcc353xApiSetStreamFormat(I32S _moduleIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                     
-              
-                             
-             
-                                  
-                                                        
-                                                         
-                               
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiAddPids
+ * Description
+ * 	Add Pid for pid filtering
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_pidTableControl : pid table
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiAddPids(I32S _moduleIndex, Tcc353xpidTable_t *
 				      _pidTableControl)
 {
@@ -1240,21 +1240,21 @@ I32S Tcc353xApiAddPids(I32S _moduleIndex, Tcc353xpidTable_t *
 	return ret;
 }
 
-/*                                                                     
-                
-                        
-              
-                                    
-             
-                                  
-                                                        
-                                                         
-                               
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiRemovePids
+ * Description
+ * 	Remove pid from pid filter table
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_pidTableControl : pid table
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiRemovePids(I32S _moduleIndex, Tcc353xpidTable_t *
 				      _pidTableControl)
 {
@@ -1274,21 +1274,21 @@ I32S Tcc353xApiRemovePids(I32S _moduleIndex, Tcc353xpidTable_t *
 	return ret;
 }
 
-/*                                                                     
-                
-                         
-              
-                  
-             
-                                  
-                                                        
-                                                         
-                                      
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiGetpidTable
+ * Description
+ * 	Get pid tables
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_pidTableControl : pid table option
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiGetpidTable(I32S _moduleIndex,
 				  Tcc353xpidTable_t * _pidTableControl)
 {
@@ -1309,20 +1309,20 @@ I32S Tcc353xApiGetpidTable(I32S _moduleIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                        
-              
-                          
-             
-                                  
-                                                        
-                                                         
-               
-                    
-         
-                                                           
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiStreamStop
+ * Description
+ * 	Stopping stream output
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	please use this function before change channel or close
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiStreamStop(I32S _moduleIndex)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -1337,20 +1337,20 @@ I32S Tcc353xApiStreamStop(I32S _moduleIndex)
 	return ret;
 }
 
-/*                                                                     
-                
-                         
-              
-                         
-             
-                                  
-                                                        
-                                                         
-               
-                    
-         
-                                                       
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiStreamStart
+ * Description
+ * 	Restart stream output
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Do not use this function except for special purpose
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiStreamStart(I32S _moduleIndex)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -1365,22 +1365,22 @@ I32S Tcc353xApiStreamStart(I32S _moduleIndex)
 	return ret;
 }
 
-/*                                                                     
-                
-                        
-              
-                                 
-             
-                                  
-                                                        
-                                                         
-                
-                                     
-               
-                    
-         
-                                                     
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiStreamRead
+ * Description
+ * 	Get stream output from memory
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * 	_data : data
+ *	_size : size (use threshold value)
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Use this function if use interrupt stream control
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiStreamRead(I32S _moduleIndex, I08U * _data, I32S _size)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -1394,23 +1394,23 @@ I32S Tcc353xApiStreamRead(I32S _moduleIndex, I08U * _data, I32S _size)
 	return ret;
 }
 
-/*                                                                     
-                
-                         
-              
-                                     
-             
-                                  
-                                                        
-                                                         
-                            
-               
-               
-               
-                    
-         
-                                                       
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiMemoryWrite
+ * Description
+ * 	Write some data to tcc353x memory
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_address : memory address
+ *	_data : data
+ *	_size : size
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Do not use this function except for special purpose
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiMemoryWrite(I32S _moduleIndex, I32S _diversityIndex,
 			   I32U _address, I08U * _data, I32U _size)
 {
@@ -1427,23 +1427,23 @@ I32S Tcc353xApiMemoryWrite(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                        
-              
-                                    
-             
-                                  
-                                                        
-                                                         
-                            
-               
-               
-               
-                    
-         
-                                                       
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiMemoryRead
+ * Description
+ * 	Read some data to tcc353x memory
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_address : memory address
+ *	_data : data
+ *	_size : size
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Do not use this function except for special purpose
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiMemoryRead(I32S _moduleIndex, I32S _diversityIndex,
 			  I32U _address, I08U * _data, I32U _size)
 {
@@ -1460,21 +1460,21 @@ I32S Tcc353xApiMemoryRead(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                         
-              
-                             
-             
-                                  
-                                                        
-                                                         
-               
-               
-                    
-         
-                                                     
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiGetIrqError
+ * Description
+ * 	Get interrupt error value
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_data : data
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Use this function if use interrupt stream control
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiGetIrqError(I32S _moduleIndex, I08U * _data)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -1488,20 +1488,20 @@ I32S Tcc353xApiGetIrqError(I32S _moduleIndex, I08U * _data)
 	return ret;
 }
 
-/*                                                                     
-                
-                              
-              
-                               
-             
-                                  
-                                                        
-                                                         
-               
-                    
-         
-                                                     
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiSetIrqErrorClear
+ * Description
+ * 	Clear interrupt error value
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Use this function if use interrupt stream control
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiSetIrqErrorClear(I32S _moduleIndex)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -1515,21 +1515,21 @@ I32S Tcc353xApiSetIrqErrorClear(I32S _moduleIndex)
 	return ret;
 }
 
-/*                                                                     
-                
-                          
-              
-                              
-             
-                                  
-                                                        
-                                                         
-               
-               
-                    
-         
-                                                     
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiGetIrqStatus
+ * Description
+ * 	Get interrupt status value
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_data : data
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Use this function if use interrupt stream control
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiGetIrqStatus(I32S _moduleIndex, I08U * _data)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -1543,20 +1543,20 @@ I32S Tcc353xApiGetIrqStatus(I32S _moduleIndex, I08U * _data)
 	return ret;
 }
 
-/*                                                                     
-                
-                      
-              
-                    
-             
-                                  
-                                                        
-                                                         
-               
-                    
-         
-                                                     
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiIrqClear
+ * Description
+ * 	Clear irq values
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Use this function if use interrupt stream control
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiIrqClear(I32S _moduleIndex, I08U _data)
 {
 	I32S ret = TCC353X_RETURN_SUCCESS;
@@ -1570,28 +1570,28 @@ I32S Tcc353xApiIrqClear(I32S _moduleIndex, I08U _data)
 	return ret;
 }
 
-/*                                                                     
-                
-                          
-              
-                                   
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                             
-                    
-                       
-               
-                    
-         
-                                                       
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiMailboxWrite
+ * Description
+ * 	Write some values using mailbox
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_command : mailbox command
+ *	_dataArray : data
+ *	wordSize : data size
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Do not use this function except for special purpose
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiMailboxWrite(I32S _moduleIndex, I32S _diversityIndex,
 			    I32U _command, I32U * _dataArray,
 			    I32S wordSize)
@@ -1609,27 +1609,27 @@ I32S Tcc353xApiMailboxWrite(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                         
-              
-                                  
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                             
-                               
-               
-                    
-         
-                                                       
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiMailboxRead
+ * Description
+ * 	Read some values using mailbox
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_command : mailbox command
+ *	_mailbox : mailbox structure
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Do not use this function except for special purpose
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiMailboxRead(I32S _moduleIndex, I32S _diversityIndex,
 			   I32U _command, mailbox_t * _mailbox)
 {
@@ -1647,26 +1647,26 @@ I32S Tcc353xApiMailboxRead(I32S _moduleIndex, I32S _diversityIndex,
 }
 
 
-/*                                                                     
-                
-                         
-              
-                         
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                                        
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiGetTMCCInfo
+ * Description
+ * 	Get TMCC Informations
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_tmccInfo: tmcc information structure
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiGetTMCCInfo(I32S _moduleIndex, I32S _diversityIndex,
 			   tmccInfo_t * _tmccInfo)
 {
@@ -1684,22 +1684,22 @@ I32S Tcc353xApiGetTMCCInfo(I32S _moduleIndex, I32S _diversityIndex,
 }
 
 
-/*                                                                     
-                
-                     
-              
-                          
-             
-                                  
-                                                        
-                                                         
-                              
-                         
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiCasOpen
+ * Description
+ * 	initialize cas decoder
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_casRound : cas round value
+ *	_systemKey : systemkey
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiCasOpen(I32S _moduleIndex, I32U _casRound,
 		       I08U * _systemKey)
 {
@@ -1709,22 +1709,22 @@ I32S Tcc353xApiCasOpen(I32S _moduleIndex, I32U _casRound,
 	return (Tcc353xCasOpen(_moduleIndex, _casRound, _systemKey));
 }
 
-/*                                                                     
-                
-                       
-              
-                                
-             
-                                  
-                                                        
-                                                         
-                    
-                                       
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiCasSetPid
+ * Description
+ * 	Set pid value to decrypt cas
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_pids : pid value
+ *	_numberOfPids : number of pid values
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiCasSetPid(I32S _moduleIndex, I32U * _pids,
 			 I32U _numberOfPids)
 {
@@ -1734,25 +1734,25 @@ I32S Tcc353xApiCasSetPid(I32S _moduleIndex, I32U * _pids,
 	return (Tcc353xCasSetPid(_moduleIndex, _pids, _numberOfPids));
 }
 
-/*                                                                     
-                
-                             
-              
-                        
-             
-                                  
-                                                        
-                                                         
-                                     
-                   
-                                   
-                                     
-                                              
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiCasSetKeyMulti2
+ * Description
+ * 	Set cas key (multi2)
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_parity : parity value odd or even
+ *	_key	: key value
+ *	_keyLength : length of key value
+ *	_initVector : initial vector value
+ *	_initVectorLength : length of initial value
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiCasSetKeyMulti2(I32S _moduleIndex, I32S _parity,
 			       I08U * _key, I32S _keyLength,
 			       I08U * _initVector, I32S _initVectorLength)
@@ -1765,27 +1765,27 @@ I32S Tcc353xApiCasSetKeyMulti2(I32S _moduleIndex, I32S _parity,
 		 _initVectorLength));
 }
 
-/*                                                                     
-                
-                         
-              
-                               
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                     
-                       
-               
-                    
-         
-                                         
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiUserCommand
+ * Description
+ * 	command for special purpose
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_command : command
+ *	_paramN : Parameters
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	other user command for special usages
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiUserCommand(I32S _moduleIndex, I32S _diversityIndex,
 			   I32S _command, void *_param1, void *_param2,
 			   void *_param3, void *_param4)
@@ -1796,7 +1796,7 @@ I32S Tcc353xApiUserCommand(I32S _moduleIndex, I32S _diversityIndex,
 	    TCC353X_RETURN_SUCCESS) {
 		ret = TCC353X_RETURN_FAIL;
 	} else {
-		/*                                */
+		/* reserved to debugging or patch */
 		ret =
 		    Tcc353xUserCommand(_moduleIndex, _diversityIndex,
 				       _command, _param1, _param2, _param3,
@@ -1806,19 +1806,19 @@ I32S Tcc353xApiUserCommand(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                               
-              
-                                 
-             
-                                     
-                        
-               
-        
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiParseIsdbSyncStat
+ * Description
+ * 	Parse isdb sync status values
+ * Parameters
+ * 	_isdbLock : lock status structure
+ * 	_input : input value
+ * Return value
+ * 	None
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 void Tcc353xApiParseIsdbSyncStat(IsdbLock_t * _isdbLock, I08U _input)
 {
 	_isdbLock->AGC = ((_input) & 0x01);
@@ -1829,46 +1829,46 @@ void Tcc353xApiParseIsdbSyncStat(IsdbLock_t * _isdbLock, I08U _input)
 	_isdbLock->EWSFlag = ((_input >> 6) & 0x01);
 }
 
-/*                                                                     
-                
-                          
-              
-                   
-             
-                
-                                     
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xGetLockRegister
+ * Description
+ * 	Get lock status
+ * Parameters
+ * 	_data : data
+ * 	_isdbLock : lock status structure
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 static I32S Tcc353xGetLockRegister(I08U _data, IsdbLock_t * _isdbLock)
 {
 	Tcc353xApiParseIsdbSyncStat(_isdbLock, _data);
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                                                                     
-                
-                          
-              
-                                   
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                                      
-                                
-               
-                    
-         
-                                                       
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiOpStatusRead
+ * Description
+ * 	Read some values using opstatus
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *	_dataSize : read opstatus data size
+ *	_datas : receive data pointer
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Do not use this function except for special purpose
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiOpStatusRead(I32S _moduleIndex, I32S _diversityIndex,
 			   I32U _dataSize, I32U * _datas)
 {
@@ -1884,21 +1884,21 @@ I32S Tcc353xApiOpStatusRead(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                                                                     
-                
-                           
-              
-                          
-             
-                                  
-                                                        
-                                                         
-                        
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiGetFifoStatus
+ * Description
+ * 	Get fifo status (size)
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * 	_fifoSize : fifosize
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiGetFifoStatus(I32S _moduleIndex, I32U *_fifoSize)
 {
 	if (Tcc353xApiCheckConditions(_moduleIndex) 
@@ -1911,20 +1911,20 @@ I32S Tcc353xApiGetFifoStatus(I32S _moduleIndex, I32U *_fifoSize)
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                                                                     
-                
-                              
-              
-                                   
-             
-                                  
-                                                        
-                                                         
-               
-    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiInterruptBuffClr
+ * Description
+ * 	buffer clear when fifo overflow
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiInterruptBuffClr(I32S _moduleIndex)
 {
 	if (Tcc353xApiCheckConditions(_moduleIndex) != TCC353X_RETURN_SUCCESS)
@@ -1934,20 +1934,20 @@ I32S Tcc353xApiInterruptBuffClr(I32S _moduleIndex)
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                                                                     
-                
-                             
-              
-                     
-             
-                                  
-                                                        
-                                                         
-               
-    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiUserLoopStopCmd
+ * Description
+ * 	stopping for loop
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiUserLoopStopCmd(I32S _moduleIndex)
 {
 	if(workingForFlag[_moduleIndex] == 1)
@@ -1957,20 +1957,20 @@ I32S Tcc353xApiUserLoopStopCmd(I32S _moduleIndex)
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                                                                     
-                
-                            
-              
-                     
-             
-                                  
-                                                        
-                                                         
-               
-    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xApiSetGpioControl
+ * Description
+ * 	stopping for loop
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ * Return value
+ * 	
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xApiSetGpioControl(I32S _moduleIndex, I32S _diversityIndex, 
 			   I32S _gpioNum, I32S _value)
 {
