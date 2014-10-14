@@ -359,7 +359,6 @@ struct mmc_card {
  /* Skip data-timeout advertised by card */
 #define MMC_QUIRK_BROKEN_DATA_TIMEOUT	(1<<12)
 
-
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */
  	unsigned int		pref_erase;	/* in sectors */
@@ -399,7 +398,7 @@ struct mmc_card {
 	unsigned int		idle_timeout;
 	struct notifier_block        reboot_notify;
 	bool issue_long_pon;
-	u8 cached_ext_csd;
+	u8 *cached_ext_csd;
 };
 
 /*

@@ -1152,6 +1152,9 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 {
 	struct msm_rpm_wait_data *elem;
 	int rc = 0;
+#ifdef CONFIG_MACH_LGE
+	static int rpm_noack_timeout_count;
+#endif
 
 	if (!msg_id) {
 		pr_err("%s(): Invalid msg id\n", __func__);
@@ -1167,12 +1170,12 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 	elem = msm_rpm_get_entry_from_msg_id(msg_id);
 	if (!elem)
 		return rc;
-#if 0 /* LGE Workaround */
+#ifndef CONFIG_MACH_LGE /*                */
 	wait_for_completion(&elem->ack);
 #else
+	rpm_noack_timeout_count = 0;
 	while(!wait_for_completion_timeout(&elem->ack, HZ/20)) {
 		/* variable for debugging */
-		static int rpm_noack_timeout_count ;
 		rpm_noack_timeout_count++ ;
 
 		if (smd_is_pkt_avail(msm_rpm_data.ch_info))
@@ -1297,14 +1300,14 @@ EXPORT_SYMBOL(msm_rpm_send_message_noirq);
  * During power collapse, the rpm driver disables the SMD interrupts to make
  * sure that the interrupt doesn't wakes us from sleep.
  */
-int msm_rpm_enter_sleep(bool print)
+int msm_rpm_enter_sleep(bool print, const struct cpumask *cpumask)
 {
 	if (standalone)
 		return 0;
 
 	msm_rpm_flush_requests(print);
 
-	return smd_mask_receive_interrupt(msm_rpm_data.ch_info, true);
+	return smd_mask_receive_interrupt(msm_rpm_data.ch_info, true, cpumask);
 }
 EXPORT_SYMBOL(msm_rpm_enter_sleep);
 
@@ -1317,7 +1320,7 @@ void msm_rpm_exit_sleep(void)
 	if (standalone)
 		return;
 
-	smd_mask_receive_interrupt(msm_rpm_data.ch_info, false);
+	smd_mask_receive_interrupt(msm_rpm_data.ch_info, false, NULL);
 }
 EXPORT_SYMBOL(msm_rpm_exit_sleep);
 

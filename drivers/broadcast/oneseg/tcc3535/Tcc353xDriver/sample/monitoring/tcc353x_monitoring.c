@@ -45,25 +45,25 @@ static void Tcc353xUpdateMonitoringStatus(I32S _moduleIndex,
 extern I32S Tcc353xApiOpStatusRead(I32S _moduleIndex, I32S _diversityIndex,
 			   I32U _dataSize, I32U * _datas);
 
-/*                                                                     
-                
-                            
-              
-                                  
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-               
-                    
-         
-                                                  
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xMonitoringApiInit
+ * Description
+ * 	Initializing monitoring status
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	please apply this function when channel tuned.
+ ---------------------------------------------------------------------*/
 I32S Tcc353xMonitoringApiInit(I32S _moduleIndex, I32S _diversityIndex)
 {
 	TcpalMemset(&Tcc353xStatus[_moduleIndex][_diversityIndex], 0x00,
@@ -71,22 +71,22 @@ I32S Tcc353xMonitoringApiInit(I32S _moduleIndex, I32S _diversityIndex)
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                                                                     
-                
-                                         
-              
-                               
-             
-                                  
-                                                        
-                                                         
-                                                    
-                                             
-               
-                    
-         
-    
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xMonitoringApiAntennaPercentage
+ * Description
+ * 	Get Antenna Bar Percentages
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *      pISDBStatData : all bb's Status data pointer
+ *      _InputSize : sizeof input status data
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	
+ ---------------------------------------------------------------------*/
 I32S Tcc353xMonitoringApiAntennaPercentage (I32S _moduleIndex, 
 				Tcc353xStatus_t * pISDBStatData,
 				I32U _InputSize)
@@ -112,7 +112,7 @@ I32S Tcc353xMonitoringApiAntennaPercentage (I32S _moduleIndex,
 		for (j = 0; j < 3; j++) {
 			I32U vBer;
 			I32U vPCBER;
-			/*                  */
+			/* vber master only */
 			vBer = pISDBStatData[0].status.viterbiber[j].avgValue;
 			if(vBer>=VBER_ANTENNA_0)
 				pISDBStatData[i].antennaPercent[j] = 0;
@@ -166,32 +166,32 @@ I32S Tcc353xMonitoringApiAntennaPercentage (I32S _moduleIndex,
 }
 
 
-/*                                                                     
-                
-                                 
-              
-                                 
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                                             
-               
-                    
-         
-                           
-                                         
-                 
-                 
-                 
-                 
-                 
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xMonitoringApiGetStatus
+ * Description
+ * 	Get tcc353x monitoring status
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *      pISDBStatData : status data structure
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	example for antenna bar
+ *           VBER (scale factor : 100000)
+ *      0 :   320
+ *      1 :   200
+ *      2 :   150
+ *      3 :   100
+ *      4 :    50
+ ---------------------------------------------------------------------*/
 I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 				   Tcc353xStatus_t * pISDBStatData)
 {
@@ -204,7 +204,7 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 	if(ret != TCC353X_RETURN_SUCCESS)
 		return TCC353X_RETURN_FAIL;
 
-	/*                               */
+	/* get sync status from opstatus */
 	pISDBStatData->opstat.syncStatus = (opStatusData[0]&0xFFF);
 
 	if((pISDBStatData->opstat.syncStatus & 0x0C00)==0x0C00)
@@ -217,16 +217,16 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 	else
 		pISDBStatData->opstat.cfoLock = 0;
 
-	/*         */
+	/* get MER */
 	pISDBStatData->lxMer[0] = 0;
 	pISDBStatData->lxMer[1] = 0;
 	pISDBStatData->lxMer[2] = 0;
 
-	/*          */
+	/* get rssi */
 	pISDBStatData->bbLoopGain = (I08U)((opStatusData[0] >> 24)&0xFF);
 	pISDBStatData->rfLoopGain = (I08U)((opStatusData[0] >> 16)&0xFF);
 
-	/*              */
+	/* for opstatus */
 	if(pISDBStatData->opstat.syncStatus >= 0x09)
 		pISDBStatData->opstat.gi = (I08U)((opStatusData[0]>>14)&0x03);
 	else
@@ -239,9 +239,9 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 		pISDBStatData->opstat.mode = MODE_RESERVED;
 
 	pISDBStatData->opstat.ResyncCnt = (I16U)((opStatusData[1]>>18)&0x1FFF);
-	pISDBStatData->opstat.EEW = (I08U)((opStatusData[1]>>18)&0x1FFF);
+	pISDBStatData->opstat.EEW = (I08U)((opStatusData[1]>>31)&0x01);
 
-	/*         */
+	/* get SNR */
 	if(pISDBStatData->opstat.dataState)
 		pISDBStatData->snrMer = (opStatusData[1] & 0x3FFFF);
 	else
@@ -299,22 +299,22 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 			
 			pISDBStatData->pcber[0] = (tempA<<pISDBStatData->opstat.ACr);
 			pISDBStatData->pcber[1] = (tempB<<pISDBStatData->opstat.BCr);
-			pISDBStatData->pcber[2] = 0xFFFF000;	/*     */
+			pISDBStatData->pcber[2] = 0xFFFF000;	/* MAX */
 		} else {
 			pISDBStatData->pcber[0] = 0xFFFF000;
 			pISDBStatData->pcber[1] = 0xFFFF000;
-			pISDBStatData->pcber[2] = 0xFFFF000;	/*     */
+			pISDBStatData->pcber[2] = 0xFFFF000;	/* MAX */
 		}
 	}
 
-	/*                      */
+	/* calculate all values */
 	Tcc353xUpdateMonitoringStatus(_moduleIndex, _diversityIndex,
 				      pISDBStatData);
 #else
 	I32S ret;
 	mailbox_t mailbox;
 
-	/*         */
+	/* get SNR */
 	ret = Tcc353xApiMailboxRead(_moduleIndex, _diversityIndex,
 			      ((0x11 << 11) | 0x00), &mailbox);
 	if(ret != TCC353X_RETURN_SUCCESS)
@@ -322,7 +322,7 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 
 	pISDBStatData->snrMer = mailbox.data_array[0];
 
-	/*         */
+	/* get MER */
 	ret = Tcc353xApiMailboxRead(_moduleIndex, _diversityIndex,
 			      ((0x12 << 11) | 0x01), &mailbox);
 	if(ret != TCC353X_RETURN_SUCCESS)
@@ -332,7 +332,7 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 	pISDBStatData->lxMer[1] = (mailbox.data_array[1] & 0xFFFF);
 	pISDBStatData->lxMer[2] = (mailbox.data_array[2] & 0xFFFF);
 
-	/*          */
+	/* get rssi */
 	ret = Tcc353xApiMailboxRead(_moduleIndex, _diversityIndex,
 			      ((0x1 << 11) | 0x06), &mailbox);
 	if(ret != TCC353X_RETURN_SUCCESS)
@@ -342,7 +342,7 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 	pISDBStatData->rfLoopGain = (I08U)((mailbox.data_array[0] & 0xFF));
 
 	if(_diversityIndex==0) {
-		/*                      */
+		/* get PCBER Layer1/2/3 */
 		ret = Tcc353xApiMailboxRead(_moduleIndex, _diversityIndex,
 				      ((0x2 << 11) | 0x00), &mailbox);
 		if(ret != TCC353X_RETURN_SUCCESS)
@@ -379,34 +379,34 @@ I32S Tcc353xMonitoringApiGetStatus(I32S _moduleIndex, I32S _diversityIndex,
 		pISDBStatData->rsOverCount[2] = mailbox.data_array[3];
 		pISDBStatData->rsPacketCount[2] = mailbox.data_array[4];
 	}
-	/*                      */
+	/* calculate all values */
 	Tcc353xUpdateMonitoringStatus(_moduleIndex, _diversityIndex,
 				      pISDBStatData);
 #endif
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                                                                     
-                
-                                    
-              
-                            
-             
-                                  
-                                                        
-                                                         
-                                       
-                        
-                         
-                         
-                         
-                                    
-                             
-               
-                    
-         
-                                                       
-                                                                      */
+/*---------------------------------------------------------------------
+ * Function name
+ * 	Tcc353xMonitoringApiGetDbgStatus
+ * Description
+ * 	Get Tcc353x debug status
+ * Parameters
+ * 	_moduleIndex : Index of module
+ *		0 : BaseBand#0 (Single : default, Dual : BaseBand#0)
+ * 		1 : BaseBand#1 (Single : Not use, Dual : BaseBand#1)
+ *	_diversityIndex : Index of diversity
+ *		0 : Diversity master
+ *		1 : Diversity slave#1
+ *		2 : Diversity slave#2
+ *		3 : Diversity slave#3
+ *      _mailbox : mailbox structure
+ *      count : mailbox count
+ * Return value
+ * 	Refer EnumReturn
+ * Remark
+ * 	Do not use this function except for special purpose
+ ---------------------------------------------------------------------*/
 I32S Tcc353xMonitoringApiGetDbgStatus(I32S _moduleIndex,
 				      I32S _diversityIndex,
 				      mailbox_t * _mailbox, I32S _count)
@@ -430,7 +430,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 					     pISDBStatData)
 {
 #ifdef _READ_OPSTATUS_
-	/*             */
+	/* A,B,C Layer */
 	I32S layerIndex;
 
 	if(Tcc353xStatus[_moduleIndex][_diversityIndex].opstat.oldResyncCnt != 
@@ -443,7 +443,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 		pISDBStatData->opstat.ResyncCnt;
 
 	for (layerIndex = 0; layerIndex < 3; layerIndex++) {
-		/*                */
+		/* Update MER Set */
 		if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 		    mer[layerIndex].count < ISDB_MAX_MOV_AVG)
 			Tcc353xStatus[_moduleIndex]
@@ -467,7 +467,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 						mer[layerIndex].count,
 						ISDB_MAX_MOV_AVG);
 
-		/*                  */
+		/* Update pcber Set */
 		if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 		    pcber[layerIndex].count < ISDB_MAX_MOV_AVG)
 			Tcc353xStatus[_moduleIndex]
@@ -491,7 +491,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 						pcber[layerIndex].count,
 						ISDB_MAX_MOV_AVG);
 
-		/*                       */
+		/* Update VITERBIBER Set */
 		if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 		    viterbiber[layerIndex].count < ISDB_MAX_MOV_AVG)
 			Tcc353xStatus[_moduleIndex]
@@ -520,7 +520,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 						viterbiber[layerIndex].
 						count, ISDB_MAX_MOV_AVG);
 
-		/*                  */
+		/* Update TSPER Set */
 		if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 		    tsper[layerIndex].count < ISDB_MAX_MOV_AVG)
 			Tcc353xStatus[_moduleIndex]
@@ -549,7 +549,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 						ISDB_MAX_MOV_AVG);
 	}
 #else
-	/*             */
+	/* A,B,C Layer */
 
 	I32S layerIndex;
 
@@ -569,7 +569,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 
 		if (pISDBStatData->rsPacketCount[layerIndex] ==
 		    pISDBStatData->oldRsPacketCount[layerIndex]) {
-			/*                   */
+			/* same as previouse */
 		} else {
 			pISDBStatData->packetResynced[layerIndex] = 0;
 			if (pISDBStatData->rsPacketCount[layerIndex] == 0) {
@@ -587,11 +587,11 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 				   [layerIndex]) {
 				if (pISDBStatData->oldRsPacketCount
 				    [layerIndex] < 0x80000000) {
-					/*                       */
+					/* auto resync situation */
 					pISDBStatData->packetResynced
 					    [layerIndex] = 1;
 				} else {
-					/*        */
+					/* rotate */
 					pISDBStatData->oldRsPacketCount
 					    [layerIndex] = 0;
 					pISDBStatData->oldRsErrorCount
@@ -602,7 +602,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 			}
 		}
 
-		/*                */
+		/* Update MER Set */
 		if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 		    mer[layerIndex].count < ISDB_MAX_MOV_AVG)
 			Tcc353xStatus[_moduleIndex]
@@ -626,7 +626,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 						mer[layerIndex].count,
 						ISDB_MAX_MOV_AVG);
 
-		/*                  */
+		/* Update pcber Set */
 		if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 		    pcber[layerIndex].count < ISDB_MAX_MOV_AVG)
 			Tcc353xStatus[_moduleIndex]
@@ -650,7 +650,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 						pcber[layerIndex].count,
 						ISDB_MAX_MOV_AVG);
 
-		/*                       */
+		/* Update VITERBIBER Set */
 		if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 		    viterbiber[layerIndex].count < ISDB_MAX_MOV_AVG)
 			Tcc353xStatus[_moduleIndex]
@@ -679,7 +679,7 @@ static void Tcc353xUpdateMonitoringStatusBer(I32S _moduleIndex,
 						viterbiber[layerIndex].
 						count, ISDB_MAX_MOV_AVG);
 
-		/*                  */
+		/* Update TSPER Set */
 		if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 		    tsper[layerIndex].count < ISDB_MAX_MOV_AVG)
 			Tcc353xStatus[_moduleIndex]
@@ -724,19 +724,19 @@ static void Tcc353xUpdateMonitoringStatus(I32S _moduleIndex,
 	I08U lockRegister;
 
 	if(_diversityIndex==0)
-		/*                                       */
+		/* Update MER, PCBER, Viterbi BER, TSPER */
 		Tcc353xUpdateMonitoringStatusBer(_moduleIndex, 
 						_diversityIndex,
 						 pISDBStatData);
 
-	/*                 */
+	/* get lock status */
 	Tcc353xApiRegisterRead(_moduleIndex, _diversityIndex, 0x0B,
 			       &lockRegister, 1);
 	Tcc353xApiParseIsdbSyncStat(&Tcc353xStatus[_moduleIndex]
 				    [_diversityIndex].status.isdbLock,
 				    lockRegister);
 
-	/*                */
+	/* Update SNR Set */
 	if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.
 	    snr.count < ISDB_MAX_MOV_AVG)
 		Tcc353xStatus[_moduleIndex]
@@ -760,7 +760,7 @@ static void Tcc353xUpdateMonitoringStatus(I32S _moduleIndex,
 					snr.count,
 					ISDB_MAX_MOV_AVG);
 
-	/*                 */
+	/* Update RSSI Set */
 	if (Tcc353xStatus[_moduleIndex][_diversityIndex].status.rssi.
 	    count < ISDB_MAX_MOV_AVG)
 		Tcc353xStatus[_moduleIndex][_diversityIndex].status.rssi.

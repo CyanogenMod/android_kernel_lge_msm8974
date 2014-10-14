@@ -37,7 +37,7 @@ extern    "C"
 #define ISDB_MAX_MOV_AVG     4
 
 typedef struct {
-	/*        */
+	/* common */
 	I32U currentValue;
 	I32U avgValue;
 	I32U count;
@@ -46,7 +46,7 @@ typedef struct {
 } Tcc353xStatusUnsignedValueSub_t;
 
 typedef struct {
-	/*        */
+	/* common */
 	I32S currentValue;
 	I32S avgValue;
 	I32S count;
@@ -56,20 +56,20 @@ typedef struct {
 
 
 typedef struct {
-	/*              */
-	/*             */
+	/* status value */
+	/* lock status */
 	IsdbLock_t isdbLock;
-	/*      */
+	/* RSSI */
 	Tcc353xStatusSignedValueSub_t rssi;
-	/*       */
+	/* PCBER */
 	Tcc353xStatusUnsignedValueSub_t pcber[3];
-	/*     */
+	/* MER */
 	Tcc353xStatusUnsignedValueSub_t mer[3];
-	/*     */
+	/* SNR */
 	Tcc353xStatusUnsignedValueSub_t snr;
-	/*             */
+	/* VITERBI BER */
 	Tcc353xStatusUnsignedValueSub_t viterbiber[3];
-	/*       */
+	/* TSPER */
 	Tcc353xStatusUnsignedValueSub_t tsper[3];
 } Tcc353xStatusValue_t;
 
@@ -107,23 +107,23 @@ typedef enum {
 } EnumCR;
 
 typedef struct {
-	/*              */
+	/* for opstatus */
 	I08U cfoLock;
 	I08U dataState;
-	I08U gi; 	/*              */
-	I08U mode; 	/*                */
+	I08U gi; 	/* refer EnumGI */
+	I08U mode; 	/* refer EnumMode */
 	I16U syncStatus;
 	I16U ResyncCnt;
-	I08U sysId;	/*                                    */
-	I08U tmccSwitchCnt;	/*                                             */
-	I08U af;	/*                                                 */
-	I08U pr;	/*                                                         */
-	I08U AMod;	/*               */
-	I08U ACr;	/*              */
-	I08U AIntLen;	/*                     */
+	I08U sysId;	/* 0:ISDBT, 1:ISDBTsb, others:Reserved*/
+	I08U tmccSwitchCnt;	/* 0:1 frames prior to switching ~0x0e:15frame */
+	I08U af;	/* 0:No start control, 1:Startup control available */
+	I08U pr;	/* 0:No partial receiption, 1: partial reception available */
+	I08U AMod;	/* refer EnumMOD */
+	I08U ACr;	/* refer EnumCR */
+	I08U AIntLen;	/* interleaving length */
 	I08U ASegNo;
-	I08U BMod;	/*               */
-	I08U BCr;	/*              */
+	I08U BMod;	/* refer EnumMOD */
+	I08U BCr;	/* refer EnumCR */
 	I08U BIntLen;
 	I08U BSegNo;
 
@@ -139,11 +139,11 @@ typedef struct {
 	I16U oldResyncCnt;
 	I16U resynced;
 
-	I08U EEW; 	/*                          */
+	I08U EEW; 	/* Earthquake Early Warning */
 } Tcc353xOpStatus_t;
 
 typedef struct {
-	/*                 */
+	/* received status */
 	I32U syncStatus;
 	I08U rfLoopGain;
 	I08U bbLoopGain;
@@ -155,17 +155,17 @@ typedef struct {
 	I64U rsErrorCount[3];
 	I32U antennaPercent[3];
 
-	/*              */
+	/* status value */
 	Tcc353xStatusValue_t status;
 
-	/*                  */
+	/* calculate status */
 	I64U oldRsErrorCount[3];
 	I32U oldRsOverCount[3];
 	I32U oldRsPacketCount[3];
 	I32U packetResynced[3];
 	I16U reserved0;
 
-	/*              */
+	/* for opstatus */
 	Tcc353xOpStatus_t opstat;
 } Tcc353xStatus_t;
 

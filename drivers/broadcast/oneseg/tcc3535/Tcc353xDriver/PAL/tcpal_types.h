@@ -44,14 +44,14 @@ extern    "C"
 #define TCBB_FUNC
 #endif
 
-typedef unsigned char I08U;	/*        */
-typedef signed char I08S;	/*        */
-typedef unsigned short I16U;	/*         */
-typedef signed short I16S;	/*         */
-typedef unsigned long I32U;	/*         */
-typedef signed long I32S;	/*         */
-typedef signed long long I64S;	/*         */
-typedef unsigned long long I64U;	/*         */
+typedef unsigned char I08U;	/* 1 byte */
+typedef signed char I08S;	/* 1 byte */
+typedef unsigned short I16U;	/* 2 bytes */
+typedef signed short I16S;	/* 2 bytes */
+typedef unsigned long I32U;	/* 4 bytes */
+typedef signed long I32S;	/* 4 bytes */
+typedef signed long long I64S;	/* 8 bytes */
+typedef unsigned long long I64U;	/* 8 bytes */
 
 typedef I64U TcpalTime_t;
 typedef I32U TcpalSemaphore_t;

@@ -65,6 +65,12 @@ struct page *ecryptfs_get_locked_page(struct inode *inode, loff_t index)
 static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 {
 	int rc;
+#if 1 // FEATURE_SDCARD_ENCRYPTION
+	struct inode *ecryptfs_inode;
+	struct ecryptfs_crypt_stat *crypt_stat =
+		&ecryptfs_inode_to_private(page->mapping->host)->crypt_stat;
+	ecryptfs_inode = page->mapping->host;
+#endif
 
 	/*
 	 * Refuse to write the page out if we are called from reclaim context
@@ -78,6 +84,18 @@ static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 		goto out;
 	}
 
+#if 1 // FEATURE_SDCARD_ENCRYPTION
+	if (!crypt_stat || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
+		ecryptfs_printk(KERN_DEBUG,
+				"Passing through unencrypted page\n");
+		rc = ecryptfs_write_lower_page_segment(ecryptfs_inode, page,
+			0, PAGE_CACHE_SIZE);
+		if (rc) {
+			ClearPageUptodate(page);
+			goto out;
+		}
+		SetPageUptodate(page);
+	} else {
 	rc = ecryptfs_encrypt_page(page);
 	if (rc) {
 		ecryptfs_printk(KERN_WARNING, "Error encrypting "
@@ -86,6 +104,17 @@ static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 		goto out;
 	}
 	SetPageUptodate(page);
+	}
+#else
+	rc = ecryptfs_encrypt_page(page);
+	if (rc) {
+		ecryptfs_printk(KERN_WARNING, "Error encrypting "
+				"page (upper index [0x%.16lx])\n", page->index);
+		ClearPageUptodate(page);
+		goto out;
+	}
+	SetPageUptodate(page);
+#endif
 out:
 	unlock_page(page);
 	return rc;
