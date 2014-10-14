@@ -5,9 +5,9 @@
 #include <string.h>
 #endif
 
-/*                                                                                                      */
-/*                                                                                                      */
-/*                                                                                                      */
+/********************************************************************************************************/
+/* ioctl() System call command code                                                                     */
+/********************************************************************************************************/
 
 enum ioctl_command_no {
 	IOCTL_DRV_OPEN 				= 0x1001,
@@ -22,9 +22,9 @@ enum ioctl_command_no {
 	IOCTL_SET_ANTENNA_INFO		= 0x100A
 };
 
-/*                                                                                                      */
-/*                                                                                                      */
-/*                                                                                                      */
+/********************************************************************************************************/
+/* ioctl() System call argement layout & define                                                         */
+/********************************************************************************************************/
 struct ioctl_sig_info {
 	int cn;
 	int rssi;
@@ -38,10 +38,10 @@ struct ioctl_sig_info {
 typedef struct ioctl_sig_info ioctl_sig_info_t;
 
 struct ioctl_monitor_info {
-	int drv_openning; //                    
-	int rf_mode; //                 
+	int drv_openning; //open : 0, close : -1
+	int rf_mode; //VHF : 1, UHF : 0 
 	int channel;
-	int monitor_app; //                   
+	int monitor_app; //app on:1 app off :0
 	ioctl_sig_info_t sig_info;
 };
 typedef struct ioctl_monitor_info ioctl_monitor_info_t;
@@ -56,12 +56,12 @@ typedef struct mmbi_chk_dev_uim_info
 	unsigned char iccid[20];
 }mmbi_chk_dev_uim_info_t;
 
-//                           
+//For Auto switching Antenna 
 typedef struct mmbi_chk_dev_antenna_info
 {
-	int antenna_info; //                                         
+	int antenna_info; //0->default Retractable, 1->auto switching
 }mmbi_chk_dev_antenna_info_t;
 
 
-#endif /*                     */
+#endif /* __RADIO_MB86A35_H__ */
 

@@ -32,6 +32,7 @@
 			qcom,heap-align = <0x1000>;
 			linux,contiguous-region = <&secure_mem>;
 			qcom,ion-heap-type = "SECURE_DMA";
+			qcom,default-prefetch-size = <0x3c00000>;
 		};
 
 		qcom,ion-heap@22 { /* adsp heap */
@@ -57,6 +58,7 @@
 			qcom,memory-reservation-size = <0x314000>;
 			qcom,ion-heap-type = "CARVEOUT";
 		};
+
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <23>;

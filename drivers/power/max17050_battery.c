@@ -80,9 +80,9 @@ struct max17050_chip {
 	struct max17050_platform_data *pdata;
 };
 
-/* 130411 junnyoung.jang@lge.com Implement Power test SOC quickstart */
+/*                                                                   */
 int lge_power_test_flag_max17050 = 1;
-/* 130411 junnyoung.jang@lge.com Implement Power test SOC quickstart */
+/*                                                                   */
 
 /*static int max17050_access_control_of_flash(void);
 bool max17050_count_control(u8 select, u8 count_up);
@@ -255,6 +255,10 @@ int max17050_get_current(void)
 	int avg_ibatt_ma;
 	u16 sign_bit;
 
+	if (max17050_i2c_client == NULL) {
+		pr_info("[MAX17050] %s: i2c NULL", __func__);
+		return 999;
+	}
 	read_reg = max17050_read_reg(max17050_i2c_client, MAX17050_CURRENT);
 	if (read_reg < 0)
 		return 999; /*Error Value return.*/
@@ -834,7 +838,7 @@ int max17050_battery_exchange_program(void)
 {
 	int ret = 0;
 
-/*	if(lge_bd_rev > LGE_REV_C) kwon temporary*/
+/*                                          */
 	{
 		/*Call max17050_new_custom_model_write*/
 		ret = max17050_force_custom_model_write();
@@ -1056,7 +1060,7 @@ static ssize_t at_fuel_guage_level_show
 	int r = 0;
 	int guage_level = 0;
 
-	/* 121128 doosan.baek@lge.com Implement Power test SOC quickstart */
+	/*                                                                */
 	if (lge_power_test_flag_max17050 == 1) {
 		/*pm8921_charger_enable(0);
 		pm8921_disable_source_current(1);*/
@@ -1097,7 +1101,7 @@ static ssize_t at_fuel_guage_level_show
 
 		return snprintf(buf, PAGE_SIZE, "%d\n", guage_level);
 	}
-	/* 121128 doosan.baek@lge.com Implement Power test SOC quickstart */
+	/*                                                                */
 	guage_level = max17050_get_capacity_percent();
 	pr_debug(" [AT_CMD][at_fuel_guage_level_show]");
 	pr_debug(" not quick start BATT guage_level = %d\n", guage_level);
@@ -1113,7 +1117,7 @@ static ssize_t at_batt_level_show
 	int battery_level = 0;
 
 
-	/* 121128 doosan.baek@lge.com Implement Power test SOC quickstart */
+	/*                                                                */
 	if (lge_power_test_flag_max17050 == 1) {
 		/*pm8921_charger_enable(0);
 		pm8921_disable_source_current(1);*/
@@ -1141,7 +1145,7 @@ static ssize_t at_batt_level_show
 
 		return snprintf(buf, PAGE_SIZE, "%d\n", battery_level);
 	}
-	/* 121128 doosan.baek@lge.com Implement Power test SOC quickstart */
+	/*                                                                */
 
 	battery_level =  max17050_get_battery_mvolts();
 	pr_debug(" [AT_CMD][at_batt_level_show]");
