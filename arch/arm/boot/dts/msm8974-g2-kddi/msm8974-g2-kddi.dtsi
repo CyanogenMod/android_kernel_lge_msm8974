@@ -199,6 +199,7 @@
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000>;
 		qcom,sup-voltages = <1800 2950>;
 		qcom,bus-width = <4>;
+		qcom,nonremovable;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50";
 
 		qcom,msm-bus,name = "sdcc3";
@@ -217,19 +218,6 @@
 		status = "ok";
 	};
 
-        qcom,ion {   
-                compatible = "qcom,msm-ion";
-                #address-cells = <1>;
-                #size-cells = <0>;
- 
-                qcom,ion-heap@23 { /* OTHER PIL HEAP */
-                        compatible = "qcom,msm-ion-reserve";
-                        reg = <23>;
-                        qcom,heap-align = <0x1000>;
-                        qcom,memory-fixed = <0x05d00000 0x1e00000>;
-                        qcom,ion-heap-type = "CARVEOUT";
-                };
-        };
 };
 
 &sdcc2 {

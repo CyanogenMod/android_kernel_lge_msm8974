@@ -36,7 +36,7 @@ static struct msm_sensor_ctrl_t imx135_s_ctrl;
  * Add model define to avoid build error about "imx135_power_setting_rev_a"
  * 2013-03-20, youmi.jun@lge.com
  */
-#if !(defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_SPR) || defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_G2_CA) || defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)|| defined(CONFIG_MACH_MSM8974_G2_OPEN_AME))
+#if !(defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_SPR) || defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_G2_CA) || defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)|| defined(CONFIG_MACH_MSM8974_G2_OPEN_AME) || defined(CONFIG_MACH_MSM8974_B1_KR))
 static struct msm_sensor_power_setting imx135_power_setting_rev_a[] = {
 	{
 		.seq_type = SENSOR_VREG,
@@ -95,7 +95,7 @@ static struct msm_sensor_power_setting imx135_power_setting_rev_a[] = {
 	{
 		.seq_type = SENSOR_CLK,
 		.seq_val = SENSOR_CAM_MCLK,
-		.config_val = 0,
+		.config_val = 24000000,
 		.delay = 1,
 	},
 	{
@@ -108,7 +108,7 @@ static struct msm_sensor_power_setting imx135_power_setting_rev_a[] = {
 #endif
 
 static struct msm_sensor_power_setting imx135_power_setting_rev_b[] = {
-#if (defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_Z_KDDI))
+#if (defined(CONFIG_MACH_MSM8974_Z_KR) && defined(CONFIG_MACH_MSM8974_VU3_KR) && defined(CONFIG_MACH_MSM8974_G2_KDDI) && defined(CONFIG_MACH_MSM8974_Z_KDDI))
 	{  /* Set GPIO_RESET to low to disable power on reset*/
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
@@ -135,7 +135,7 @@ static struct msm_sensor_power_setting imx135_power_setting_rev_b[] = {
 	},
 	{										//VCM, GPIO 57
 		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_VCM,
+		.seq_val = SENSOR_GPIO_VAF,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 1,
 	},
@@ -190,7 +190,7 @@ static struct msm_sensor_power_setting imx135_power_setting_rev_b[] = {
 	},
 	{										//VCM, GPIO 57
 		.seq_type = SENSOR_GPIO,
-		.seq_val = SENSOR_GPIO_VCM,
+		.seq_val = SENSOR_GPIO_VAF,
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 3,
 	},
@@ -223,7 +223,13 @@ static struct msm_sensor_power_setting imx135_power_setting_rev_b[] = {
 		.seq_type = SENSOR_I2C_MUX,
 		.seq_val = 0,
 		.config_val = 0,
+/* LGE_CHANGE_S, fixed fuji ois power scequence issue : must need delay, 2013.11.19, youngil.yun[Start] */
+#if defined(CONFIG_MACH_MSM8974_B1_KR)
+		.delay = 1,
+#else
 		.delay = 0,
+#endif
+/* LGE_CHANGE_E, fixed fuji ois power scequence issue : must need delay, 2013.11.19, youngil.yun[End] */
 	},
 #endif
 };
@@ -244,9 +250,15 @@ static const struct i2c_device_id imx135_i2c_id[] = {
 	{ }
 };
 
+static int32_t msm_imx135_i2c_probe(struct i2c_client *client,
+	const struct i2c_device_id *id)
+{
+	return msm_sensor_i2c_probe(client, id, &imx135_s_ctrl);
+}
+
 static struct i2c_driver imx135_i2c_driver = {
 	.id_table = imx135_i2c_id,
-	.probe  = msm_sensor_i2c_probe,
+	.probe  = msm_imx135_i2c_probe,
 	.driver = {
 		.name = IMX135_SENSOR_NAME,
 	},
@@ -295,7 +307,7 @@ static int __init imx135_init_module(void)
 	CDBG("%s E\n", __func__);
 
 #if defined(CONFIG_MACH_LGE)
-#if defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_SPR) || defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_G2_CA) || defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU) || defined(CONFIG_MACH_MSM8974_G2_OPEN_AME)
+#if defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_SPR) || defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_G2_CA) || defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI) || defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU) || defined(CONFIG_MACH_MSM8974_G2_OPEN_AME) || defined(CONFIG_MACH_MSM8974_B1_KR)
 /* LGE_CHANGE_S
  * Camera bring up for TMUS/VZW/SPRINT/DCM
  * 2013-03-14, jinw.kim@lge.com

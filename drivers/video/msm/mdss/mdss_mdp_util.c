@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,9 @@
 #include "mdss_mdp_formats.h"
 #include "mdss_debug.h"
 
+#ifdef CONFIG_MACH_LGE
+#define QMC_PATCH
+#endif
 enum {
 	MDP_INTR_VSYNC_INTF_0,
 	MDP_INTR_VSYNC_INTF_1,
@@ -200,14 +203,20 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 		mdss_misr_crc_collect(mdata, DISPLAY_MISR_HDMI);
 	}
 
-	if (isr & MDSS_MDP_INTR_WB_0_DONE)
+	if (isr & MDSS_MDP_INTR_WB_0_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_WB_0);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+	}
 
-	if (isr & MDSS_MDP_INTR_WB_1_DONE)
+	if (isr & MDSS_MDP_INTR_WB_1_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_WB_1);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+	}
 
-	if (isr & MDSS_MDP_INTR_WB_2_DONE)
+	if (isr & MDSS_MDP_INTR_WB_2_DONE) {
 		mdss_mdp_intr_done(MDP_INTR_WB_2);
+		mdss_misr_crc_collect(mdata, DISPLAY_MISR_MDP);
+	}
 
 mdp_isr_done:
 	hist_isr = MDSS_MDP_REG_READ(MDSS_MDP_REG_HIST_INTR_STATUS);
@@ -251,6 +260,27 @@ void mdss_mdp_intersect_rect(struct mdss_mdp_img_rect *res_rect,
 	else
 		*res_rect = (struct mdss_mdp_img_rect){l, t, (r-l), (b-t)};
 }
+
+void mdss_mdp_crop_rect(struct mdss_mdp_img_rect *src_rect,
+	struct mdss_mdp_img_rect *dst_rect,
+	const struct mdss_mdp_img_rect *sci_rect)
+{
+	struct mdss_mdp_img_rect res;
+	mdss_mdp_intersect_rect(&res, dst_rect, sci_rect);
+
+	if (res.w && res.h) {
+		if ((res.w != dst_rect->w) || (res.h != dst_rect->h)) {
+			src_rect->x = src_rect->x + (res.x - dst_rect->x);
+			src_rect->y = src_rect->y + (res.y - dst_rect->y);
+			src_rect->w = res.w;
+			src_rect->h = res.h;
+		}
+		*dst_rect = (struct mdss_mdp_img_rect)
+			{(res.x - sci_rect->x), (res.y - sci_rect->y),
+			res.w, res.h};
+	}
+}
+
 int mdss_mdp_get_rau_strides(u32 w, u32 h,
 			       struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps)
@@ -454,9 +484,14 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 	struct ion_client *iclient = mdss_get_ionclient();
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
 		pr_debug("fb mem buf=0x%x\n", data->addr);
-		if(data->srcp_file!=NULL) {
+#ifdef QMC_PATCH
+		/* LGE_CHANGE
+		 * QMC patch to prevent null point crash
+		 * 2013-09-03, baryun.hwang@lge.com
+		 */
+		if (data->srcp_file != NULL)
+#endif
 			fput_light(data->srcp_file, data->p_need);
-		}
 		data->srcp_file = NULL;
 	} else if (data->srcp_file) {
 		pr_debug("pmem buf=0x%x\n", data->addr);
@@ -594,7 +629,7 @@ int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase)
 		return -EINVAL;
 
 	unit = 1 << PHASE_STEP_SHIFT;
-	*out_phase = mult_frac(src, unit, dst);
+	*out_phase = mult_frac(unit, src, dst);
 
 	/* check if overflow is possible */
 	if (src > dst) {

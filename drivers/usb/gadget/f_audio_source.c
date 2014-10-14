@@ -29,8 +29,11 @@
 #define IN_EP_MAX_PACKET_SIZE	256
 
 /* Number of requests to allocate */
-//#define IN_EP_REQ_COUNT 4
+#ifdef CONFIG_USB_G_LGE_ANDROID
 #define IN_EP_REQ_COUNT 16
+#else
+#define IN_EP_REQ_COUNT 4
+#endif
 
 #define AUDIO_AC_INTERFACE	0
 #define AUDIO_AS_INTERFACE	1
@@ -261,12 +264,15 @@ struct audio_dev {
 	s64				frames_sent;
 
 	bool				audio_ep_enabled;
+	bool				triggered;
 };
 
 static inline struct audio_dev *func_to_audio_source(struct usb_function *f)
 {
 	return container_of(f, struct audio_dev, func);
 }
+
+static void audio_pcm_playback_start(struct audio_dev *audio);
 
 /*-------------------------------------------------------------------------*/
 
@@ -546,6 +552,10 @@ static int audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				return ret;
 			}
 			audio->audio_ep_enabled = true;
+			if (audio->triggered) {
+				// resume playing if we are still triggered
+				audio_pcm_playback_start(audio);
+			}
 		} else if (!alt && audio->audio_ep_enabled) {
 			usb_ep_disable(audio->in_ep);
 			audio->audio_ep_enabled = false;
@@ -767,11 +777,13 @@ static int audio_pcm_playback_trigger(struct snd_pcm_substream *substream,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
+		audio->triggered = 1;
 		audio_pcm_playback_start(audio);
 		break;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
+		audio->triggered = 0;
 		audio_pcm_playback_stop(audio);
 		break;
 

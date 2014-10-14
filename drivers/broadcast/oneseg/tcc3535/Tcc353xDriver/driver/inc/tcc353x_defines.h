@@ -27,11 +27,11 @@ between Telechips and Company.
 
 #include "tcc353x_common.h"
 
-/*                     */
+/* CODE Memory Setting */
 #define PHY_BASE_ADDR                       (0x80000000)
 #define TCC353X_CODEMEMBASE                 (PHY_BASE_ADDR + 0xC000)
 
-#define _SUPPORT_OSC_38400_ /*         */
+#define _SUPPORT_OSC_38400_ /* default */
 #define _SUPPORT_OSC_19200_
 
 typedef struct Tcc353xHandle_t {
@@ -52,11 +52,11 @@ typedef struct Tcc353xHandle_t {
 	Tcc353xTuneOptions TuneOptions;
 	Tcc353xStreamFormat_t streamFormat;
 
-	/*        */
+	/* status */
 	I32U tuned;
 	I32U streamStarted;
 
-	/*                                                 */
+	/* pidTable format [12:0] pid  [15] filter on flag */
 	I32U pidTable[32];
 	I32U numOfPidTable;
 	I32U useDefaultPLL;

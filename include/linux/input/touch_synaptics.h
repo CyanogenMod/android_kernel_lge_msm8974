@@ -18,7 +18,7 @@
 #ifndef LGE_TOUCH_SYNAPTICS_H
 #define LGE_TOUCH_SYNAPTICS_H
 
-//#define ARRAYED_TOUCH_FW_BIN
+/* #define ARRAYED_TOUCH_FW_BIN */
 
 #define NUM_OF_EACH_FINGER_DATA_REG		8
 #define MAX_NUM_OF_FINGERS				10
@@ -62,8 +62,7 @@ struct cur_touch_data {
 	struct button_data	button;
 };
 
-struct synaptics_ts_fw_info
-{
+struct synaptics_ts_fw_info {
 	u8		fw_rev;
 	u8		fw_image_rev;
 	u8		manufacturer_id;
@@ -81,8 +80,14 @@ struct synaptics_ts_fw_info
 
 struct synaptics_ts_data {
 	u8	is_probed;
-	struct regulator*	regulator_vdd;
-	struct regulator*	regulator_vio;
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+	u8  lpwg_mode;
+	u8  double_tap_enable;
+	u8  password_enable;
+	u8  password_tap_count;
+#endif
+	struct regulator	*regulator_vdd;
+	struct regulator	*regulator_vio;
 	struct i2c_client *client;
 	struct touch_platform_data *pdata;
 	struct ts_ic_function	common_fc;
@@ -95,6 +100,11 @@ struct synaptics_ts_data {
 	struct ts_ic_function	flash_fc;
 	struct cur_touch_data	ts_data;
 	struct synaptics_ts_fw_info	fw_info;
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+	struct lge_touch_data *lge_touch_ts;
+	struct hrtimer		multi_tap_timer;
+	struct work_struct	multi_tap_work;
+#endif
 };
 
 /* extern function */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,7 +64,12 @@
 
 #define HFI_ERR_SESSION_STREAM_CORRUPT		(HFI_COMMON_BASE + 0x100B)
 #define HFI_ERR_SESSION_ENC_OVERFLOW		(HFI_COMMON_BASE + 0x100C)
-#define  HFI_ERR_SESSION_UNSUPPORTED_STREAM	(HFI_COMMON_BASE + 0x100D)
+#define HFI_ERR_SESSION_UNSUPPORTED_STREAM	(HFI_COMMON_BASE + 0x100D)
+#define HFI_ERR_SESSION_CMDSIZE			(HFI_COMMON_BASE + 0x100E)
+#define HFI_ERR_SESSION_UNSUPPORT_CMD		(HFI_COMMON_BASE + 0x100F)
+#define HFI_ERR_SESSION_UNSUPPORT_BUFFERTYPE	(HFI_COMMON_BASE + 0x1010)
+#define HFI_ERR_SESSION_BUFFERCOUNT_TOOSMALL	(HFI_COMMON_BASE + 0x1011)
+#define HFI_ERR_SESSION_INVALID_SCALE_FACTOR	(HFI_COMMON_BASE + 0x1012)
 
 #define HFI_EVENT_SYS_ERROR				(HFI_COMMON_BASE + 0x1)
 #define HFI_EVENT_SESSION_ERROR			(HFI_COMMON_BASE + 0x2)
@@ -79,7 +84,8 @@
 #define HFI_VIDEO_CODEC_VC1				0x00000100
 #define HFI_VIDEO_CODEC_SPARK				0x00000200
 #define HFI_VIDEO_CODEC_VP8				0x00001000
-#define HFI_VIDEO_CODEC_HEVC				0x00010000
+#define HFI_VIDEO_CODEC_HEVC				0x00002000
+#define HFI_VIDEO_CODEC_HEVC_HYBRID			0x00004000
 
 #define HFI_H264_PROFILE_BASELINE			0x00000001
 #define HFI_H264_PROFILE_MAIN				0x00000002
@@ -105,6 +111,7 @@
 #define HFI_H264_LEVEL_42					0x00002000
 #define HFI_H264_LEVEL_5					0x00004000
 #define HFI_H264_LEVEL_51					0x00008000
+#define HFI_H264_LEVEL_52                                       0x00010000
 
 #define HFI_H263_PROFILE_BASELINE			0x00000001
 
@@ -302,7 +309,7 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01A)
 #define HFI_PROPERTY_PARAM_VENC_H264_NAL_SVC_EXT		\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01B)
-#define HFI_PROPERTY_PARAM_VENC_H264_LTRMODE		\
+#define HFI_PROPERTY_PARAM_VENC_LTRMODE		\
 	 (HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01C)
 #define HFI_PROPERTY_PARAM_VENC_VIDEO_FULL_RANGE	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01D)
@@ -312,12 +319,6 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01F)
 #define  HFI_PROPERTY_PARAM_VENC_MAX_NUM_B_FRAMES \
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x020)
-#define HFI_PROPERTY_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC \
-	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x021)
-#define HFI_PROPERTY_PARAM_VENC_PRESERVE_TEXT_QUALITY \
-	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x023)
-
-
 #define HFI_PROPERTY_CONFIG_VENC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VENC + HFI_ARCH_COMMON_OFFSET + 0x6000)
 #define HFI_PROPERTY_CONFIG_VENC_TARGET_BITRATE				\
@@ -337,7 +338,12 @@ struct hfi_buffer_info {
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x7000)
 #define  HFI_PROPERTY_CONFIG_VENC_SYNC_FRAME_SEQUENCE_HEADER	\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x008)
-
+#define  HFI_PROPERTY_CONFIG_VENC_MARKLTRFRAME			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x009)
+#define  HFI_PROPERTY_CONFIG_VENC_USELTRFRAME			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00A)
+#define  HFI_PROPERTY_CONFIG_VENC_LTRPERIOD			\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00C)
 #define HFI_PROPERTY_CONFIG_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x8000)
 #define HFI_PROPERTY_CONFIG_VPE_DEINTERLACE				\
@@ -360,6 +366,7 @@ struct hfi_bitrate {
 #define HFI_CAPABILITY_BITRATE				(HFI_COMMON_BASE + 0x8)
 #define  HFI_CAPABILITY_BFRAME				(HFI_COMMON_BASE + 0x9)
 #define  HFI_CAPABILITY_HIER_P_NUM_ENH_LAYERS   (HFI_COMMON_BASE + 0x10)
+#define  HFI_CAPABILITY_ENC_LTR_COUNT      (HFI_COMMON_BASE + 0x11)
 
 struct hfi_capability_supported {
 	u32 capability_type;
@@ -437,8 +444,17 @@ struct hfi_idr_period {
 	u32 idr_period;
 };
 
+struct hfi_operations_type {
+	u32 rotation;
+	u32 flip;
+};
+
 struct hfi_max_num_b_frames {
 	u32 max_num_b_frames;
+};
+
+struct hfi_conceal_color {
+	u32 conceal_color;
 };
 
 struct hfi_intra_period {
@@ -519,6 +535,26 @@ struct hfi_quantization_range {
 	u32 min_qp;
 	u32 max_qp;
 	u32 layer_id;
+};
+
+#define HFI_LTR_MODE_DISABLE	0x0
+#define HFI_LTR_MODE_MANUAL		0x1
+#define HFI_LTR_MODE_PERIODIC	0x2
+
+struct hfi_ltrmode {
+	u32 ltrmode;
+	u32 ltrcount;
+	u32 trustmode;
+};
+
+struct hfi_ltruse {
+	u32 refltr;
+	u32 useconstrnt;
+	u32 frames;
+};
+
+struct hfi_ltrmark {
+	u32 markframe;
 };
 
 struct hfi_frame_size {
