@@ -19,6 +19,7 @@
 #include <linux/memory_alloc.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include <linux/mm.h>
 #include <linux/mm_types.h>
 #include <linux/sched.h>
@@ -26,6 +27,7 @@
 #include <linux/uaccess.h>
 #include <linux/memblock.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-contiguous.h>
 #include <mach/ion.h>
 #include <mach/msm_memtypes.h>
 #include <asm/cacheflush.h>
@@ -76,6 +78,10 @@ static struct ion_heap_desc ion_heap_meta[] = {
 		.name	= ION_SF_HEAP_NAME,
 	},
 	{
+		.id	= ION_IOMMUCA_HEAP_ID,
+		.name	= ION_IOMMUCA_HEAP_NAME,
+	},
+	{
 		.id	= ION_QSECOM_HEAP_ID,
 		.name	= ION_QSECOM_HEAP_NAME,
 	},
@@ -93,6 +99,7 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	},
 	{
 		.id	= ION_CP_WB_HEAP_ID,
+		.type	= ION_HEAP_TYPE_CARVEOUT,
 		.name	= ION_WB_HEAP_NAME,
 	},
 	{
@@ -552,7 +559,8 @@ static void check_for_heap_overlap(const struct ion_platform_heap heap_list[],
 }
 
 #ifdef CONFIG_OF
-static int msm_init_extra_data(struct ion_platform_heap *heap,
+static int msm_init_extra_data(struct device_node *node,
+			       struct ion_platform_heap *heap,
 			       const struct ion_heap_desc *heap_desc)
 {
 	int ret = 0;
@@ -578,6 +586,28 @@ static int msm_init_extra_data(struct ion_platform_heap *heap,
 			ret = -ENOMEM;
 		break;
 	}
+	case ION_HEAP_TYPE_SECURE_DMA:
+	{
+		unsigned int val;
+
+		ret = of_property_read_u32(node,
+					"qcom,default-prefetch-size", &val);
+
+		if (!ret) {
+			heap->extra_data = kzalloc(sizeof(struct ion_cma_pdata),
+					   GFP_KERNEL);
+
+			if (!heap->extra_data) {
+				ret = -ENOMEM;
+			} else {
+				struct ion_cma_pdata *extra = heap->extra_data;
+				extra->default_prefetch_size = val;
+			}
+		} else {
+			ret = 0;
+		}
+		break;
+	}
 	default:
 		heap->extra_data = 0;
 		break;
@@ -597,6 +627,7 @@ static struct heap_types_info {
 	MAKE_HEAP_TYPE_MAPPING(CARVEOUT),
 	MAKE_HEAP_TYPE_MAPPING(CHUNK),
 	MAKE_HEAP_TYPE_MAPPING(DMA),
+	MAKE_HEAP_TYPE_MAPPING(IOMMUCA),
 	MAKE_HEAP_TYPE_MAPPING(CP),
 	MAKE_HEAP_TYPE_MAPPING(SECURE_DMA),
 	MAKE_HEAP_TYPE_MAPPING(REMOVED),
@@ -637,7 +668,8 @@ static int msm_ion_populate_heap(struct device_node *node,
 			if (ret)
 				break;
 			heap->type = heap_type;
-			ret = msm_init_extra_data(heap, &ion_heap_meta[i]);
+			ret = msm_init_extra_data(node, heap,
+						&ion_heap_meta[i]);
 			break;
 		}
 	}
@@ -699,6 +731,7 @@ static int msm_ion_get_heap_size(struct device_node *node,
 	int ret = 0;
 	u32 out_values[2];
 	const char *memory_name_prop;
+	struct device_node *pnode;
 
 	ret = of_property_read_u32(node, "qcom,memory-reservation-size", &val);
 	if (!ret) {
@@ -720,14 +753,33 @@ static int msm_ion_get_heap_size(struct device_node *node,
 				__func__);
 			ret = -EINVAL;
 		}
-	} else {
-		ret = of_property_read_u32_array(node, "qcom,memory-fixed",
-								out_values, 2);
-		if (!ret)
-			heap->size = out_values[1];
-		else
-			ret = 0;
+		goto out;
 	}
+
+	ret = of_property_read_u32_array(node, "qcom,memory-fixed",
+								out_values, 2);
+	if (!ret) {
+		heap->size = out_values[1];
+		goto out;
+	}
+
+	pnode = of_parse_phandle(node, "linux,contiguous-region", 0);
+	if (pnode != NULL) {
+		const u32 *addr;
+		u64 size;
+
+		addr = of_get_address(pnode, 0, &size, NULL);
+		if (!addr) {
+			of_node_put(pnode);
+			ret = -EINVAL;
+			goto out;
+		}
+		heap->size = (u32) size;
+		ret = 0;
+		of_node_put(pnode);
+	}
+
+	ret = 0;
 out:
 	return ret;
 }
@@ -737,11 +789,19 @@ static void msm_ion_get_heap_base(struct device_node *node,
 {
 	u32 out_values[2];
 	int ret = 0;
+	struct device_node *pnode;
 
 	ret = of_property_read_u32_array(node, "qcom,memory-fixed",
 							out_values, 2);
 	if (!ret)
 		heap->base = out_values[0];
+
+	pnode = of_parse_phandle(node, "linux,contiguous-region", 0);
+	if (pnode != NULL) {
+		heap->base = cma_get_base(heap->priv);
+		of_node_put(pnode);
+	}
+
 	return;
 }
 
@@ -919,11 +979,18 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 					sizeof(struct ion_flush_data)))
 			return -EFAULT;
 
-		if (!data.handle) {
+		if (data.handle > 0) {
+			handle = ion_handle_get_by_id(client, (int)data.handle);
+			if (IS_ERR(handle)) {
+				pr_info("%s: Could not find handle: %d\n",
+					__func__, (int)data.handle);
+				return PTR_ERR(handle);
+			}
+		} else {
 			handle = ion_import_dma_buf(client, data.fd);
 			if (IS_ERR(handle)) {
-				pr_info("%s: Could not import handle: %d\n",
-					__func__, (int)handle);
+				pr_info("%s: Could not import handle: %p\n",
+					__func__, handle);
 				return -EINVAL;
 			}
 		}
@@ -934,29 +1001,47 @@ static long msm_ion_custom_ioctl(struct ion_client *client,
 		end = (unsigned long) data.vaddr + data.length;
 
 		if (start && check_vaddr_bounds(start, end)) {
-			up_read(&mm->mmap_sem);
 			pr_err("%s: virtual address %p is out of bounds\n",
 				__func__, data.vaddr);
-			if (!data.handle)
-				ion_free(client, handle);
-			return -EINVAL;
+			ret = -EINVAL;
+		} else {
+			ret = ion_do_cache_op(client, handle, data.vaddr,
+					data.offset, data.length, cmd);
 		}
-
-		ret = ion_do_cache_op(client,
-				data.handle ? data.handle : handle,
-				data.vaddr, data.offset, data.length,
-				cmd);
-
 		up_read(&mm->mmap_sem);
 
-		if (!data.handle)
-			ion_free(client, handle);
+		ion_free(client, handle);
 
 		if (ret < 0)
 			return ret;
 		break;
 
 	}
+	case ION_IOC_PREFETCH:
+	{
+		struct ion_prefetch_data data;
+
+		if (copy_from_user(&data, (void __user *)arg,
+					sizeof(struct ion_prefetch_data)))
+			return -EFAULT;
+
+		ion_walk_heaps(client, data.heap_id, (void *)data.len,
+						ion_secure_cma_prefetch);
+		break;
+	}
+	case ION_IOC_DRAIN:
+	{
+		struct ion_prefetch_data data;
+
+		if (copy_from_user(&data, (void __user *)arg,
+					sizeof(struct ion_prefetch_data)))
+			return -EFAULT;
+
+		ion_walk_heaps(client, data.heap_id, (void *)data.len,
+						ion_secure_cma_drain_pool);
+		break;
+	}
+
 	default:
 		return -ENOTTY;
 	}
@@ -968,6 +1053,9 @@ static struct ion_heap *msm_ion_heap_create(struct ion_platform_heap *heap_data)
 	struct ion_heap *heap = NULL;
 
 	switch ((int)heap_data->type) {
+	case ION_HEAP_TYPE_IOMMUCA:
+		heap = ion_iommu_heap_create(heap_data);
+		break;
 	case ION_HEAP_TYPE_CP:
 		heap = ion_cp_heap_create(heap_data);
 		break;
@@ -1007,6 +1095,9 @@ static void msm_ion_heap_destroy(struct ion_heap *heap)
 		return;
 
 	switch ((int)heap->type) {
+	case ION_HEAP_TYPE_IOMMUCA:
+		ion_iommu_heap_destroy(heap);
+		break;
 	case ION_HEAP_TYPE_CP:
 		ion_cp_heap_destroy(heap);
 		break;
