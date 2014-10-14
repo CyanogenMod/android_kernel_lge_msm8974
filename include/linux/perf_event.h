@@ -741,7 +741,7 @@ struct pmu {
 	int * __percpu			pmu_disable_count;
 	struct perf_cpu_context * __percpu pmu_cpu_context;
 	int				task_ctx_nr;
-	u32                             events_across_hotplug:1,
+	u32				events_across_hotplug:1,
 					reserved:31;
 
 	/*
@@ -1366,3 +1366,4 @@ static struct device_attribute format_attr_##_name = __ATTR_RO(_name)
 
 #endif /* __KERNEL__ */
 #endif /* _LINUX_PERF_EVENT_H */
+

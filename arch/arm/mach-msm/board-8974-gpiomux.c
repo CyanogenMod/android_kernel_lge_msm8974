@@ -228,6 +228,17 @@ static struct gpiomux_setting gpio_i2c_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
+static struct gpiomux_setting gpio_i2c_act_config = {
+	.func = GPIOMUX_FUNC_3,
+	/*
+	 * Please keep I2C GPIOs drive-strength at minimum (2ma). It is a
+	 * workaround for HW issue of glitches caused by rapid GPIO current-
+	 * change.
+	 */
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
 static struct gpiomux_setting lcd_en_act_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
@@ -605,12 +616,14 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.gpio      = 6,		/* BLSP1 QUP2 I2C_DAT */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
 		},
 	},
 	{
 		.gpio      = 7,		/* BLSP1 QUP2 I2C_CLK */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_act_config,
 		},
 	},
 	{
@@ -635,6 +648,18 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		.gpio      = 5,			/* BLSP2 UART RX */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &gpio_uart_config,
+		},
+	},
+	{                           /* NFC */
+		.gpio      = 29,		/* BLSP1 QUP6 I2C_DAT */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{                           /* NFC */
+		.gpio      = 30,		/* BLSP1 QUP6 I2C_CLK */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
 	{
@@ -1365,6 +1390,11 @@ void __init msm_8974_init_gpiomux(void)
 		pr_err("%s failed %d\n", __func__, rc);
 		return;
 	}
+
+	pr_err("%s:%d socinfo_get_version %x\n", __func__, __LINE__,
+		socinfo_get_version());
+	if (socinfo_get_version() >= 0x20000)
+		msm_tlmm_misc_reg_write(TLMM_SPARE_REG, 0xf);
 
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	if (!(of_board_is_dragonboard() && machine_is_apq8074()))

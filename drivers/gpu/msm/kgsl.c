@@ -45,10 +45,6 @@
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
 
-#ifndef arch_mmap_check
-#define arch_mmap_check(addr, len, flags)	(0)
-#endif
-
 static int kgsl_pagetable_count = KGSL_PAGETABLE_COUNT;
 static char *ksgl_mmu_type;
 module_param_named(ptcount, kgsl_pagetable_count, int, 0);
@@ -1117,7 +1113,7 @@ err_stop:
 	if (device->open_count == 0) {
 		/* make sure power is on to stop the device */
 		kgsl_pwrctrl_enable(device);
-		device->ftbl->stop(device);
+		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
 		atomic_dec(&device->active_cnt);
 	}
@@ -1379,8 +1375,8 @@ static long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,
 
 	if (dev_priv->device->ftbl->setproperty)
 		result = dev_priv->device->ftbl->setproperty(
-			dev_priv, param->type, param->value,
-			param->sizebytes);
+			dev_priv->device, param->type,
+			param->value, param->sizebytes);
 
 	return result;
 }
@@ -1462,7 +1458,7 @@ static long kgsl_ioctl_device_waittimestamp_ctxtid(struct kgsl_device_private
  * @timestamp: Pending timestamp for the event
  * @handle: Pointer to a sync fence handle
  * @device: Pointer to the KGSL device
- * @refcount: Allow event to be destroyed asynchronously
+ * @lock: Spin lock to protect the sync event list
  */
 struct kgsl_cmdbatch_sync_event {
 	int type;
@@ -1472,35 +1468,8 @@ struct kgsl_cmdbatch_sync_event {
 	unsigned int timestamp;
 	struct kgsl_sync_fence_waiter *handle;
 	struct kgsl_device *device;
-	struct kref refcount;
+	spinlock_t lock;
 };
-
-/**
- * kgsl_cmdbatch_sync_event_destroy() - Destroy a sync event object
- * @kref: Pointer to the kref structure for this object
- *
- * Actually destroy a sync event object.  Called from
- * kgsl_cmdbatch_sync_event_put.
- */
-static void kgsl_cmdbatch_sync_event_destroy(struct kref *kref)
-{
-	struct kgsl_cmdbatch_sync_event *event = container_of(kref,
-		struct kgsl_cmdbatch_sync_event, refcount);
-
-	kgsl_cmdbatch_put(event->cmdbatch);
-	kfree(event);
-}
-
-/**
- * kgsl_cmdbatch_sync_event_put() - Decrement the refcount for a
- *                                  sync event object
- * @event: Pointer to the sync event object
- */
-static inline void kgsl_cmdbatch_sync_event_put(
-	struct kgsl_cmdbatch_sync_event *event)
-{
-	kref_put(&event->refcount, kgsl_cmdbatch_sync_event_destroy);
-}
 
 /**
  * kgsl_cmdbatch_destroy_object() - Destroy a cmdbatch object
@@ -1527,25 +1496,10 @@ EXPORT_SYMBOL(kgsl_cmdbatch_destroy_object);
 static void kgsl_cmdbatch_sync_expire(struct kgsl_device *device,
 	struct kgsl_cmdbatch_sync_event *event)
 {
-	struct kgsl_cmdbatch_sync_event *e, *tmp;
 	int sched = 0;
-	int removed = 0;
 
 	spin_lock(&event->cmdbatch->lock);
-
-	/*
-	 * sync events that are contained by a cmdbatch which has been
-	 * destroyed may have already been removed from the synclist
-	 */
-
-	list_for_each_entry_safe(e, tmp, &event->cmdbatch->synclist, node) {
-		if (e == event) {
-			list_del_init(&event->node);
-			removed = 1;
-			break;
-		}
-	}
-
+	list_del(&event->node);
 	sched = list_empty(&event->cmdbatch->synclist) ? 1 : 0;
 	spin_unlock(&event->cmdbatch->lock);
 
@@ -1556,10 +1510,6 @@ static void kgsl_cmdbatch_sync_expire(struct kgsl_device *device,
 
 	if (sched && device->ftbl->drawctxt_sched)
 		device->ftbl->drawctxt_sched(device, event->cmdbatch->context);
-
-	/* Put events that have been removed from the synclist */
-	if (removed)
-		kgsl_cmdbatch_sync_event_put(event);
 }
 
 
@@ -1573,9 +1523,11 @@ static void kgsl_cmdbatch_sync_func(struct kgsl_device *device, void *priv,
 	struct kgsl_cmdbatch_sync_event *event = priv;
 
 	kgsl_cmdbatch_sync_expire(device, event);
+
 	kgsl_context_put(event->context);
-	/* Put events that have signaled */
-	kgsl_cmdbatch_sync_event_put(event);
+	kgsl_cmdbatch_put(event->cmdbatch);
+
+	kfree(event);
 }
 
 /**
@@ -1583,48 +1535,32 @@ static void kgsl_cmdbatch_sync_func(struct kgsl_device *device, void *priv,
  * @cmdbatch: Pointer to the command batch object to destroy
  *
  * Start the process of destroying a command batch.  Cancel any pending events
- * and decrement the refcount.  Asynchronous events can still signal after
- * kgsl_cmdbatch_destroy has returned.
+ * and decrement the refcount.
  */
 void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 {
 	struct kgsl_cmdbatch_sync_event *event, *tmp;
-	LIST_HEAD(cancel_synclist);
 
-	/*
-	 * Empty the synclist before canceling events
-	 */
 	spin_lock(&cmdbatch->lock);
-	list_splice_init(&cmdbatch->synclist, &cancel_synclist);
-	spin_unlock(&cmdbatch->lock);
 
-	/*
-	 * Finish canceling events outside the cmdbatch spinlock and
-	 * require the cancel function to return if the event was
-	 * successfully canceled meaning that the event is guaranteed
-	 * not to signal the callback. This guarantee ensures that
-	 * the reference count for the event and cmdbatch is correct.
-	 */
-	list_for_each_entry_safe(event, tmp, &cancel_synclist, node) {
+	/* Delete any pending sync points for this command batch */
+	list_for_each_entry_safe(event, tmp, &cmdbatch->synclist, node) {
 
 		if (event->type == KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP) {
-			/*
-			 * Timestamp events are guaranteed to signal
-			 * when canceled
-			 */
+			/* Cancel the event if it still exists */
 			kgsl_cancel_event(cmdbatch->device, event->context,
 				event->timestamp, kgsl_cmdbatch_sync_func,
 				event);
 		} else if (event->type == KGSL_CMD_SYNCPOINT_TYPE_FENCE) {
-			/* Put events that are successfully canceled */
-			if (kgsl_sync_fence_async_cancel(event->handle))
-				kgsl_cmdbatch_sync_event_put(event);
+			if (kgsl_sync_fence_async_cancel(event->handle)) {
+				list_del(&event->node);
+				kfree(event);
+				kgsl_cmdbatch_put(cmdbatch);
+			}
 		}
-
-		/* Put events that have been removed from the synclist */
-		list_del_init(&event->node);
-		kgsl_cmdbatch_sync_event_put(event);
 	}
+
+	spin_unlock(&cmdbatch->lock);
 	kgsl_cmdbatch_put(cmdbatch);
 }
 EXPORT_SYMBOL(kgsl_cmdbatch_destroy);
@@ -1637,9 +1573,11 @@ static void kgsl_cmdbatch_sync_fence_func(void *priv)
 {
 	struct kgsl_cmdbatch_sync_event *event = priv;
 
+	spin_lock(&event->lock);
 	kgsl_cmdbatch_sync_expire(event->device, event);
-	/* Put events that have signaled */
-	kgsl_cmdbatch_sync_event_put(event);
+	kgsl_cmdbatch_put(event->cmdbatch);
+	spin_unlock(&event->lock);
+	kfree(event);
 }
 
 /* kgsl_cmdbatch_add_sync_fence() - Add a new sync fence syncpoint
@@ -1665,33 +1603,28 @@ static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
 	event->type = KGSL_CMD_SYNCPOINT_TYPE_FENCE;
 	event->cmdbatch = cmdbatch;
 	event->device = device;
-	event->context = NULL;
-
-	/*
-	 * Initial kref is to ensure async callback does not free the
-	 * event before this function sets the event handle
-	 */
-	kref_init(&event->refcount);
+	spin_lock_init(&event->lock);
 
 	/*
 	 * Add it to the list first to account for the possiblity that the
 	 * callback will happen immediately after the call to
-	 * kgsl_sync_fence_async_wait. Decrement the event refcount when
-	 * removing from the synclist.
+	 * kgsl_sync_fence_async_wait
 	 */
 
 	spin_lock(&cmdbatch->lock);
-	kref_get(&event->refcount);
 	list_add(&event->node, &cmdbatch->synclist);
 	spin_unlock(&cmdbatch->lock);
 
 	/*
-	 * Increment the reference count for the async callback.
-	 * Decrement when the callback is successfully canceled, when
-	 * the callback is signaled or if the async wait fails.
+	 * There is a distinct race condition that can occur if the fence
+	 * callback is fired before the function has a chance to return.  The
+	 * event struct would be freed before we could write event->handle and
+	 * hilarity ensued.  Protect against this by protecting the call to
+	 * kgsl_sync_fence_async_wait and the kfree in the callback with a lock.
 	 */
 
-	kref_get(&event->refcount);
+	spin_lock(&event->lock);
+
 	event->handle = kgsl_sync_fence_async_wait(sync->fd,
 		kgsl_cmdbatch_sync_fence_func, event);
 
@@ -1699,27 +1632,18 @@ static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
 	if (IS_ERR_OR_NULL(event->handle)) {
 		int ret = PTR_ERR(event->handle);
 
-		/* Failed to add the event to the async callback */
-		kgsl_cmdbatch_sync_event_put(event);
-
-		/* Remove event from the synclist */
 		spin_lock(&cmdbatch->lock);
 		list_del(&event->node);
-		kgsl_cmdbatch_sync_event_put(event);
 		spin_unlock(&cmdbatch->lock);
 
-		/* Event no longer needed by this function */
-		kgsl_cmdbatch_sync_event_put(event);
+		kgsl_cmdbatch_put(cmdbatch);
+		spin_unlock(&event->lock);
+		kfree(event);
 
 		return ret;
 	}
 
-	/*
-	 * Event was successfully added to the synclist, the async
-	 * callback and handle to cancel event has been set.
-	 */
-	kgsl_cmdbatch_sync_event_put(event);
-
+	spin_unlock(&event->lock);
 	return 0;
 }
 
@@ -1773,17 +1697,6 @@ static int kgsl_cmdbatch_add_sync_timestamp(struct kgsl_device *device,
 	event->cmdbatch = cmdbatch;
 	event->context = context;
 	event->timestamp = sync->timestamp;
-
-	/*
-	 * Two krefs are required to support events. The first kref is for
-	 * the synclist which holds the event in the cmdbatch. The second
-	 * kref is for the callback which can be asynchronous and be called
-	 * after kgsl_cmdbatch_destroy. The kref should be put when the event
-	 * is removed from the synclist, if the callback is successfully
-	 * canceled or when the callback is signaled.
-	 */
-	kref_init(&event->refcount);
-	kref_get(&event->refcount);
 
 	spin_lock(&cmdbatch->lock);
 	list_add(&event->node, &cmdbatch->synclist);
@@ -3526,6 +3439,8 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 	if (lock)
 		mutex_lock(&dev_priv->device->mutex);
+
+
 
 	ret = func(dev_priv, cmd, uptr);
 
