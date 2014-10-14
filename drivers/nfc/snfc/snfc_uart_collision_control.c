@@ -96,7 +96,7 @@ static int snfc_uart_control_open(struct inode *inode, struct file *fp)
             }
             snfc_gpio_write(snfc_get_hvdd_gpio_num(), GPIO_HIGH_VALUE);
 
-            gpio_init = 1;                
+            gpio_init = 1;
         }
         SNFC_DEBUG_MSG_LOW("[snfc_uart_control] snfc_uart_control_open - end \n");
 

@@ -18,10 +18,11 @@
 #ifndef LGE_TOUCH_CORE_H
 #define LGE_TOUCH_CORE_H
 
-//#define MT_PROTOCOL_A
-//#define LGE_TOUCH_TIME_DEBUG
+/* #define MT_PROTOCOL_A */
+/*                              */
 #include <linux/earlysuspend.h>
 
+#define I2C_SUSPEND_WORKAROUND 1
 #define MAX_FINGER	10
 #define MAX_BUTTON	4
 
@@ -38,8 +39,8 @@
 #endif
 
 #ifdef CUST_G2_TOUCH
-#define REPORT_WAKEUP_GESTURE_ONLY_REG	0x19 // offset 2  bit:1
-#define WAKEUP_GESTURE_ENABEL_REG	0x1D // bit:0
+#define REPORT_WAKEUP_GESTURE_ONLY_REG	0x19 /* offset 2  bit:1 */
+#define WAKEUP_GESTURE_ENABEL_REG	0x1D /* bit:0 */
 #define DOUBLE_TAP_AREA_REG	0x18
 #define DOZE_INTERVAL_REG	0xF
 #endif
@@ -49,17 +50,38 @@
 #ifdef CUST_G2_TOUCH
 #include <mach/board_lge.h>
 lcd_maker_id get_panel_maker_id(void);
+#define MINIMUM_PEAK_AMPLITUDE_REG    0x15
+#endif
+#if defined(A1_only)&& !defined(CONFIG_MACH_MSM8974_G2_KDDI)
+#define DRUMMING_THRESH_N_DISTANCE_REG  0x15
 #endif
 
-struct touch_device_caps
+#ifdef CUST_G2_TOUCH
+#include <linux/mfd/pm8xxx/cradle.h>
+#endif
+
+#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
+#define SMALL_FINGER_AMPLITUDE_THRESHOLD_REG    0x17
+#endif
+
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+#define MAX_POINT_SIZE_FOR_LPWG 12
+
+struct point
 {
+    int x;
+    int y;
+};
+#endif
+
+struct touch_device_caps {
 	u8		button_support;
 	u16		y_button_boundary;
-	u32		button_margin;		// percentage %
+	u32		button_margin;		/* percentage % */
 	u8		number_of_button;
 	u32		button_name[MAX_BUTTON];
 	u8		is_width_supported;
-	u8	 	is_pressure_supported;
+	u8		is_pressure_supported;
 	u8		is_id_supported;
 	u32		max_width;
 	u32		max_pressure;
@@ -70,21 +92,20 @@ struct touch_device_caps
 	u32		lcd_y;
 };
 
-struct touch_operation_role
-{
-	u8		operation_mode;	// interrupt = 1 , polling = 0;
-	u8		key_type;		// none = 0, hard_touch_key = 1, virtual_key = 2
+struct touch_operation_role {
+	u8		operation_mode;	/* interrupt = 1 , polling = 0; */
+	u8		key_type;		/* none = 0, hard_touch_key = 1, virtual_key = 2 */
 	u8		report_mode;
 	u8		delta_pos_threshold;
-	u8		orientation;	// 0' = 0, 90' = 1, 180' = 2, 270' = 3
-	u32		report_period;	// ns
-	u32		booting_delay;	// ms
-	u32		reset_delay;	// ms
+	u8		orientation;	/* 0' = 0, 90' = 1, 180' = 2, 270' = 3 */
+	u32		report_period;	/* ns */
+	u32		booting_delay;	/* ms */
+	u32		reset_delay;	/* ms */
 	u8		suspend_pwr;
 	u8		resume_pwr;
-	int		jitter_filter_enable;	// enable = 1, disable = 0
+	int		jitter_filter_enable;	/* enable = 1, disable = 0 */
 	int		jitter_curr_ratio;
-	int		accuracy_filter_enable;	// enable = 1, disable = 0
+	int		accuracy_filter_enable;	/* enable = 1, disable = 0 */
 	int		ghost_finger_solution_enable;
 	unsigned long	irqflags;
 #ifdef CUST_G2_TOUCH
@@ -92,8 +113,7 @@ struct touch_operation_role
 #endif
 };
 
-struct touch_power_module
-{
+struct touch_power_module {
 	u8		use_regulator;
 	char	vdd[30];
 	int		vdd_voltage;
@@ -102,22 +122,20 @@ struct touch_power_module
 	int		(*power)	(struct i2c_client *client, int on);
 };
 
-struct touch_platform_data
-{
+struct touch_platform_data {
 	int	int_pin;
 	int	reset_pin;
 	char	maker[30];
 	char	fw_version[11];
-	struct touch_device_caps*		caps;
+	struct touch_device_caps *caps;
 	u8 num_caps;
-	struct touch_operation_role*	role;
+	struct touch_operation_role *role;
 	u8 num_role;
-	struct touch_power_module*		pwr;
+	struct touch_power_module *pwr;
 	u8 num_pwr;
 };
 
-struct t_data
-{
+struct t_data {
 	u16	id;
 #ifdef CUST_G2_TOUCH
 	u8	object;
@@ -131,14 +149,12 @@ struct t_data
 	u8	status;
 };
 
-struct b_data
-{
+struct b_data {
 	u16	key_code;
 	u16	state;
 };
 
-struct touch_data
-{
+struct touch_data {
 	u8		total_num;
 	u8		prev_total_num;
 	u8		state;
@@ -152,8 +168,7 @@ struct touch_data
 	struct b_data	prev_button;
 };
 
-struct fw_upgrade_info
-{
+struct fw_upgrade_info {
 	char		fw_path[256];
 	u8			fw_force_upgrade;
 	volatile u8	is_downloading;
@@ -172,24 +187,22 @@ enum {
 
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
 enum {
-	CUSTOMER_FAMILY_BAR_PATTERN = 0,
-	CUSTOMER_FAMILY_H_PATTERN,
+	TOUCH_PANEL_BAR_PATTERN = 0,
+	TOUCH_PANEL_H_PATTERN,
 };
 #endif
 
-struct fw_set_info
-{
+struct fw_set_info {
 	int bootloader_fw_ver;
-	u8 	ic_chip_rev;
-	u8 	prev_touch_vendor;
-	u8 	curr_touch_vendor;
+	u8	ic_chip_rev;
+	u8	prev_touch_vendor;
+	u8	curr_touch_vendor;
 #if defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	u8	customer_family;
 #endif
 };
 
-struct touch_fw_info
-{
+struct touch_fw_info {
 	struct fw_upgrade_info	fw_upgrade;
 	struct fw_set_info		fw_setting;
 	u8		ic_fw_identifier[31];	/* String */
@@ -201,16 +214,14 @@ struct touch_fw_info
 #endif
 };
 
-struct rect
-{
+struct rect {
 	u16	left;
 	u16	right;
 	u16	top;
 	u16	bottom;
 };
 
-struct section_info
-{
+struct section_info {
 	struct rect	panel;
 	struct rect button[MAX_BUTTON];
 	struct rect button_cancel[MAX_BUTTON];
@@ -240,7 +251,7 @@ struct ghost_finger_ctrl {
 	int max_pressure;
 };
 
-struct jitter_history_data{
+struct jitter_history_data {
 	u16	x;
 	u16	y;
 	u16	pressure;
@@ -280,11 +291,11 @@ struct accuracy_filter_info {
 
 struct ghost_detect_init_data {
 	u32 mask;
-	u8 	rebase_count;
-	u8 	ghost_detection;
-	u8 	ghost_detection_count;
-	u8 	button_press_count;
-	u8 	ta_reset;
+	u8	rebase_count;
+	u8	ghost_detection;
+	u8	ghost_detection_count;
+	u8	button_press_count;
+	u8	ta_reset;
 	u8	finger_subtraction_check_count;
 	u8	ta_debouncing_count;
 	int in_edge_zone_id;
@@ -298,57 +309,113 @@ struct ghost_detect_init_data {
 };
 
 struct ghost_detect_ctrl {
-	u8 	is_resume;
+	u8	is_resume;
 	struct ghost_detect_init_data init_data;
 };
 
-struct lge_touch_data
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+struct state_info
 {
-	void*			h_touch;
+	atomic_t power_state;
+	atomic_t interrupt_state;
+	atomic_t upgrade_state;
+	atomic_t ta_state;
+	atomic_t temperature_state;
+	atomic_t proximity_state;
+	atomic_t hallic_state;
+	atomic_t uevent_state;
+};
+#endif
+
+struct lge_touch_data {
+	void *h_touch;
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+	struct state_info       state;
+#endif
 	atomic_t		next_work;
 	atomic_t		device_init;
 	u8				work_sync_err_cnt;
 	u8				ic_init_err_cnt;
 	volatile int	curr_pwr_state;
 	int				int_pin_state;
-	struct i2c_client 			*client;
-	struct input_dev 			*input_dev;
-	struct hrtimer 				timer;
-	struct work_struct  		work;
+	struct i2c_client			*client;
+	struct input_dev			*input_dev;
+	struct hrtimer				timer;
+	struct work_struct		work;
 	struct delayed_work			work_init;
 	struct delayed_work			work_touch_lock;
-	struct work_struct  		work_fw_upgrade;
+	struct work_struct		work_fw_upgrade;
 #ifdef CUST_G2_TOUCH
+	struct mutex			irq_work_mutex;
 	struct delayed_work			work_f54;
 	struct delayed_work			work_gesture_wakeup;
+	struct delayed_work			work_thermal;
+#endif
+#ifdef I2C_SUSPEND_WORKAROUND
+	struct delayed_work check_suspended_work;
+#endif
+#if defined(A1_only) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+	struct delayed_work			work_ime_drumming;
 #endif
 #if defined(CONFIG_FB)
-	struct notifier_block fb_notif;
+	struct notifier_block notif;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend		early_suspend;
 #endif
-	struct touch_platform_data 	*pdata;
+	struct touch_platform_data	*pdata;
 	struct touch_data			ts_data;
 	struct touch_fw_info		fw_info;
 	struct section_info			st_info;
-	struct kobject 				lge_touch_kobj;
+	struct kobject				lge_touch_kobj;
 	struct ghost_finger_ctrl	gf_ctrl;
 	struct ghost_detect_ctrl	gd_ctrl;
 	struct jitter_filter_info	jitter_filter;
 	struct accuracy_filter_info	accuracy_filter;
 };
 
-struct touch_device_driver {
-	int		(*probe)		(struct lge_touch_data* lge_touch_ts);
-#if defined(CONFIG_LGE_Z_TOUCHSCREEN)
-	int		(*resolution)	(struct i2c_client *client);
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+enum{
+    TA_DISCONNECTED = 0,
+    TA_CONNECTED,
+};
+
+enum{
+    PROXIMITY_FAR = 0,
+    PROXIMITY_NEAR,
+};
+
+enum{
+    HALL_NONE = 0,
+    HALL_COVERED,
+};
+
+enum{
+    UEVENT_IDLE = 0,
+    UEVENT_BUSY,
+};
+
+
+typedef enum error_type {
+    NO_ERROR = 0,
+    ERROR,
+    IGNORE_EVENT,
+    IGNORE_EVENT_BUT_SAVE_IT,
+} err_t;
 #endif
+
+struct touch_device_driver {
+	int		(*probe)		(struct lge_touch_data *lge_touch_ts);
 	void	(*remove)		(struct i2c_client *client);
-	int		(*init)			(struct i2c_client *client, struct touch_fw_info* info);
-	int		(*data)			(struct i2c_client *client, struct touch_data* data);
+	int		(*init)			(struct i2c_client *client, struct touch_fw_info *info);
+	int		(*data)			(struct i2c_client *client, struct touch_data *data);
 	int		(*power)		(struct i2c_client *client, int power_ctrl);
 	int		(*ic_ctrl)		(struct i2c_client *client, u8 code, u16 value);
-	int 	(*fw_upgrade)	(struct i2c_client *client, struct touch_fw_info* info);
+	int	(*fw_upgrade)	(struct i2c_client *client, struct touch_fw_info *info);
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+	err_t	 	(*suspend) (struct i2c_client *client);
+	err_t	 	(*resume) (struct i2c_client *client);
+	err_t	 	(*lpwg) (struct i2c_client *client, u32 code, u32 value, struct point *data);
+#endif
 };
 
 #ifdef CUST_G2_TOUCH
@@ -416,7 +483,7 @@ enum{
 };
 
 enum{
-	KEY_NULL=0,
+	KEY_NULL = 0,
 	KEY_PANEL,
 	KEY_BOUNDARY
 };
@@ -454,25 +521,31 @@ enum{
 	INCOMIMG_CALL_TOUCH,
 };
 
+#if (defined(A1_only) && !defined(CONFIG_MACH_MSM8974_G2_KDDI)) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
+enum{
+	IME_OFF,
+	IME_ON,
+};
+#endif
 enum{
 	GHOST_NONE			= 0,
-	GHOST_LONG_PRESS	= (1U << 0),	// 1
-	GHOST_FIRST_IRQ		= (1U << 1),	// 2
-	GHOST_CALL_STATE	= (1U << 2),	// 4
-	GHOST_TA_DEBOUNCE	= (1U << 3),	// 8
-	GHOST_PRESSURE		= (1U << 4),	// 16
-	GHOST_BUTTON		= (1U << 5),	// 32
-	GHOST_TA_RESET		= (1U << 6),	// 64
-	GHOST_EDGE_ZONE		= (1U << 7),	// 128
+	GHOST_LONG_PRESS	= (1U << 0),	/* 1 */
+	GHOST_FIRST_IRQ		= (1U << 1),	/* 2 */
+	GHOST_CALL_STATE	= (1U << 2),	/* 4 */
+	GHOST_TA_DEBOUNCE	= (1U << 3),	/* 8 */
+	GHOST_PRESSURE		= (1U << 4),	/* 16 */
+	GHOST_BUTTON		= (1U << 5),	/* 32 */
+	GHOST_TA_RESET		= (1U << 6),	/* 64 */
+	GHOST_EDGE_ZONE		= (1U << 7),	/* 128 */
 };
 #endif
 
 enum{
-	GHOST_STAGE_CLEAR=0,
-	GHOST_STAGE_1=1,
-	GHOST_STAGE_2=2,
-	GHOST_STAGE_3=4,
-	GHOST_STAGE_4=8,
+	GHOST_STAGE_CLEAR = 0,
+	GHOST_STAGE_1 = 1,
+	GHOST_STAGE_2 = 2,
+	GHOST_STAGE_3 = 4,
+	GHOST_STAGE_4 = 8,
 };
 
 enum{
@@ -496,20 +569,76 @@ enum{
 #endif
 };
 
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+
+#define DO_IF(do_work, goto_error)                              \
+do {                                                \
+    if(do_work){                                        \
+        printk(KERN_INFO "[Touch E] Action Failed [%s %d] \n", __FUNCTION__, __LINE__); \
+        goto goto_error;                                \
+    }                                           \
+} while(0)
+
+#define DO_SAFE(do_work, goto_error)                                \
+    DO_IF(unlikely((do_work) < 0), goto_error)
+
+#define ASSIGN(do_assign, goto_error)                               \
+do {                                                \
+    if((do_assign) == NULL){                                \
+        printk(KERN_INFO "[Touch E] Assign Failed [%s %d] \n", __FUNCTION__, __LINE__); \
+        goto goto_error;                                \
+    }                                           \
+} while(0)
+
+#define ERROR_IF(cond, string, goto_error)  \
+do {                        \
+    if(cond){               \
+        TOUCH_ERR_MSG(string);      \
+        goto goto_error;        \
+    }                   \
+} while(0)
+
+enum{
+    NOTIFY_TA_CONNECTION = 1,
+    NOTIFY_TEMPERATURE_CHANGE,
+    NOTIFY_PROXIMITY,
+    NOTIFY_HALL_IC,
+};
+
+enum{
+    LPWG_NONE = 0,
+    LPWG_DOUBLE_TAP,
+    LPWG_PASSWORD,
+};
+
+enum{
+    LPWG_READ = 1,
+    LPWG_ENABLE,
+    LPWG_LCD_X,
+    LPWG_LCD_Y,
+    LPWG_ACTIVE_AREA_X1,
+    LPWG_ACTIVE_AREA_X2,
+    LPWG_ACTIVE_AREA_Y1,
+    LPWG_ACTIVE_AREA_Y2,
+    LPWG_TAP_COUNT,
+    LPWG_REPLY,
+};
+#endif
+
 enum{
 	DEBUG_NONE				= 0,
-	DEBUG_BASE_INFO			= (1U << 0),	// 1
-	DEBUG_TRACE				= (1U << 1),	// 2
-	DEBUG_GET_DATA			= (1U << 2),	// 4
-	DEBUG_ABS				= (1U << 3),	// 8
-	DEBUG_BUTTON			= (1U << 4),	// 16
-	DEBUG_FW_UPGRADE		= (1U << 5), 	// 32
-	DEBUG_GHOST				= (1U << 6),	// 64
-	DEBUG_IRQ_HANDLE		= (1U << 7),	// 128
-	DEBUG_POWER				= (1U << 8),	// 256
-	DEBUG_JITTER			= (1U << 9),	// 512
-	DEBUG_ACCURACY			= (1U << 10),	// 1024
-	DEBUG_NOISE             = (1U << 11),   // 2048
+	DEBUG_BASE_INFO			= (1U << 0),	/* 1 */
+	DEBUG_TRACE				= (1U << 1),	/* 2 */
+	DEBUG_GET_DATA			= (1U << 2),	/* 4 */
+	DEBUG_ABS				= (1U << 3),	/* 8 */
+	DEBUG_BUTTON			= (1U << 4),	/* 16 */
+	DEBUG_FW_UPGRADE		= (1U << 5),	/* 32 */
+	DEBUG_GHOST				= (1U << 6),	/* 64 */
+	DEBUG_IRQ_HANDLE		= (1U << 7),	/* 128 */
+	DEBUG_POWER				= (1U << 8),	/* 256 */
+	DEBUG_JITTER			= (1U << 9),	/* 512 */
+	DEBUG_ACCURACY			= (1U << 10),	/* 1024 */
+	DEBUG_NOISE             = (1U << 11),   /* 2048 */
 };
 
 #ifdef LGE_TOUCH_TIME_DEBUG
@@ -526,12 +655,12 @@ enum{
 
 enum{
 	DEBUG_TIME_PROFILE_NONE			= 0,
-	DEBUG_TIME_INT_INTERVAL			= (1U << 0),	// 1
-	DEBUG_TIME_INT_IRQ_DELAY		= (1U << 1),	// 2
-	DEBUG_TIME_INT_THREAD_IRQ_DELAY	= (1U << 2),	// 4
-	DEBUG_TIME_DATA_HANDLE			= (1U << 3),	// 8
-	DEBUG_TIME_FW_UPGRADE			= (1U << 4),	// 16
-	DEBUG_TIME_PROFILE_ALL			= (1U << 5),	// 32
+	DEBUG_TIME_INT_INTERVAL			= (1U << 0),	/* 1 */
+	DEBUG_TIME_INT_IRQ_DELAY		= (1U << 1),	/* 2 */
+	DEBUG_TIME_INT_THREAD_IRQ_DELAY	= (1U << 2),	/* 4 */
+	DEBUG_TIME_DATA_HANDLE			= (1U << 3),	/* 8 */
+	DEBUG_TIME_FW_UPGRADE			= (1U << 4),	/* 16 */
+	DEBUG_TIME_PROFILE_ALL			= (1U << 5),	/* 32 */
 };
 #endif
 
@@ -573,42 +702,69 @@ enum{
 #define LGE_TOUCH_NAME		"lge_touch"
 
 /* Debug Mask setting */
-//#define TOUCH_DEBUG_PRINT   (0)
+#define TOUCH_DEBUG_PRINT   (1)
 #define TOUCH_ERROR_PRINT   (1)
-//#define TOUCH_INFO_PRINT   	(0)
+#define TOUCH_INFO_PRINT	(1)
 
 #if defined(TOUCH_INFO_PRINT)
 #define TOUCH_INFO_MSG(fmt, args...) \
-		printk(KERN_INFO "[Touch] " fmt, ##args);
+		do { \
+			printk(KERN_INFO "[Touch] " fmt, ##args); \
+		} while (0)
 #else
-#define TOUCH_INFO_MSG(fmt, args...)     {};
+#define TOUCH_INFO_MSG(fmt, args...) \
+		do {} while (0)
 #endif
 
 #if defined(TOUCH_ERROR_PRINT)
 #define TOUCH_ERR_MSG(fmt, args...) \
-		printk(KERN_ERR "[Touch E] [%s %d] " \
-				fmt, __FUNCTION__, __LINE__, ##args);
+		do { \
+			printk(KERN_ERR "[Touch E] [%s %d] " \
+				fmt, __func__, __LINE__, ##args); \
+		} while (0)
 #else
-#define TOUCH_ERR_MSG(fmt, args...)     {};
+#define TOUCH_ERR_MSG(fmt, args...) \
+		do {} while (0)
 #endif
 
 #if defined(TOUCH_DEBUG_PRINT)
 #define TOUCH_DEBUG_MSG(fmt, args...) \
-		printk(KERN_INFO "[Touch D] [%s %d] " \
-				fmt, __FUNCTION__, __LINE__, ##args);
+		do { \
+			printk(KERN_INFO "[Touch D] [%s %d] " \
+					fmt, __func__, __LINE__, ##args); \
+		} while (0)
 #else
-#define TOUCH_DEBUG_MSG(fmt, args...)     {};
+#define TOUCH_DEBUG_MSG(fmt, args...) \
+		do {} while(0)
 #endif
 
-#if defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_ATT)
+#if defined(CONFIG_MACH_MSM8974_G2_VZW) || defined(CONFIG_MACH_MSM8974_G2_TMO_US) || defined(CONFIG_MACH_MSM8974_G2_ATT)|| defined(CONFIG_MACH_MSM8974_Z_TMO_US) || defined(CONFIG_MACH_MSM8974_Z_ATT_US)
 #define ISIS_L2 /* block the exposure of privacy information */
 #endif
 
-int  touch_driver_register(struct touch_device_driver* driver);
+int  touch_driver_register(struct touch_device_driver *driver);
 void touch_driver_unregister(void);
 
-void set_touch_handle(struct i2c_client *client, void* h_touch);
-void* get_touch_handle(struct i2c_client *client);
+void set_touch_handle(struct i2c_client *client, void *h_touch);
+void *get_touch_handle(struct i2c_client *client);
+
+#ifdef CONFIG_LGE_SECURITY_KNOCK_ON
+void send_uevent(char* string[2]);
+#endif
+
+#ifdef I2C_SUSPEND_WORKAROUND
+	extern bool atmel_touch_i2c_suspended;
+#endif
+
+#if defined(CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU)
+enum {
+	TOUCH_PANEL_UNKNOWN = 0,
+	TOUCH_PANEL_G1F_LGIT,
+	TOUCH_PANEL_G1F_SSUNTEL,
+	TOUCH_PANEL_G2_LGIT,
+};
+#endif
+
 int touch_i2c_read(struct i2c_client *client, u8 reg, int len, u8 *buf);
 int touch_i2c_write(struct i2c_client *client, u8 reg, int len, u8 *buf);
 int touch_i2c_write_byte(struct i2c_client *client, u8 reg, u8 data);

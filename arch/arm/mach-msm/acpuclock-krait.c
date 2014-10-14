@@ -35,6 +35,7 @@
 #include <mach/rpm-regulator-smd.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_dcvs.h>
+#include <mach/cpufreq.h>
 
 #include "acpuclock.h"
 #include "acpuclock-krait.h"
@@ -44,15 +45,6 @@
 #define PRI_SRC_SEL_SEC_SRC	0
 #define PRI_SRC_SEL_HFPLL	1
 #define PRI_SRC_SEL_HFPLL_DIV2	2
-
-/*
- * added userspace interface for speed_bin & pvs_bin info
- * 2013-06-07 fred.cho@lge.com
- */
-#ifdef CONFIG_MACH_LGE
-int g_speed_bin;
-int g_pvs_bin;
-#endif
 
 static DEFINE_MUTEX(driver_lock);
 static DEFINE_SPINLOCK(l2_lock);
@@ -64,8 +56,12 @@ static unsigned long acpuclk_krait_get_rate(int cpu)
 	return drv.scalable[cpu].cur_speed->khz;
 }
 
-/* Select a source on the primary MUX. */
-static void set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
+struct set_clk_src_args {
+	struct scalable *sc;
+	u32 src_sel;
+};
+
+static void __set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
 {
 	u32 regval;
 
@@ -80,6 +76,27 @@ static void set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
 	/* Wait for switch to complete. */
 	mb();
 	udelay(1);
+}
+
+static void __set_cpu_pri_clk_src(void *data)
+{
+	struct set_clk_src_args *args = data;
+	__set_pri_clk_src(args->sc, args->src_sel);
+}
+
+/* Select a source on the primary MUX. */
+static void set_pri_clk_src(struct scalable *sc, u32 pri_src_sel)
+{
+	int cpu = sc - drv.scalable;
+	if (sc != &drv.scalable[L2] && cpu_online(cpu)) {
+		struct set_clk_src_args args = {
+			.sc = sc,
+			.src_sel = pri_src_sel,
+		};
+		smp_call_function_single(cpu, __set_cpu_pri_clk_src, &args, 1);
+	} else {
+		__set_pri_clk_src(sc, pri_src_sel);
+	}
 }
 
 /* Select a source on the secondary MUX. */
@@ -1083,15 +1100,17 @@ void __init get_krait_bin_format_b(void __iomem *base, struct bin_info *bin)
 
 	pte_efuse = readl_relaxed(base);
 	redundant_sel = (pte_efuse >> 24) & 0x7;
+	bin->pvs_rev = (pte_efuse >> 4) & 0x3;
 	bin->speed = pte_efuse & 0x7;
-	bin->pvs = (pte_efuse >> 6) & 0x7;
+	/* PVS number is in bits 31, 8, 7, 6 */
+	bin->pvs = ((pte_efuse >> 28) & 0x8) | ((pte_efuse >> 6) & 0x7);
 
 	switch (redundant_sel) {
 	case 1:
-		bin->speed = (pte_efuse >> 27) & 0x7;
+		bin->speed = (pte_efuse >> 27) & 0xF;
 		break;
 	case 2:
-		bin->pvs = (pte_efuse >> 27) & 0x7;
+		bin->pvs = (pte_efuse >> 27) & 0xF;
 		break;
 	}
 	bin->speed_valid = true;
@@ -1127,22 +1146,21 @@ static struct pvs_table * __init select_freq_plan(
 	if (bin.pvs_valid) {
 		drv.pvs_bin = bin.pvs;
 		dev_info(drv.dev, "ACPU PVS: %d\n", drv.pvs_bin);
+		drv.pvs_rev = bin.pvs_rev;
+		dev_info(drv.dev, "ACPU PVS REVISION: %d\n", drv.pvs_rev);
 	} else {
 		drv.pvs_bin = 0;
 		dev_warn(drv.dev, "ACPU PVS: Defaulting to %d\n",
 			 drv.pvs_bin);
 	}
 
-/*
- * added userspace interface for speed_bin & pvs_bin info
- * 2013-06-07 fred.cho@lge.com
- */
-#ifdef CONFIG_MACH_LGE
-	g_speed_bin = drv.speed_bin;
-	g_pvs_bin = drv.pvs_bin;
-#endif
+	/*
+                                                          
+                               
+  */
+	set_speed_pvs_bin(drv.speed_bin, drv.pvs_bin);
 
-	return &params->pvs_tables[drv.speed_bin][drv.pvs_bin];
+	return &params->pvs_tables[drv.pvs_rev][drv.speed_bin][drv.pvs_bin];
 }
 
 static void __init drv_data_init(struct device *dev,

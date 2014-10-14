@@ -29,6 +29,10 @@
 #include <mach/msm_iommu_priv.h>
 #include <mach/socinfo.h>
 
+#ifdef CONFIG_MACH_LGE
+#define QMC_PATCH
+#endif
+
 struct msm_iova_data {
 	struct rb_node node;
 	struct mem_pool *pools;

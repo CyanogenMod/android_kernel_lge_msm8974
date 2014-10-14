@@ -10,45 +10,14 @@
 #include "tcc353x_api.h"
 #include "tcc353x_monitoring.h"
 #include "tcc353x_user_defines.h"
-#include "tcc353x_lna_control.h"
 
 #include "broadcast_tcc353x.h"
-#if defined (_MODEL_F9J_) || defined (_MODEL_GV_)
-#include "tcc3530_boot_tmm.h"
-#elif defined (_MODEL_TCC3535_)
-#include "tcc353x_boot_tcc3535.h"
-#endif
-
 #include "broadcast_dmb_typedef.h"
 #include "broadcast_dmb_drv_ifdef.h"
 
-/*                                 */
-/*                                         */
+/*#define _DISPLAY_MONITOR_DBG_LOG_*/
+/*#define _USE_ONSEG_SIGINFO_MODIFIED_MODE_*/
 #define _USE_MONITORING_TIME_GAP_
-
-#define _1_SEG_FIFO_THR_	(188*16) /*                                                                */
-//                                                                                                         
-#define _13_SEG_FIFO_THR_	(188*80) /*                                                                  */
-//                                                                                                          
-
-#ifdef _MODEL_F9J_
-#define MMB_EAR_ANTENNA
-#ifdef MMB_EAR_ANTENNA
-#define ISDBT_DEFAULT_NOTUSE_MODE -1
-#define ISDBT_UHF_MODE 0
-#define ISDBT_VHF_MODE 1
-
-#define ISDBT_DEFAULT_RETRACTABLE_MODE 0
-#define ISDBT_AUTO_ATENNA_SWITCHING_MODE 1
-#endif
-#endif
-
-/*
-                                    
-                           
-                           
-                           
-*/
 
 typedef enum {
 	TMM_13SEG = 0,
@@ -71,7 +40,6 @@ typedef enum {
 	ENUM_GET_TMCC_INFO,
 	ENUM_GET_ONESEG_SIG_INFO
 } EnumSigInfo;
-
 
 extern Tcc353xOption_t Tcc353xOptionSingle;
 extern TcpalSemaphore_t Tcc353xDrvSem;
@@ -111,45 +79,16 @@ static unsigned char InterleavingLen[24] =  {
 };
 
 I32S OnAir = 0;
-extern I32U gOverflowcnt;
 
 #if defined (_USE_MONITORING_TIME_GAP_)
 #define _MON_TIME_INTERVAL_ 	500
 TcpalTime_t CurrentMonitoringTime = 0;
 #endif
 
-#ifdef MMB_EAR_ANTENNA
-static int gIsdbtRfMode = ISDBT_DEFAULT_NOTUSE_MODE;
-static int gIsdbtAntennaMode = ISDBT_DEFAULT_RETRACTABLE_MODE;
-
-void isdbt_hw_antenna_switch(int ear_state);
-void isdbt_hw_set_rf_mode(int rf_mode);
-void isdbt_hw_set_antenna_mode(int antenna_mode);
-
-extern int check_ear_state(void);
-#endif
-
-void Tcc353xStreamBufferInit(I32S _moduleIndex);
-void Tcc353xStreamBufferClose(I32S _moduleIndex);
-void Tcc353xStreamBufferReset(I32S _moduleIndex);
-I32U Tcc353xGetStreamBuffer(I32S _moduleIndex, I08U * _buff, I32U _size);
-
-extern void tcc353x_timer_start (void);
-extern void tcc353x_timer_stop (void);
-
-extern void tcc353x_lnaControl_pause(void);
-extern void tcc353x_lnaControl_resume(void);
-
-#define GPIO_MMBI_ELNA_EN		8
-#define GPIO_MMBI_ANT_SW		9
-#define GPIO_1SEG_EAR_ANT_SEL_P		10
-#define GPIO_LNA_PON			11
-
-/*                           */
+/* Body of Internel function */
 int	broadcast_drv_start(void)
 {
-	int rc = ERROR;
-	
+	int rc;
 	rc = OK;
 	TcpalPrintStatus((I08S *)"[1seg]broadcast_drv_start\n");
 	return rc;
@@ -157,8 +96,7 @@ int	broadcast_drv_start(void)
 
 int	broadcast_get_stop_mode(void)
 {
-	int rc = ERROR;
-	
+	int rc;
 	rc = OK;
 	TcpalPrintStatus((I08S *)"[1seg]broadcast_get_stop_mode\n");
 	return rc;
@@ -188,25 +126,13 @@ int	broadcast_drv_if_power_off(void)
 
 static void Tcc353xWrapperSafeClose (void)
 {
-	/*                          */
+	/* close driver & power ctrl*/
 	OnAir = 0;
 	currentSelectedChannel = -1;
 	currentBroadCast = TMM_13SEG;
-	TcpalIrqDisable();
 	Tcc353xApiClose(0);
-	Tcc353xStreamBufferClose(0);
-#if defined (_I2C_STS_)
 	Tcc353xI2cClose(0);
-#else
-	Tcc353xTccspiClose(0);
-#endif
 	broadcast_drv_if_power_off();
-
-	#ifdef _MODEL_F9J_
-	#ifdef MMB_EAR_ANTENNA
-	gIsdbtRfMode = ISDBT_DEFAULT_NOTUSE_MODE;
-	#endif
-	#endif
 }
 
 int	broadcast_drv_if_open(void)
@@ -218,24 +144,16 @@ int	broadcast_drv_if_open(void)
 
 	TcpalSemaphoreLock(&Tcc353xDrvSem);
 
-#if defined (_I2C_STS_)
 	Tcc353xI2cOpen(0);
-#else
-	Tcc353xTccspiOpen(0);
-#endif
 	ret = Tcc353xApiOpen(0, &Tcc353xOptionSingle, sizeof(Tcc353xOption_t));
 	if (ret != TCC353X_RETURN_SUCCESS) {
-		/*                        */
+		/* driver re-open routine */
 		TcpalPrintErr((I08S *) "[1seg] TCC3530 Re-init (close & open)...\n");
 		Tcc353xWrapperSafeClose ();
 
-		/*                            */
+		/* re-open driver & power ctrl*/
 		broadcast_drv_if_power_on();
-#if defined (_I2C_STS_)
 		Tcc353xI2cOpen(0);
-#else
-		Tcc353xTccspiOpen(0);
-#endif
 		ret = Tcc353xApiOpen(0, &Tcc353xOptionSingle, sizeof(Tcc353xOption_t));
 		if (ret != TCC353X_RETURN_SUCCESS) {
 			TcpalPrintErr((I08S *) "[1seg] TCC3530 Init Fail!!!\n");
@@ -260,25 +178,11 @@ int	broadcast_drv_if_open(void)
 		Tcc353xWrapperSafeClose ();
 		rc = ERROR;
 	} else {
-		Tcc353xStreamBufferInit(0);
-		TcpalIrqEnable();
 		TcpalPrintStatus((I08S *) "[1seg] TCC3530 Init Success!!!\n");
 		rc = OK;
-
-#if defined (_USE_LNA_CONTROL_)
-		Tcc353xApiLnaControlInit(0, 0, ENUM_LNA_GAIN_HIGH);
-#endif
-		tcc353x_lnaControl_resume();
-		tcc353x_timer_start ();
 	}
 
 	OnAir = 1;
-	#ifdef _MODEL_F9J_
-	#ifdef MMB_EAR_ANTENNA
-	gIsdbtRfMode = ISDBT_DEFAULT_NOTUSE_MODE;
-	#endif
-	#endif
-	
 	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
 	return rc;
 }
@@ -288,34 +192,13 @@ int	broadcast_drv_if_close(void)
 	int rc = ERROR;	
 	int ret = 0;
 
-	/*                                                          */
-	#ifdef _MODEL_F9J_
-	#ifdef MMB_EAR_ANTENNA
-	isdbt_hw_set_rf_mode(ISDBT_DEFAULT_NOTUSE_MODE);
-	#endif
-	#endif
-	/*                                                          */
-
-	tcc353x_lnaControl_pause();
-	tcc353x_timer_stop ();
-
 	TcpalSemaphoreLock(&Tcc353xDrvSem);
 	OnAir = 0;
 	currentSelectedChannel = -1;
 	currentBroadCast = TMM_13SEG;
 
-	/*                   */
-	Tcc353xApiSetGpioControl(0, 0, GPIO_LNA_PON, 0);
-	Tcc353xApiSetGpioControl(0, 0, GPIO_MMBI_ELNA_EN, 0);
-
-	TcpalIrqDisable();
 	ret = Tcc353xApiClose(0);
-	Tcc353xStreamBufferClose(0);
-#if defined (_I2C_STS_)
 	Tcc353xI2cClose(0);
-#else
-	Tcc353xTccspiClose(0);
-#endif
 	if(ret == TCC353X_RETURN_SUCCESS)
 		rc = OK;
 
@@ -326,21 +209,9 @@ int	broadcast_drv_if_close(void)
 int	broadcast_drv_if_set_channel(struct broadcast_dmb_set_ch_info *udata)
 {	
 	Tcc353xTuneOptions tuneOption;
-	signed long frequency = 214714; /*   */
+	signed long frequency = 214714; /*tmm*/
 	int ret;
 	int needLockCheck = 0;
-
-	/*                                                          */
-#ifdef _MODEL_F9J_
-#ifdef MMB_EAR_ANTENNA
-	if(udata->subchannel == 22 && udata->rf_band==0) {
-		isdbt_hw_set_rf_mode(ISDBT_UHF_MODE);
-	} else {
-		isdbt_hw_set_rf_mode(ISDBT_VHF_MODE);
-	}
-#endif
-#endif
-	/*                                                          */
 
 	TcpalSemaphoreLock(&Tcc353xDrvSem);
 
@@ -352,8 +223,7 @@ int	broadcast_drv_if_set_channel(struct broadcast_dmb_set_ch_info *udata)
 
 	TcpalMemset (&tuneOption, 0x00, sizeof(tuneOption));
 
-#if defined (_MODEL_TCC3535_)
-	/*              */
+	/* uhf 1segment */
 	currentSelectedChannel = udata->channel;
 
 	if(udata->segment == 13) {
@@ -366,12 +236,7 @@ int	broadcast_drv_if_set_channel(struct broadcast_dmb_set_ch_info *udata)
 		tuneOption.segmentType = TCC353X_ISDBT_1_OF_13SEG;
 	}
 	
-#if defined (_I2C_STS_)
 	tuneOption.userFifothr = 0;
-#else
-	tuneOption.userFifothr = _13_SEG_FIFO_THR_;
-#endif
-
 	needLockCheck = 1;
 
 	if(udata->channel<13 || udata->channel>62) {
@@ -380,110 +245,14 @@ int	broadcast_drv_if_set_channel(struct broadcast_dmb_set_ch_info *udata)
 		return ERROR;
 	}
 	frequency = frequencyTable[udata->channel-13];
-#else
-	if(udata->subchannel == 22 && udata->rf_band==0) {
-		/*              */
-		currentBroadCast = UHF_1SEG;
-		currentSelectedChannel = udata->channel;
-		tuneOption.rfIfType = TCC353X_LOW_IF;
-		tuneOption.segmentType = TCC353X_ISDBT_1_OF_13SEG;
-		tuneOption.userFifothr = _1_SEG_FIFO_THR_;
 
-		needLockCheck = 1;
-
-		if(udata->channel<13 || udata->channel>62) {
-			TcpalPrintErr((I08S *)"[1seg] channel information error\n");
-			TcpalSemaphoreUnLock(&Tcc353xDrvSem);
-			return ERROR;
-		}
-		frequency = frequencyTable[udata->channel-13];
-	} else if (udata->subchannel == 22) {
-		/*           */
-
-		if(udata->channel==0 || udata->channel>33) {
-			TcpalPrintErr((I08S *)"[1seg] channel information error [%d]\n", udata->channel);
-			TcpalSemaphoreUnLock(&Tcc353xDrvSem);
-			return ERROR;
-		}
-
-		currentBroadCast = TMM_13SEG;
-		currentSelectedChannel = udata->channel;
-		tuneOption.rfIfType = TCC353X_ZERO_IF;
-		tuneOption.segmentType = TCC353X_ISDBTMM;
-		tuneOption.userFifothr = _13_SEG_FIFO_THR_;
-
-		if(udata->channel == 7)
-			tuneOption.tmmSet = C_1st_13Seg;
-		else if(udata->channel == 20)
-			tuneOption.tmmSet = C_2nd_13Seg;
-		else if(udata->channel == 27)
-			tuneOption.tmmSet = B_2nd_13Seg;
-		else if(udata->channel == 14)
-			tuneOption.tmmSet = A_1st_13Seg;
-		else {
-			tuneOption.tmmSet = UserDefine_Tmm13Seg;
-			frequency = MMBI_FREQ_TABLE[udata->channel-1];
-		}
-	} else {
-		/*          */
-
-		if(udata->channel==0 || udata->channel>33) {
-			TcpalPrintErr((I08S *)"[1seg] channel information error [%d]\n", udata->channel);
-			TcpalSemaphoreUnLock(&Tcc353xDrvSem);
-			return ERROR;
-		}
-
-		currentBroadCast = TMM_1SEG;
-		currentSelectedChannel = udata->channel;
-		tuneOption.rfIfType = TCC353X_LOW_IF;
-		tuneOption.segmentType = TCC353X_ISDBTMM;
-		tuneOption.userFifothr = _1_SEG_FIFO_THR_;
-
-		if(udata->channel < 8 && udata->channel > 0)
-			tuneOption.tmmSet = A_1st_1Seg+udata->channel-1;
-		else if(udata->channel < 21 && udata->channel > 13)
-			tuneOption.tmmSet = B_1st_1Seg+udata->channel-14;
-		else if(udata->channel < 34 && udata->channel > 26)
-			tuneOption.tmmSet = C_1st_1Seg+udata->channel-27;
-		else {
-			tuneOption.tmmSet = UserDefine_Tmm1Seg;
-			frequency = MMBI_FREQ_TABLE[udata->channel-1];
-		}
-	}
-#endif 
-
-	TcpalIrqDisable();
-	gOverflowcnt = 0;
-
-	/*                          */
-	if(currentBroadCast == UHF_1SEG || currentBroadCast == UHF_13SEG)
-		Tcc353xApiSetGpioControl(0, 0, GPIO_MMBI_ANT_SW, 1);
-	else
-		Tcc353xApiSetGpioControl(0, 0, GPIO_MMBI_ANT_SW, 0);
-		
-#if defined (_MODEL_F9J_)
-	/*                         */
-	/*                                                  */
-	Tcc353xApiSetGpioControl(0, 0, GPIO_LNA_PON, 1);
-	Tcc353xApiSetGpioControl(0, 0, GPIO_MMBI_ELNA_EN, 0);
-#endif
-
-	tcc353x_lnaControl_pause();
-#if defined (_USE_LNA_CONTROL_)
-	Tcc353xApiLnaControlInit(0, 0, ENUM_LNA_GAIN_HIGH);
-#endif
-
-	if(needLockCheck && udata->mode == 1)	/*                             */
+	if(needLockCheck && udata->mode == 1)	/* Scan mode & need lock check */
 		ret = Tcc353xApiChannelSearch(0, frequency, &tuneOption);
-	else				/*             */
+	else				/* normal mode */
 		ret = Tcc353xApiChannelSelect(0, frequency, &tuneOption);
 
-	tcc353x_lnaControl_resume();
-
-	Tcc353xStreamBufferReset(0);
 	Tcc353xMonitoringApiInit(0, 0);
 	CurrentMonitoringTime = 0;
-	TcpalIrqEnable();
 
 	if(ret!=TCC353X_RETURN_SUCCESS) {
 		TcpalSemaphoreUnLock(&Tcc353xDrvSem);
@@ -496,10 +265,10 @@ int	broadcast_drv_if_set_channel(struct broadcast_dmb_set_ch_info *udata)
 
 int	broadcast_drv_if_resync(void)
 {
-	int rc = ERROR;
+	int rc;
 	/*
-                        
- */
+	TCC3530 use auto-resync
+	*/
 	rc = OK;
 	return rc;
 }
@@ -562,7 +331,7 @@ static int Tcc353xWrapperGetLayerInfo(int layer, Tcc353xStatus_t *st)
 	ret |= (cr << 10);
 	temp = intLen * 3 + mode;
 	if(temp>23)
-		outIntLen = 62; /*          */
+		outIntLen = 62; /*set others*/
 	else
 		outIntLen = InterleavingLen[temp];
 	ret |= ((outIntLen & 0x3F)<<4);
@@ -658,15 +427,15 @@ char *cMode[8] = {"Mode1","Mode2","Mode3","reserved","reserved","reserved","rese
 char *cGI[8] = {"1/32","1/16","1/8","1/4","reserved","reserved","reserved","reserved"};
 #endif
 
-#if defined (_USE_LNA_CONTROL_) || defined (_USE_MONITORING_TASK_) || defined (_USE_MONITORING_TIME_GAP_)
+#if defined (_USE_MONITORING_TIME_GAP_)
 Tcc353xStatus_t SignalInfo;
 #endif
 
 static void broadcast_drv_if_get_oneseg_sig_info(Tcc353xStatus_t *pst, struct broadcast_dmb_control_info *pInfo)
 {
 	pInfo->sig_info.info.oneseg_info.lock = pst->status.isdbLock.TMCC;
-	pInfo->sig_info.info.oneseg_info.cn = pst->status.snr.avgValue;
-	pInfo->sig_info.info.oneseg_info.ber = pst->status.viterbiber[0].avgValue;
+	pInfo->sig_info.info.oneseg_info.cn = pst->status.snr.currentValue;
+	pInfo->sig_info.info.oneseg_info.ber = pst->status.viterbiber[0].currentValue;
 	pInfo->sig_info.info.oneseg_info.per = pst->status.tsper[0].avgValue;
 	pInfo->sig_info.info.oneseg_info.agc = pst->bbLoopGain;
 	pInfo->sig_info.info.oneseg_info.rssi = pst->status.rssi.avgValue/100;
@@ -686,10 +455,10 @@ static void broadcast_drv_if_get_oneseg_sig_info(Tcc353xStatus_t *pst, struct br
 
 #if defined (_USE_ONSEG_SIGINFO_MODIFIED_MODE_)
 	/*
-                 
-         
-          
- */
+	Num : Modulation
+	Exp : CR
+	mode : GI
+	*/
 	if((pst->opstat.syncStatus>>8&0x0F)<0x0C) {
 		pInfo->sig_info.info.oneseg_info.Num = 0xFF;
 		pInfo->sig_info.info.oneseg_info.Exp = 0xFF;
@@ -699,13 +468,13 @@ static void broadcast_drv_if_get_oneseg_sig_info(Tcc353xStatus_t *pst, struct br
 		pInfo->sig_info.info.oneseg_info.Exp = (pst->opstat.ACr & 0x07);
 
 		if(pst->opstat.gi==0)
-			pInfo->sig_info.info.oneseg_info.mode = 3; /*          */
+			pInfo->sig_info.info.oneseg_info.mode = 3; /* GI - 1/4 */
 		else if(pst->opstat.gi==1)
-			pInfo->sig_info.info.oneseg_info.mode = 2; /*          */
+			pInfo->sig_info.info.oneseg_info.mode = 2; /* GI - 1/8 */
 		else if(pst->opstat.gi==2)
-			pInfo->sig_info.info.oneseg_info.mode = 1; /*           */
+			pInfo->sig_info.info.oneseg_info.mode = 1; /* GI - 1/16 */
 		else
-			pInfo->sig_info.info.oneseg_info.mode = 0; /*           */
+			pInfo->sig_info.info.oneseg_info.mode = 0; /* GI - 1/32 */
 
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		TcpalPrintStatus((I08S *)"[1seg][monitor] Modulation [%s] CR[%s] GI[%s]\n",
@@ -718,7 +487,7 @@ static void broadcast_drv_if_get_oneseg_sig_info(Tcc353xStatus_t *pst, struct br
 	pInfo->sig_info.info.oneseg_info.Num = 0;
 	pInfo->sig_info.info.oneseg_info.Exp = 0;
 	pInfo->sig_info.info.oneseg_info.mode = 0;
-#endif /*                                   */
+#endif /* _USE_ONSEG_SIGINFO_MODIFIED_MODE_ */
 
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 	TcpalPrintStatus((I08S *)"[1seg][monitor] lock[%d] Antenna[%d] cn[%d] ber[%d] per[%d] rssi[%d] errTSP[%d/%d]\n", 
@@ -750,19 +519,14 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 		return ERROR;
 	}
 
-#if defined (_USE_LNA_CONTROL_) || defined (_USE_MONITORING_TASK_)
-	ret = 0;
-	TcpalMemcpy(&st, &SignalInfo, sizeof(Tcc353xStatus_t));
-#else
-
 #if defined (_USE_MONITORING_TIME_GAP_)
 	tempTime = TcpalGetCurrentTimeCount_ms();
 	timeGap = (unsigned int)(TcpalGetTimeIntervalCount_ms(CurrentMonitoringTime));
 
 	if(timeGap > _MON_TIME_INTERVAL_) {
 		/*
-                                                                     
-  */
+		TcpalPrintStatus((I08S *)"[TCC353X] Monitoring Function Access\n");
+		*/
 		CurrentMonitoringTime = tempTime;
 		ret =Tcc353xMonitoringApiGetStatus(0, 0, &SignalInfo);
 		if(ret != TCC353X_RETURN_SUCCESS) {
@@ -781,24 +545,21 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 	}
 	Tcc353xMonitoringApiAntennaPercentage (0, &st, sizeof(Tcc353xStatus_t));
 #endif
-
-#endif
-
 	layer = pInfo->cmd_info.layer;
 
 	switch(pInfo->cmd_info.cmd)
 	{
 	case ENUM_GET_ALL:
 		pInfo->sig_info.info.mmb_info.cn = 
-				st.status.snr.avgValue;
+				st.status.snr.currentValue;
 
 		/*
-                                      
-                                         
-                      
-                                      
-                                    
-  */
+		pInfo->sig_info.info.mmb_info.ber = 
+				st.status.viterbiber[layer].avgValue;
+				st.opstat.BRsCnt1;
+		pInfo->sig_info.info.mmb_info.per = 
+				st.status.tsper[layer].avgValue;
+		*/
 
 		if(layer==0)
 			pInfo->sig_info.info.mmb_info.ber = 
@@ -855,7 +616,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			pInfo->sig_info.info.mmb_info.sysinfo);
 #endif
 
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			if(pInfo->sig_info.info.mmb_info.layerinfo==0xFFFF) {
@@ -902,9 +663,9 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 
 	case ENUM_GET_BER:
 		/*
-                                      
-                                        
-  */
+		pInfo->sig_info.info.mmb_info.ber = 
+			st.status.viterbiber[layer].avgValue;
+		*/
 
 		if(layer==0)
 			pInfo->sig_info.info.mmb_info.ber = 
@@ -927,9 +688,9 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 
 	case ENUM_GET_PER:
 		/*
-                                      
-                                   
-  */
+		pInfo->sig_info.info.mmb_info.per = 
+			st.status.tsper[layer].avgValue;
+		*/
 
 		if(layer==0)
 			pInfo->sig_info.info.mmb_info.per = 
@@ -952,14 +713,14 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 
 	case ENUM_GET_CN:
 		pInfo->sig_info.info.mmb_info.cn = 
-			st.status.snr.avgValue;
+			st.status.snr.currentValue;
 		TcpalPrintStatus((I08S *)"[mmbi][monitor] cn[%d]\n",
 				pInfo->sig_info.info.mmb_info.cn);
 	break;
 
 	case ENUM_GET_CN_PER_LAYER:
 		pInfo->sig_info.info.mmb_info.cn = 
-			st.status.snr.avgValue;
+			st.status.snr.currentValue;
 		TcpalPrintStatus((I08S *)"[mmbi][monitor] cn[%d]\n",
 				pInfo->sig_info.info.mmb_info.cn);
 	break;
@@ -970,7 +731,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  layer info[%d]\n",
 				pInfo->sig_info.info.mmb_info.layerinfo);
 
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			if(pInfo->sig_info.info.mmb_info.layerinfo==0xFFFF) {
@@ -991,7 +752,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 				Tcc353xWrapperGetReceiveStat(&st);
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  rcv status[%d]\n",
 				pInfo->sig_info.info.mmb_info.receive_status);
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			if(pInfo->sig_info.info.mmb_info.receive_status==0xFF) {
@@ -1017,7 +778,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			Tcc353xWrapperGetScanStat(&st);
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  scan status[%d]\n",
 				pInfo->sig_info.info.mmb_info.scan_status);
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			char *cScanStat[8] = {"Scan Fail","Scan decision...","Channel Exist","No channel","reserved","reserved","reserved","reserved"};
@@ -1032,7 +793,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			Tcc353xWrapperGetSysInfo(&st);
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  sys info[%d]\n",
 				pInfo->sig_info.info.mmb_info.sysinfo);
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			if(pInfo->sig_info.info.mmb_info.sysinfo==0xFF) {
@@ -1051,7 +812,7 @@ int	broadcast_drv_if_get_sig_info(struct broadcast_dmb_control_info *pInfo)
 			Tcc353xWrapperGetTmccInfo(&st);
 		TcpalPrintStatus((I08S *)"[mmbi][monitor]  tmcc info[%d]\n",
 				pInfo->sig_info.info.mmb_info.tmccinfo);
-		/*                   */
+		/* for debugging log */
 #ifdef _DISPLAY_MONITOR_DBG_LOG_
 		{
 			if(pInfo->sig_info.info.mmb_info.tmccinfo==0xFF) {
@@ -1093,8 +854,8 @@ int	broadcast_drv_if_get_ch_info(struct broadcast_dmb_ch_info *ch_info)
 	}
 
 	/*
-                
- */
+	Unused function
+	*/
 	rc = OK;
 	return rc;
 }
@@ -1115,8 +876,8 @@ int	broadcast_drv_if_get_dmb_data(struct broadcast_dmb_data_info *pdmb_data)
 		return ERROR;
 	}
 
-	pdmb_data->copied_size = (unsigned int) (Tcc353xGetStreamBuffer(0, pdmb_data->data_buf, pdmb_data->data_buf_size));
-	pdmb_data->packet_cnt = pdmb_data->copied_size / 188;
+	pdmb_data->copied_size = 0;
+	pdmb_data->packet_cnt = 0;
 	return OK;
 }
 
@@ -1147,9 +908,8 @@ int	broadcast_drv_if_reset_ch(void)
 
 int	broadcast_drv_if_user_stop(int mode)
 {
-	int ret = 0;
-	int rc = ERROR;
-
+	int rc;
+	rc = OK;
 	if(OnAir == 0) {
 		TcpalPrintErr((I08S *)"[1seg][no semaphore] broadcast_drv_if_user_stop error [!OnAir]\n");
 		return ERROR;
@@ -1157,45 +917,34 @@ int	broadcast_drv_if_user_stop(int mode)
 
 	TcpalPrintStatus((I08S *)"[1seg][no semaphore] broadcast_drv_if_user_stop\n");
 	Tcc353xApiUserLoopStopCmd(0);
-	ret = OK;
 	return rc;
 }
 
 int	broadcast_drv_if_select_antenna(unsigned int sel)
 {
-	int rc = ERROR;
-
+	int rc;
+	rc = OK;
 	if(OnAir == 0) {
 		TcpalPrintErr((I08S *)"[1seg][no semaphore] broadcast_drv_if_select_antenna error [!OnAir]\n");
 		return ERROR;
 	}
-	
-	rc = OK;
 	return rc;
 }
 
 int	broadcast_drv_if_isr(void)
 {
-	int rc = ERROR;
-	
+	int rc;
+	rc = OK;
 	if(OnAir == 0) {
 		TcpalPrintErr((I08S *)"[1seg] broadcast_drv_if_isr error [!OnAir]\n");
 		return ERROR;
 	}
-	
-	rc = OK;
 	return rc;
 }
 
 int	broadcast_drv_if_read_control(char *buf, unsigned int size)
 {
-	int ret = 0;
-
-	if(OnAir == 0 || buf == NULL)
-		return 0;
-
-	ret = (int)(Tcc353xGetStreamBuffer(0, buf, size));
-	return ret;
+	return 0;
 }
 
 int	broadcast_drv_if_get_mode (unsigned short *mode)
@@ -1237,177 +986,13 @@ int	broadcast_drv_if_get_mode (unsigned short *mode)
 	rc = OK;
 	return rc;
 }
-
-int	broadcast_drv_control_1SegEarAntennaSel (unsigned int data)
-{
-	/*                        */
-	int rc = ERROR;
-
-	if(OnAir == 0) {
-		TcpalPrintErr((I08S *)"[1seg] broadcast_drv_control_1SegEarAntennaSel error [!OnAir]\n");
-		return ERROR;
-	}
-
-	if(data==0)
-		Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 0);//               
-	else
-		Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 1);//       
-
-	rc = OK;
-	return rc;
-}
-
-#ifdef MMB_EAR_ANTENNA
-//                             
-void isdbt_hw_antenna_switch(int ear_state)
-{
-	TcpalSemaphoreLock(&Tcc353xDrvSem);
-	if(gIsdbtAntennaMode == ISDBT_DEFAULT_RETRACTABLE_MODE)
-	{
-		printk("ear detect, but default retractable ant. so don't work");
-	}
-	else
-	{
-		if(gIsdbtRfMode == ISDBT_VHF_MODE)
-		{
-			//                                                                            
-			if(ear_state == 1)
-			{
-				//                     
-				Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 1);//       
-				printk("mmbi ear on detect 1 \n");
-			}
-			else if(ear_state == 0)
-			{
-				//           
-				Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 0);//               
-				printk("mmbi ear off detect 0 \n");
-			}
-			else
-			{
-				//             
-				printk("mmbi nothing to do \n");
-			}
-		}
-		else
-		{
-			printk("UHF Mode not working \n");
-			//             
-		}
-	}
-	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
-}
-EXPORT_SYMBOL(isdbt_hw_antenna_switch);
-
-//                               
-void isdbt_hw_set_rf_mode(int rf_mode)
-{
-	//                                               
-	int check_ear = 0; 
-	TcpalSemaphoreLock(&Tcc353xDrvSem);
-
-	check_ear = check_ear_state(); //              
-
-	if(gIsdbtAntennaMode == ISDBT_DEFAULT_RETRACTABLE_MODE)
-	{//       
-		Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 0);//               
-		printk("default mode retractable antenna mode!!! \n");
-		gIsdbtRfMode = rf_mode;
-	}
-	else
-	{//              
-		if(gIsdbtRfMode == ISDBT_DEFAULT_NOTUSE_MODE)
-		{
-			if(rf_mode == ISDBT_VHF_MODE)
-			{
-				if(check_ear == 1)
-				{
-					//                       
-					Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 1);//       
-					printk("auto switching mmbi start ear on \n");
-				}
-				else
-				{
-					//             
-					Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 0);//               
-					printk("auto switching mmbi start ear off \n");
-				}
-				
-			}
-			else
-			{
-				Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 0);//               
-				printk("auto switching UHF default retractable = %d \n", check_ear);
-			}
-
-			//                            
-			gIsdbtRfMode = rf_mode;
-		}
-		else
-		{
-			//              
-			printk("auto switching mode, but already setting check rf mode = %d ear state = %d\n", gIsdbtRfMode, check_ear);
-			gIsdbtRfMode = rf_mode;
-		}
-	}
-	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
-}
-EXPORT_SYMBOL(isdbt_hw_set_rf_mode);
-
-//                                      
-void isdbt_hw_set_antenna_mode(int antenna_mode)
-{
-	//                                               
-	int check_ear = 0; 
-	TcpalSemaphoreLock(&Tcc353xDrvSem);
-	
-	if(gIsdbtRfMode == ISDBT_DEFAULT_NOTUSE_MODE)
-	{
-		printk("\n Menu sttings mode = %d\n", antenna_mode);
-		gIsdbtAntennaMode = antenna_mode;
-	}
-	else
-	{
-		if((gIsdbtRfMode == ISDBT_VHF_MODE) && (antenna_mode == ISDBT_AUTO_ATENNA_SWITCHING_MODE))
-		{
-			check_ear = check_ear_state(); //              
-			
-			if(check_ear == 1)
-			{
-				//                       
-				Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 1);//       
-				printk("\n Menu sttings mmbi start ear on \n");
-			}
-			else
-			{
-				//             
-				Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 0);//               
-				printk("\n Menu sttings mmbi start ear off \n");
-			}
-
-		}
-		else
-		{
-			//             
-			Tcc353xApiSetGpioControl(0, 0, GPIO_1SEG_EAR_ANT_SEL_P, 0);//               
-			printk("\n Menu sttings mmbi start default retactable \n");
-		}
-
-		gIsdbtAntennaMode = antenna_mode;
-	}
-
-	TcpalSemaphoreUnLock(&Tcc353xDrvSem);
-}
-EXPORT_SYMBOL(isdbt_hw_set_antenna_mode);
-#endif
-
 /*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 
-/*                                                      
-                                                        
-                               */
+/* optional part when we include driver code to build-on
+it's just used when we make device driver to module(.ko)
+so it doesn't work in build-on */
 MODULE_DESCRIPTION("TCC3530 ISDB-Tmm device driver");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("TCC");

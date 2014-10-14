@@ -403,6 +403,7 @@ struct v4l2_pix_format {
 #define V4L2_PIX_FMT_DIVX      v4l2_fourcc('D', 'I', 'V', 'X') /* DIVX        */
 #define V4L2_PIX_FMT_VP8 v4l2_fourcc('V', 'P', '8', '0') /* ON2 VP8 stream */
 #define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C') /* for HEVC stream */
+#define V4L2_PIX_FMT_HEVC_HYBRID v4l2_fourcc('H', 'V', 'C', 'H')
 
 /*  Vendor-specific formats   */
 #define V4L2_PIX_FMT_CPIA1    v4l2_fourcc('C', 'P', 'I', 'A') /* cpia1 YUV */
@@ -705,7 +706,8 @@ struct v4l2_buffer {
 #define V4L2_QCOM_BUF_DATA_CORRUPT 0x80000
 #define V4L2_QCOM_BUF_DROP_FRAME 0x100000
 #define V4L2_QCOM_BUF_INPUT_UNSUPPORTED 0x200000
-#define V4L2_QCOM_BUF_FLAG_READONLY 0x400000
+#define V4L2_QCOM_BUF_FLAG_EOS          0x2000
+#define V4L2_QCOM_BUF_FLAG_READONLY     0x400000
 
 /*
  *	O V E R L A Y   P R E V I E W
@@ -769,7 +771,8 @@ struct v4l2_captureparm {
 #define V4L2_CAP_QCOM_FRAMESKIP	0x2000	/*  frame skipping is supported */
 
 struct v4l2_qcom_frameskip {
-	__u64		maxframeinterval;
+	__u64		   maxframeinterval;
+	__u8		   fpsvariance;
 };
 
 struct v4l2_outputparm {
@@ -1551,6 +1554,7 @@ enum v4l2_mpeg_video_h264_level {
 	V4L2_MPEG_VIDEO_H264_LEVEL_4_2	= 13,
 	V4L2_MPEG_VIDEO_H264_LEVEL_5_0	= 14,
 	V4L2_MPEG_VIDEO_H264_LEVEL_5_1	= 15,
+	V4L2_MPEG_VIDEO_H264_LEVEL_5_2	= 16,
 };
 #define V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_ALPHA	(V4L2_CID_MPEG_BASE+360)
 #define V4L2_CID_MPEG_VIDEO_H264_LOOP_FILTER_BETA	(V4L2_CID_MPEG_BASE+361)
@@ -1861,9 +1865,9 @@ enum v4l2_mpeg_vidc_video_h264_vui_timing_info {
 };
 
 #define V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_INPUT	\
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 30)
-#define V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_OUTPUT       \
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 31)
+		(V4L2_CID_MPEG_MSM_VIDC_BASE+30)
+#define V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_OUTPUT	\
+		 (V4L2_CID_MPEG_MSM_VIDC_BASE+31)
 enum v4l2_mpeg_vidc_video_alloc_mode_type {
 	V4L2_MPEG_VIDC_VIDEO_STATIC	= 0,
 	V4L2_MPEG_VIDC_VIDEO_RING	= 1,
@@ -1871,14 +1875,14 @@ enum v4l2_mpeg_vidc_video_alloc_mode_type {
 };
 
 #define V4L2_CID_MPEG_VIDC_VIDEO_FRAME_ASSEMBLY	\
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 32)
+		(V4L2_CID_MPEG_MSM_VIDC_BASE+32)
 enum v4l2_mpeg_vidc_video_assembly {
 	V4L2_MPEG_VIDC_FRAME_ASSEMBLY_DISABLE	= 0,
 	V4L2_MPEG_VIDC_FRAME_ASSEMBLY_ENABLE	= 1,
 };
 
 #define V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL \
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 33)
+		(V4L2_CID_MPEG_MSM_VIDC_BASE+33)
 enum v4l2_mpeg_vidc_video_vp8_profile_level {
 	V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
 	V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
@@ -1887,22 +1891,21 @@ enum v4l2_mpeg_vidc_video_vp8_profile_level {
 	V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
 };
 
-#define V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT \
-		(V4L2_CID_MPEG_MSM_VIDC_BASE + 34)
-enum v4l2_mpeg_vidc_video_h264_vui_bitstream_restrict {
-	V4L2_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT_DISABLED = 0,
-	V4L2_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT_ENABLED = 1
+#define V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE \
+	(V4L2_CID_MPEG_MSM_VIDC_BASE + 34)
+enum v4l2_mpeg_vidc_video_deinterlace {
+	V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_DISABLED = 0,
+	V4L2_CID_MPEG_VIDC_VIDEO_DEINTERLACE_ENABLED = 1
 };
-
-#define V4L2_CID_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY \
+#define V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 35)
-enum v4l2_mpeg_vidc_video_preserve_text_quality {
-	V4L2_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY_DISABLED = 0,
-	V4L2_MPEG_VIDC_VIDEO_PRESERVE_TEXT_QUALITY_ENABLED = 1
+enum v4l2_mpeg_vidc_video_decoder_multi_stream {
+	V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY = 0,
+	V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY = 1,
 };
 
-#define V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_SEQ_HEADER \
-	(V4L2_CID_MPEG_MSM_VIDC_BASE + 36)
+#define V4L2_CID_MPEG_VIDC_VIDEO_VP8_MIN_QP (V4L2_CID_MPEG_MSM_VIDC_BASE + 36)
+#define V4L2_CID_MPEG_VIDC_VIDEO_VP8_MAX_QP (V4L2_CID_MPEG_MSM_VIDC_BASE + 37)
 
 /*  Camera class control IDs */
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)

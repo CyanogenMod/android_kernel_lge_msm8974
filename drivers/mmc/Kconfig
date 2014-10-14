@@ -27,6 +27,13 @@ config MMC_PERF_PROFILING
 	  If you say Y here, support will be added for collecting
 	  performance numbers at the MMC Queue and Host layers.
 
+config MACH_MSM8974_EMMC_HW_RESET
+	bool "MMC re-initialization support"
+	default n
+	help
+		If you say Y here, mmc re-initialization code will be active
+		when there's no response from eMMC.
+
 if MMC
 
 source "drivers/mmc/core/Kconfig"
