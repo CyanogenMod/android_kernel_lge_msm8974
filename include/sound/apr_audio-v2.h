@@ -1969,6 +1969,14 @@ struct afe_param_id_pseudo_port_cfg {
 	 */
 } __packed;
 
+#define AFE_PARAM_ID_DEVICE_HW_DELAY     0x00010243
+#define AFE_API_VERSION_DEVICE_HW_DELAY  0x1
+
+struct afe_param_id_device_hw_delay_cfg {
+	uint32_t    device_hw_delay_minor_version;
+	uint32_t    delay_in_us;
+} __packed;
+
 union afe_port_config {
 	struct afe_param_id_pcm_cfg               pcm;
 	struct afe_param_id_i2s_cfg               i2s;
@@ -1977,6 +1985,7 @@ union afe_port_config {
 	struct afe_param_id_rt_proxy_port_cfg     rtproxy;
 	struct afe_param_id_internal_bt_fm_cfg    int_bt_fm;
 	struct afe_param_id_pseudo_port_cfg       pseudo_port;
+	struct afe_param_id_device_hw_delay_cfg   hw_delay;
 } __packed;
 
 struct afe_audioif_config_command_no_payload {
@@ -2481,6 +2490,8 @@ struct asm_softvolume_params {
 #define ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2 0x00010DA5
 
 #define ASM_STREAM_POSTPROC_TOPO_ID_DEFAULT 0x00010BE4
+
+#define ASM_STREAM_POSTPROC_TOPO_ID_NONE 0x00010C68
 
 #define ASM_MEDIA_FMT_EVRCB_FS 0x00010BEF
 
@@ -3666,6 +3677,7 @@ struct asm_session_cmd_run_v2 {
 } __packed;
 
 #define ASM_SESSION_CMD_PAUSE 0x00010BD3
+#define ASM_SESSION_CMD_SUSPEND 0x00010DEC
 #define ASM_SESSION_CMD_GET_SESSIONTIME_V3 0x00010D9D
 #define ASM_SESSION_CMD_REGISTER_FOR_RX_UNDERFLOW_EVENTS 0x00010BD5
 
@@ -4299,7 +4311,6 @@ struct asm_aac_sbr_ps_flag_param {
 struct asm_aac_dual_mono_mapping_param {
 	struct apr_hdr							hdr;
 	struct asm_stream_cmd_set_encdec_param	encdec;
-	struct asm_enc_cfg_blk_param_v2			encblk;
 	u16    left_channel_sce;
 	u16    right_channel_sce;
 
@@ -4687,25 +4698,6 @@ struct asm_stream_cmd_open_write_compressed {
  * IEC 61937 packetization is not performed by the aDSP.
  */
 
-} __packed;
-
-
-/*
-    Indicates the number of samples per channel to be removed from the
-    beginning of the stream.
-*/
-#define ASM_DATA_CMD_REMOVE_INITIAL_SILENCE 0x00010D67
-/*
-    Indicates the number of samples per channel to be removed from
-    the end of the stream.
-*/
-#define ASM_DATA_CMD_REMOVE_TRAILING_SILENCE 0x00010D68
-struct asm_data_cmd_remove_silence {
-	struct apr_hdr hdr;
-	u32	num_samples_to_remove;
-	/**< Number of samples per channel to be removed.
-
-	   @values 0 to (2@sscr{32}-1) */
 } __packed;
 
 #define ASM_STREAM_CMD_OPEN_READ_COMPRESSED                        0x00010D95
@@ -7146,6 +7138,11 @@ struct afe_port_cmd_set_aanc_acdb_table {
 /* Dolby DAP topology */
 #define DOLBY_ADM_COPP_TOPOLOGY_ID	0x0001033B
 
+/* RMS value from DSP */
+#define RMS_MODULEID_APPI_PASSTHRU  0x10009011
+#define RMS_PARAM_FIRST_SAMPLE 0x10009012
+#define RMS_PAYLOAD_LEN 4
+
 struct afe_svc_cmd_set_clip_bank_selection {
 	struct apr_hdr hdr;
 	struct afe_svc_cmd_set_param param;
@@ -7154,8 +7151,10 @@ struct afe_svc_cmd_set_clip_bank_selection {
 } __packed;
 
 /* Ultrasound supported formats */
-#define US_POINT_EPOS_FORMAT 0x00012310
-#define US_RAW_FORMAT        0x0001127C
-#define US_PROX_FORMAT       0x0001272B
+#define US_POINT_EPOS_FORMAT_V2 0x0001272D
+#define US_RAW_FORMAT_V2        0x0001272C
+#define US_PROX_FORMAT_V2       0x0001272E
+#define US_RAW_SYNC_FORMAT      0x0001272F
+#define US_GES_SYNC_FORMAT      0x00012730
 
 #endif /*_APR_AUDIO_V2_H_ */

@@ -100,10 +100,18 @@ struct buf_info {
 	struct vb2_buffer *buf;
 };
 
+enum buffer_owner {
+	DRIVER,
+	FIRMWARE,
+	CLIENT,
+	MAX_OWNER
+};
+
 struct internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
 	struct msm_smem *handle;
+	enum buffer_owner buffer_ownership;
 };
 
 struct msm_vidc_format {
@@ -112,7 +120,6 @@ struct msm_vidc_format {
 	u32 fourcc;
 	int num_planes;
 	int type;
-	enum buffer_mode_type buf_type;
 	u32 (*get_frame_size)(int plane, u32 height, u32 width);
 };
 
@@ -129,8 +136,8 @@ struct msm_video_device {
 };
 
 struct session_prop {
-	u32 width;
-	u32 height;
+	u32 width[MAX_PORT_NUM];
+	u32 height[MAX_PORT_NUM];
 	u32 fps;
 	u32 bitrate;
 };
@@ -180,7 +187,11 @@ struct msm_vidc_core_capability {
 	struct hal_capability_supported width;
 	struct hal_capability_supported height;
 	struct hal_capability_supported frame_rate;
+	u32 pixelprocess_capabilities;
+	struct hal_capability_supported scale_x;
+	struct hal_capability_supported scale_y;
 	u32 capability_set;
+	enum buffer_mode_type buffer_mode[MAX_PORT_NUM];
 };
 
 struct msm_vidc_core {
@@ -196,6 +207,8 @@ struct msm_vidc_core {
 	struct completion completions[SYS_MSG_END - SYS_MSG_START + 1];
 	enum msm_vidc_hfi_type hfi_type;
 	struct msm_vidc_platform_resources resources;
+	u32 enc_codec_supported;
+	u32 dec_codec_supported;
 };
 
 struct msm_vidc_inst {
@@ -211,6 +224,7 @@ struct msm_vidc_inst {
 	struct list_head pendingq;
 	struct list_head internalbufs;
 	struct list_head persistbufs;
+	struct list_head outputbufs;
 	struct buffer_requirements buff_req;
 	void *mem_client;
 	struct v4l2_ctrl_handler ctrl_handler;
@@ -229,12 +243,11 @@ struct msm_vidc_inst {
 	struct msm_vidc_debug debug;
 	struct buf_count count;
 	enum msm_vidc_modes flags;
+	u32 multi_stream_mode;
 	struct msm_vidc_core_capability capability;
-	u32 output_alloc_mode_supported;
-	u32 output_alloc_mode;
+	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	struct list_head registered_bufs;
 	bool map_output_buffer;
-	atomic_t get_seq_hdr_cnt;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
