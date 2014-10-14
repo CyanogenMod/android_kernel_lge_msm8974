@@ -34,7 +34,7 @@ between Telechips and Company.
 #include "tcc353x_dpll_38400osc.h"
 #include "tcc353x_dpll_19200osc.h"
 
-/*                  */
+/* static functions */
 static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 				      Tcc353xBoot_t * pBOOTBin);
 static void Tcc353xSetGpio(Tcc353xHandle_t * _handle);
@@ -126,14 +126,14 @@ static I32S Tcc353xSendStoppingCommand(I32S _moduleIndex);
 #define MUL(A,B)    ((A*B)>>SCALE)
 #define DIV(A,B)    (Tcc353xDiv64((A<<SCALE), B))
 
+/*--------------------------------------------------------------------------*/
 /*                                                                          */
-/*                                                                          */
-/*                                                                          */
+/* Driver core version 8bit.8bit.8bit                                       */
 
 I32U Tcc353xCoreVersion = ((0<<16) | (1<<8) | (60));
 
 /*                                                                          */
-/*                                                                          */
+/*--------------------------------------------------------------------------*/
 
 Tcc353xHandle_t Tcc353xHandle[TCC353X_MAX][TCC353X_DIVERSITY_MAX];
 
@@ -209,7 +209,7 @@ I32S Tcc353xClose(I32S _moduleIndex)
 	if (Tcc353xHandle[_moduleIndex][0].handleOpen == 0)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
-	/*                           */
+	/* interrupt clr and disable */
 	if (Tcc353xHandle[_moduleIndex][0].options.useInterrupt) {
 		Tcc353xSetRegIrqEnable(&Tcc353xHandle[_moduleIndex][0], 0);
 		Tcc353xIrqClear(_moduleIndex, TC3XREG_IRQ_STATCLR_ALL);
@@ -235,7 +235,7 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
 
-	/*                             */
+	/* asm download and addressing */
 	ret =
 	    Tcc353xInitBroadcasting(_moduleIndex, _coldbootData,
 				    _codeSize);
@@ -245,13 +245,13 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		I08U xtalbias_value = 7;
 
-		/*                                    */
+		/* stream / int / gpio / etc settings */
 		Tcc353xSetStreamControl(&Tcc353xHandle[_moduleIndex][i]);
 		Tcc353xSetInterruptControl(&Tcc353xHandle[_moduleIndex]
 					   [i]);
 		Tcc353xSetGpio(&Tcc353xHandle[_moduleIndex][i]);
 
-		/*                               */
+		/* Restart System for stablility */
 		TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 		Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][i], 
 				       TC3XREG_SYS_EN_OPCLK);
@@ -265,19 +265,19 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 		Tcc353xGetAccessMail(&Tcc353xHandle[_moduleIndex][i]);
 		TcpalSemaphoreUnLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 
-		/*                             */
-		/*                 */
+		/* display code binary version */
+		/* Get ASM Version */
 		Tcc353xMailboxTxRx(&Tcc353xHandle[_moduleIndex][i],
 				   &MailBox, MBPARA_SYS_ASM_VER, NULL, 0);
 
-		/*                                          */
+		/* option - change ldo volatage 1.2 to 1.8v */
 		/*
-                                                          
-                
-  */
+		Tcc353xSetRegLdoConfig (&Tcc353xHandle[_moduleIndex][i],
+				      0x1C);
+		*/
 
-		/*                       */
-		/*                         */
+		/* write values to sdram */
+		/* sdram controller config */
 		if(i==0) {
 			Tcc353xMiscWrite(_moduleIndex, i, 
 					 MISC_SDRAM_REG_CTRL, 9, 0x56);
@@ -331,20 +331,20 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 					 MISC_SDRAM_REG_CTRL, 13, 0x80000E00);
 		}
 
-		/*                     */
+		/* Xtal Bias Key Setup */
 		/*
-                                                      
-                      
-      
-                      
-  */
+		if (Tcc353xCurrentDiversityCount[_moduleIndex] == 1)
+			xtalbias_value = 0;
+		else
+			xtalbias_value = 1;
+		*/
 
 		Tcc353xSetRegXtalBias(&Tcc353xHandle[_moduleIndex][i],
 				      xtalbias_value);
 		Tcc353xSetRegXtalBiasKey(&Tcc353xHandle[_moduleIndex][i],
 					 0x5e);
 
-		/*                              */
+		/* get program id, code version */
 		Tcc353xGetRegProgramId(&Tcc353xHandle[_moduleIndex][0],
 				       &progId);
 		Tcc353xHandle[_moduleIndex][i].dspCodeVersion =
@@ -381,7 +381,7 @@ I32S Tcc353xInit(I32S _moduleIndex, I08U * _coldbootData, I32S _codeSize)
 			      "[TCC353X] ----------------------\n");
 	}
 
-	/*         */
+	/* rf init */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		ret = Tcc353xRfInit(_moduleIndex, i);
 		if(ret!=TCC353X_RETURN_SUCCESS)
@@ -399,7 +399,7 @@ static void Tcc353xSetChangedGpioValue (I32S _moduleIndex,
 {
 	I32S currentMuxConfig = -1;
 
-	/*       */
+	/* mux 0 */
 	if (_old->gpioAlt_0x10_07_00 != _curr->gpioAlt_0x10_07_00) {
 		if (currentMuxConfig != 0)
 			Tcc353xSetRegIoCfgMux(&Tcc353xHandle
@@ -428,7 +428,7 @@ static void Tcc353xSetChangedGpioValue (I32S _moduleIndex,
 				    _curr->gpioDrv_0x13_07_00);
 	}
 
-	/*       */
+	/* mux 1 */
 	if (_old->gpioAlt_0x10_15_08 != _curr->gpioAlt_0x10_15_08) {
 		if (currentMuxConfig != 1)
 			Tcc353xSetRegIoCfgMux(&Tcc353xHandle
@@ -456,7 +456,7 @@ static void Tcc353xSetChangedGpioValue (I32S _moduleIndex,
 				    _curr->gpioDrv_0x13_15_08);
 	}
 
-	/*       */
+	/* mux 2 */
 	if (_old->gpioAlt_0x10_23_16 != _curr->gpioAlt_0x10_23_16) {
 		if (currentMuxConfig != 2)
 			Tcc353xSetRegIoCfgMux(&Tcc353xHandle
@@ -503,29 +503,29 @@ I32S Tcc353xChangeToDiversityMode (I32S _mergeIndex,
 	TcpalPrintLog((I08S *)
 		      "[TCC353X] Changing to 2-Diversity Mode! \n");
 
-	/*                                                     */
-	/*                           */
-	/*       */
+	/* ---------------------------------------------------	*/
+	/* close dual driver !!! 				*/
+	/*							*/
 
 	Tcc353xPeripheralOnOff(&Tcc353xHandle[1][0], 0);
 
-	/*                     */
+	/* link Dummy Function */
 	Tcc353xHandle[1][0].Read = DummyFunction0;
 	Tcc353xHandle[1][0].Write = DummyFunction1;
 
-	/*                 */
+	/* Dealloc handles */
 	TcpalMemset(&Tcc353xHandle[1][0], 0, sizeof(Tcc353xHandle_t));
 
-	/*                                        */
-	/*                    */
-	/*                   */
+	/* interface semaphore only one semaphore */
+	/* delete all drivers */
+	/* mailbox semaphore */
 	TcpalDeleteSemaphore(&Tcc353xMailboxSema[1][0]);
-	/*                        */
+	/* op & mailbox semaphore */
 	TcpalDeleteSemaphore(&Tcc353xOpMailboxSema[1][0]);
 
-	/*                                                     */
-	/*                               */
-	/*       */
+	/* ---------------------------------------------------	*/
+	/* open diversity driver !!! 				*/
+	/*							*/
 
 	tempDivCnt = Tcc353xCurrentDiversityCount[1];
 	Tcc353xCurrentDiversityCount[0] += Tcc353xCurrentDiversityCount[1];
@@ -557,7 +557,7 @@ I32S Tcc353xChangeToDiversityMode (I32S _mergeIndex,
 
 	TcpalCreateSemaphore(&Tcc353xMailboxSema[0][1],
 			     MailSemaphoreName[0][1], 1);
-	/*                        */
+	/* op & mailbox semaphore */
 	TcpalCreateSemaphore(&Tcc353xOpMailboxSema[0]
 			     [1], OPMailboxSemaphoreName[0][1],
 			     1);
@@ -568,12 +568,12 @@ I32S Tcc353xChangeToDiversityMode (I32S _mergeIndex,
 	if (chipId != 0x33)
 		ret = TCC353X_RETURN_FAIL;
 
-	/*                                                                       */
+	/* change BB#0 single to Diversity Master - Set gpio alt(13~21), io misc */
 	Tcc353xSetChangedGpioValue (0, 0, &oldConfig[0], &currConfig[0]);
 	Tcc353xSetRegIoMISC(&Tcc353xHandle[0][0], currConfig[0].ioMisc_0x16);
 
-	/*                                                               */
-	/*                                       */
+	/* change BB#1 single to Diversity Slave - Set gpio alt, io misc */
+	/* 				buff config, gpio drv, peripheral */
 	Tcc353xSetChangedGpioValue (0, 1, &oldConfig[1], &currConfig[1]);
 	Tcc353xSetRegIoMISC(&Tcc353xHandle[0][1], currConfig[1].ioMisc_0x16);
 	Tcc353xOutBufferConfig(&Tcc353xHandle[0][1]);
@@ -584,7 +584,7 @@ I32S Tcc353xChangeToDiversityMode (I32S _mergeIndex,
 	data[3] = currConfig[1].periConfig_0x33;
 	Tcc353xSetRegPeripheralConfig(&Tcc353xHandle[0][1], &data[0]);
 
-	/*                     */
+	/* tune same as master */
 	for (i = 0; i < tempDivCnt; i++) {
 		I32U opConfig[TCC353X_DIVERSITY_MAX][16];
 		Tcc353xRfSwitching(0, i, MasterInputfrequency,
@@ -598,12 +598,12 @@ I32S Tcc353xChangeToDiversityMode (I32S _mergeIndex,
 					 &opConfig[i][0], 
 					 (I32U)(MasterInputfrequency));
 
-		/*                                                 */
+		/* op configure it need dsp disable->reset->enable */
 		Tcc353xSetOpConfig(0, i,
 				   &opConfig[i][0], 1);
 	}
 
-	/*                                                     */
+	/* dsp disable to enable, ep reset & peripheral enable */
 	for (i = 0; i < tempDivCnt; i++) {
 		Tcc353xDspEpReopenForStreamStart(0, i);
 		Tcc353xSendStartMail(&Tcc353xHandle[0][i]);
@@ -633,32 +633,32 @@ I32S Tcc353xChangeToDualMode (I32S _devideIndex,
 	TcpalPrintLog((I08S *)
 		      "[TCC353X] Changing to Dual Mode! \n");
 
-	/*                                                     */
-	/*                               */
-	/*       */
+	/* ---------------------------------------------------	*/
+	/* close diversity driver !!!				*/
+	/*							*/
 
-	/*                     */
+	/* link Dummy Function */
 	for(i=0; i<rest; i++)	{
 		Tcc353xHandle[0][_devideIndex+i].Read = DummyFunction0;
 		Tcc353xHandle[0][_devideIndex+i].Write = DummyFunction1;
 	}
 
-	/*                 */
+	/* Dealloc handles */
 	TcpalMemset(&Tcc353xHandle[0][_devideIndex], 0, 
 		    sizeof(Tcc353xHandle_t)*rest);
 
-	/*                                        */
-	/*                    */
-	/*                   */
+	/* interface semaphore only one semaphore */
+	/* delete all drivers */
+	/* mailbox semaphore */
 	for(i=0; i<rest; i++)	{
 		TcpalDeleteSemaphore(&Tcc353xMailboxSema[0][_devideIndex+i]);
-		/*                        */
+		/* op & mailbox semaphore */
 		TcpalDeleteSemaphore(&Tcc353xOpMailboxSema[0][_devideIndex+i]);
 	}
 
-	/*                                                     */
-	/*                         */
-	/*       */
+	/* ---------------------------------------------------	*/
+	/* open Dual driver !!!				*/
+	/*							*/
 
 	for(i=0; i<numberOfDemodule; i++)	{
 		if(i<_devideIndex)
@@ -694,7 +694,7 @@ I32S Tcc353xChangeToDualMode (I32S _devideIndex,
 
 	TcpalCreateSemaphore(&Tcc353xMailboxSema[1][0],
 			     MailSemaphoreName[1][0], 1);
-	/*                        */
+	/* op & mailbox semaphore */
 	TcpalCreateSemaphore(&Tcc353xOpMailboxSema[1][0], 
 			     OPMailboxSemaphoreName[1][0],
 			     1);
@@ -705,12 +705,12 @@ I32S Tcc353xChangeToDualMode (I32S _devideIndex,
 	if (chipId != 0x33)
 		ret = TCC353X_RETURN_FAIL;
 
-	/*                                                                */
+	/* change BB#0 Diversity to Single - Set gpio alt(13~21), io misc */
 	Tcc353xSetChangedGpioValue (0, 0, &oldConfig[0], &currConfig[0]);
 	Tcc353xSetRegIoMISC(&Tcc353xHandle[0][0], currConfig[0].ioMisc_0x16);
 
-	/*                                                         */
-	/*                                      */
+	/* change BB#1 Diversity to Single - Set gpio alt, io misc */
+	/*				buff config, gpio drv, peripheral */
 	Tcc353xSetChangedGpioValue (1, 0, &oldConfig[1], &currConfig[1]);
 	Tcc353xSetRegIoMISC(&Tcc353xHandle[1][0], currConfig[1].ioMisc_0x16);
 	Tcc353xOutBufferConfig(&Tcc353xHandle[1][0]);
@@ -841,7 +841,7 @@ static I32U Tcc353xSearchDpllValue (I32U _frequencyInfo, I32U *_tables,
 	for(i = 0; i<_maxFreqNum; i++)	{
 		index = (i*5);
 		if(_tables[index] == 0) {
-			/*                                     */
+			/* last search, can't search frequency */
 			pll = _tables[index+1];
 			break;
 		}
@@ -858,7 +858,7 @@ static I32S Tcc353xSendStoppingCommand(I32S _moduleIndex)
 {
 	I32U i;
 	
-	/*                                             */
+	/* stop mail -> pause mail (for receiving ack) */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		I32U temp = 0;
 		I16S j = 0;
@@ -879,7 +879,7 @@ static I32S Tcc353xSendStoppingCommand(I32S _moduleIndex)
 				TcpalmDelay(1);
 		}
 	}
-	TcpalmDelay(2);	/*               */
+	TcpalmDelay(2);	/* for stability */
 
 	return TCC353X_RETURN_SUCCESS;
 }
@@ -1142,13 +1142,13 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 	if (Tcc353xHandle[_moduleIndex][0].handleOpen == 0)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
-	/*                                    */
+	/* stopping old channel stream output */
 
-	/*                                             */
+	/* stop mail -> pause mail (for receiving ack) */
 	Tcc353xSendStoppingCommand(_moduleIndex);
 
 	if (Tcc353xHandle[_moduleIndex][0].streamStarted) {
-		/*             */
+		/* stream stop */
 		Tcc353xStreamStop(_moduleIndex);
 	}
 
@@ -1156,7 +1156,7 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 						TCC353X_STREAM_IO_MAINIO) {
 		I08U fifothr[2];
 		
-		/*                          */
+		/* change buffer A end size */
 		switch (_tuneOption->segmentType) {
 		case TCC353X_ISDBT_1_OF_13SEG:
 		case TCC353X_ISDBTSB_1SEG:
@@ -1175,7 +1175,7 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 			    _tuneOption->tmmSet == C_1st_13Seg ||
 			    _tuneOption->tmmSet == C_2nd_13Seg ||
 			    _tuneOption->tmmSet == UserDefine_Tmm13Seg) {
-				/*      */
+				/*13seg */
 				bufferEndAddress = 0x00027F57;
 			} else {
 				bufferEndAddress = 0x00019F5B;
@@ -1204,11 +1204,11 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 	TcpalMemcpy(&Tcc353xHandle[_moduleIndex][0].TuneOptions,
 		    _tuneOption, sizeof(Tcc353xTuneOptions));
 
-	/*                                     */
+	/* center frequency shift for isdb-tmm */
 	switch (_tuneOption->segmentType) {
 	case TCC353X_ISDBT_1_OF_13SEG:
 	case TCC353X_ISDBT_13SEG:
-		/*        */
+		/* ISDB-T */
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] [BB %d] Tune frequency [ISDB-T]: %d\n",
 			      _moduleIndex, _frequency);
@@ -1217,14 +1217,14 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 	case TCC353X_ISDBTSB_1SEG:
 	case TCC353X_ISDBTSB_3SEG:
 	case TCC353X_ISDBTSB_1_OF_3SEG:
-		/*          */
+		/* ISDB-Tsb */
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] [BB %d] Tune frequency [ISDB-Tsb]: %d\n",
 			      _moduleIndex, _frequency);
 		break;
 
 	case TCC353X_ISDBTMM:
-		/*          */
+		/* ISDB-TMM */
 		Inputfrequency =
 		    Tcc353xShiftCenterFrequency(_moduleIndex, _frequency,
 						_tuneOption);
@@ -1236,15 +1236,15 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 			      _moduleIndex, _frequency, Inputfrequency);
 		break;
 	default:
-		/*        */
+		/* ISDB-T */
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] [BB %d] Tune frequency [ISDB-T]: %d\n",
 			      _moduleIndex, _frequency);
 		break;
 	}
 
-	/*                              */
-	/*                                                   */
+	/* check pll change need or not */
+	/* change full seg to partial 1seg or isdb-t <-> tmm */
 	if(Tcc353xHandle[_moduleIndex][0].useDefaultPLL == 1)
 	{
 		if(Tcc353xHandle[_moduleIndex][0].options.basebandName 
@@ -1257,12 +1257,12 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 		else if (Tcc353xHandle[_moduleIndex][0].options.oscKhz == 19200)
 			newPll = Tcc353xGetNewPLL_19200
 				    (_moduleIndex, _tuneOption, Inputfrequency);
-		else	/*               */
+		else	/* default 38400 */
 			newPll = Tcc353xGetNewPLL_38400
 				    (_moduleIndex, _tuneOption, Inputfrequency);
 
-		/*            */
-		#ifdef TCC79X	/*              */
+		/* change pll */
+		#ifdef TCC79X	/* for 79x muse */
 		Tcc353xChangePll(_moduleIndex, newPll);
 		#else
 		if (newPll != Tcc353xHandle[_moduleIndex][0].options.pll)
@@ -1286,7 +1286,7 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 					 &opConfig[i][0], 
 					 (I32U)(Inputfrequency));
 
-		/*                                                 */
+		/* op configure it need dsp disable->reset->enable */
 		Tcc353xSetOpConfig(_moduleIndex, i,
 				   &opConfig[i][0], firstOpconfigWrite);
 	}
@@ -1299,11 +1299,11 @@ I32S Tcc353xTune(I32S _moduleIndex, I32S _frequency,
 
 	Tcc353xHandle[_moduleIndex][0].tuned = 1;
 
-	/*                                            */
+	/* stream start & dsp reset & send start mail */
 	Tcc353xInitIsdbProcess(&Tcc353xHandle[_moduleIndex][0]);
 	Tcc353xStreamStartPrepare (_moduleIndex);
 
-	/*                                                     */
+	/* dsp disable to enable, ep reset & peripheral enable */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xDspEpReopenForStreamStart(_moduleIndex, i);
 		Tcc353xSendStartMail(&Tcc353xHandle[_moduleIndex][i]);
@@ -1358,11 +1358,11 @@ I32S Tcc35xSelectLayer(I32S _moduleIndex, I32S _layer)
 
 I32U Tcc353xSendStartMail(Tcc353xHandle_t * _handle)
 {
-	/*                                              */
+	/* start / stop mail (toggle) for dp stablility */
 	mailbox_t mailbox;
 	I32S retmail;
 
-	/*           */
+	/* any value */
 	I32U data = 0x11;
 
 	retmail =
@@ -1377,7 +1377,7 @@ I32U Tcc353xSendStartMail(Tcc353xHandle_t * _handle)
 I32S Tcc353xStreamStopAll(I32S _moduleIndex)
 {
 
-	/*                 */
+	/* stopping stream */
 	Tcc353xStreamStop(_moduleIndex);
 
 	return TCC353X_RETURN_SUCCESS;
@@ -1391,13 +1391,13 @@ I32S Tcc353xStreamStop(I32S _moduleIndex)
 	if (Tcc353xHandle[_moduleIndex][0].handleOpen == 0)
 		return TCC353X_RETURN_FAIL_INVALID_HANDLE;
 
-	/*                           */
+	/* interrupt clr and disable */
 	if (Tcc353xHandle[_moduleIndex][0].options.useInterrupt) {
 		Tcc353xSetRegIrqEnable(&Tcc353xHandle[_moduleIndex][0], 0);
 		Tcc353xIrqClear(_moduleIndex, TC3XREG_IRQ_STATCLR_ALL);
 	}
 
-	/*                            */
+	/* disable stream data config */
 	streamDataConfig_0x1E =
 	    Tcc353xHandle[_moduleIndex][0].options.
 	    Config->streamDataConfig_0x1E;
@@ -1408,7 +1408,7 @@ I32S Tcc353xStreamStop(I32S _moduleIndex)
 	Tcc353xSetRegStreamConfig3(&Tcc353xHandle[_moduleIndex][0],
 				   streamDataConfig_0x1E);
 
-	/*                */
+	/* disable buffer */
 	bufferConfig0 =
 	    Tcc353xHandle[_moduleIndex][0].options.
 	    Config->bufferConfig_0x4E;
@@ -1418,7 +1418,7 @@ I32S Tcc353xStreamStop(I32S _moduleIndex)
 	Tcc353xSetRegOutBufferConfig(&Tcc353xHandle[_moduleIndex][0],
 				     bufferConfig0);
 
-	/*                        */
+	/* peripheral disable clr */
 	Tcc353xPeripheralOnOff(&Tcc353xHandle[_moduleIndex][0], 0);
 
 	Tcc353xHandle[_moduleIndex][0].streamStarted = 0;
@@ -1437,7 +1437,7 @@ static I32S Tcc353xStreamStartPrepare(I32S _moduleIndex)
 
 	Tcc353xHandle[_moduleIndex][0].streamStarted = 1;
 
-	/*                             */
+	/* buffer init & enable buffer */
 	Tcc353xSetRegOutBufferInit(&Tcc353xHandle[_moduleIndex][0],
 				   Tcc353xHandle[_moduleIndex][0].
 				   options.Config->bufferConfig_0x4F);
@@ -1486,20 +1486,20 @@ static I32S Tcc353xStreamOn (I32S _moduleIndex)
 	Tcc353xOption_t *pOptions;
 	pOptions = (Tcc353xOption_t *)(&Tcc353xHandle[_moduleIndex][0].options);
 
-	/*                       */
+	/* peripheral enable clr */
 	Tcc353xPeripheralOnOff(&Tcc353xHandle[_moduleIndex][0], 1);
 
-	/*                  */
+	/* interrupt enable */
 	if (pOptions->useInterrupt) {
 		I08U irqValue = 0x00;
 		if(pOptions->streamInterface == TCC353X_STREAM_IO_MAINIO)
 			irqValue = TC3XREG_IRQ_EN_FIFOAINIT |
 				   TC3XREG_IRQ_EN_FIFO_OVER;
 
-		/*                                  */
+		/* special case for Emergency alarm */
 		/*
-                                   
-  */
+		irqValue += TC3XREG_IRQ_EN_OPINT;
+		*/
 	
 		Tcc353xSetRegIrqEnable(&Tcc353xHandle[_moduleIndex][0], 
 				       irqValue);
@@ -1514,28 +1514,28 @@ static I32S Tcc353xDspEpReopenForStreamStart(I32S _moduleIndex,
 	TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex]
 			   [_diversityIndex]);
 	
-	/*             */
+	/* DSP disable */
 	Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex]
 			       [_diversityIndex],
 			       TC3XREG_SYS_EN_EP |
 			       TC3XREG_SYS_EN_OPCLK |
 			       TC3XREG_SYS_EN_RF);
-	/*           */
+	/* DSP reset */
 	Tcc353xSetRegSysReset(&Tcc353xHandle[_moduleIndex]
 			      [_diversityIndex], TC3XREG_SYS_RESET_DSP, 
 			      _LOCK_);
 	TcpalmDelay(1);
 
-	/*          */
+	/* EP reset */
 	Tcc353xSetRegSysReset(&Tcc353xHandle[_moduleIndex]
 			      [_diversityIndex], TC3XREG_SYS_RESET_EP, 
 			      _LOCK_);
 
-	/*                   */
+	/* peripheral enable */
 	if(_diversityIndex==0)
 		Tcc353xStreamOn (_moduleIndex);
 
-	/*            */
+	/* DSP Enable */
 	Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex]
 			       [_diversityIndex],
 			       TC3XREG_SYS_EN_EP |
@@ -1552,10 +1552,10 @@ static I32S Tcc353xDspEpReopenForStreamStart(I32S _moduleIndex,
 I32S Tcc353xStreamStart(I32S _moduleIndex)
 {
 	I32S i;
-	/*                                            */
+	/* stream start & dsp reset & send start mail */
 	Tcc353xStreamStartPrepare (_moduleIndex);
 
-	/*                                                     */
+	/* dsp disable to enable, ep reset & peripheral enable */
 	for (i = 0; i < (I32S)Tcc353xCurrentDiversityCount[_moduleIndex]; 
 	    i++) {
 		Tcc353xDspEpReopenForStreamStart(_moduleIndex, i);
@@ -1569,13 +1569,13 @@ I32S Tcc353xInterruptBuffClr(I32S _moduleIndex)
 {
 	I32U i;
 
-	/*                   */
+	/* send stop command */
 	Tcc353xSendStoppingCommand (_moduleIndex);
 
-	/*                 */
+	/* stopping stream */
 	Tcc353xStreamStop(_moduleIndex);
 
-	/*               */
+	/* send opconfig */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		I32U temp = 0;
 		Tcc353xMiscRead(_moduleIndex, i, MISC_OP_REG_CTRL, 
@@ -1585,7 +1585,7 @@ I32S Tcc353xInterruptBuffClr(I32S _moduleIndex)
 				TC3XREG_OP_CFG06, temp);
 	}
 
-	/*                 */
+	/* send start mail */
 	Tcc353xStreamStart(_moduleIndex);
 	return TCC353X_RETURN_SUCCESS;
 }
@@ -1599,7 +1599,7 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 	I08U chipId = 0;
 	I08U progId = 0;
 
-	/*                    */
+	/* init global values */
 	switch (_Tcc353xOption[0].boardType) {
 	case TCC353X_BOARD_SINGLE:
 		Tcc353xCurrentDiversityCount[_moduleIndex] = 1;
@@ -1636,8 +1636,8 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 		    sizeof(Tcc353xHandle_t) *
 		    Tcc353xCurrentDiversityCount[_moduleIndex]);
 
-	/*                                    */
-	/*             */
+	/* connect command interface function */
+	/* set address */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xSaveOption(_moduleIndex, i, &_Tcc353xOption[i]);
 		Tcc353xHandle[_moduleIndex][i].handleOpen = 1;
@@ -1646,7 +1646,7 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 			options.commandInterface);
 	}
 
-	/*                                        */
+	/* interface semaphore only one semaphore */
 	if (pTcc353xInterfaceSema == NULL) {
 		TcpalCreateSemaphore(&Tcc353xInterfaceSema,
 				     (I08S *) "InterfaceSemaphore", 1);
@@ -1657,10 +1657,10 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 	}
 
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
-		/*                   */
+		/* mailbox semaphore */
 		TcpalCreateSemaphore(&Tcc353xMailboxSema[_moduleIndex][i],
 				     MailSemaphoreName[_moduleIndex][i], 1);
-		/*                        */
+		/* op & mailbox semaphore */
 		TcpalCreateSemaphore(&Tcc353xOpMailboxSema[_moduleIndex][i], 
 				     OPMailboxSemaphoreName[_moduleIndex][i],
 				     1);
@@ -1723,31 +1723,31 @@ static I32S Tcc353xAttach(I32S _moduleIndex,
 I32S Tcc353xDetach(I32S _moduleIndex)
 {
 	I32U i;
-	/*                     */
+	/* link Dummy Function */
 	TcpalSemaphoreLock(&Tcc353xInterfaceSema);
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xHandle[_moduleIndex][i].Read = DummyFunction0;
 		Tcc353xHandle[_moduleIndex][i].Write = DummyFunction1;
 	}
 
-	/*                 */
+	/* Dealloc handles */
 	TcpalMemset(&Tcc353xHandle[_moduleIndex][0], 0,
 		    sizeof(Tcc353xHandle_t) *
 		    Tcc353xCurrentDiversityCount[_moduleIndex]);
 
-	/*                                   */
+	/* for stability Link Dummy Function */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
 		Tcc353xHandle[_moduleIndex][i].Read = DummyFunction0;
 		Tcc353xHandle[_moduleIndex][i].Write = DummyFunction1;
 	}
 	TcpalSemaphoreUnLock(&Tcc353xInterfaceSema);
 
-	/*                                        */
-	/*                    */
+	/* interface semaphore only one semaphore */
+	/* delete all drivers */
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++) {
-		/*                   */
+		/* mailbox semaphore */
 		TcpalDeleteSemaphore(&Tcc353xMailboxSema[_moduleIndex][i]);
-		/*                        */
+		/* op & mailbox semaphore */
 		TcpalDeleteSemaphore(&Tcc353xOpMailboxSema[_moduleIndex]
 				     [i]);
 	}
@@ -1757,7 +1757,7 @@ I32S Tcc353xDetach(I32S _moduleIndex)
 		TcpalDeleteSemaphore(&Tcc353xInterfaceSema);
 		pTcc353xInterfaceSema = NULL;
 
-		/*                    */
+		/* init global values */
 		Tcc353xCurrentDiversityCount[_moduleIndex] = 1;
 	}
 
@@ -1775,7 +1775,7 @@ static I32S Tcc353xCodeDownload(I32S _moduleIndex, I08U * _coldbootData,
 
 	if (Tcc353xColdbootParserUtil(_coldbootData, _codeSize, &boot) ==
 	    TCC353X_RETURN_SUCCESS) {
-		coldsize = boot.coldbootDataSize - 4;	/*                 */
+		coldsize = boot.coldbootDataSize - 4;	/* Except CRC Size */
 		Tcc353xDspAsmWrite(&Tcc353xHandle[_moduleIndex][0],
 				   boot.coldbootDataPtr, coldsize);
 		ret =
@@ -1792,18 +1792,16 @@ static I32S Tcc353xCodeCrcCheck(I32S _moduleIndex, I08U * _coldbootData,
 {
 	I32S i;
 	I32U destCrc, srcCrc;
-	Tcc353xHandle_t *handle;
-	I32S count = 1;
+	/*Tcc353xHandle_t *handle;*/
+	/*I32S count = 1;*/
+	I32S count;
 	I32S ret = TCC353X_RETURN_SUCCESS;
 	I08U data[4];
 
 	count = Tcc353xCurrentDiversityCount[_moduleIndex];
 
 	for (i = count - 1; i >= 0; i--) {
-#if !defined (_MODEL_TCC3535_)
-		Tcc353xHandle[_moduleIndex][i].currentAddress =
-		    Tcc353xHandle[_moduleIndex][i].originalAddress;
-#endif
+		Tcc353xHandle_t *handle;
 		handle = &Tcc353xHandle[_moduleIndex][i];
 
 		Tcc353xGetRegDmaCrc32(handle, &data[0]);
@@ -1843,34 +1841,22 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 	I32U i;
 	I32S subret;
 	I08U remapPc[3];
-	I32S broadcastingFlag = 0;
+	/*I32S broadcastingFlag = 0;*/
 	I16U plls = PLL_ISDB_T_FULLSEG;
 
-	/*                     */
+	/* broad casting write */
+	/*
 	if (Tcc353xCurrentDiversityCount[_moduleIndex] > 1) {
 		broadcastingFlag = 1;
-#if !defined (_MODEL_TCC3535_)
-		if (Tcc353xHandle[_moduleIndex][0].
-		    options.commandInterface == TCC353X_IF_I2C)
-			Tcc353xHandle[_moduleIndex][0].currentAddress =
-			    0xA0;
-		else if (Tcc353xHandle[_moduleIndex][0].
-			 options.commandInterface == TCC353X_IF_TCCSPI)
-			Tcc353xHandle[_moduleIndex][0].currentAddress =
-			    (0xA0 >> 1);
-		else
-			Tcc353xHandle[_moduleIndex][0].currentAddress =
-			    0xA0;
-#endif
-	}
+	}*/
 
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++)
 		TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 
-	/*                   */
+	/* ALL Parts Disable */
 	Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][0], 0);
 
-	/*         */
+	/* set pll */
 	if(Tcc353xHandle[_moduleIndex][0].options.pll == 0)
 		Tcc353xHandle[_moduleIndex][0].useDefaultPLL = 1;
 	else
@@ -1885,43 +1871,22 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 
 	Tcc353xSetPll(_moduleIndex, 0, 0, plls);
 	
-	/*          */
+	/* EP Reset */
 	Tcc353xSetRegSysReset(&Tcc353xHandle[_moduleIndex][0],
 			      TC3XREG_SYS_RESET_EP, _LOCK_);
-	/*           */
+	/* EP Enable */
 	Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][0],
 			       TC3XREG_SYS_EN_EP);
 
 	for (i = 0; i < Tcc353xCurrentDiversityCount[_moduleIndex]; i++)
 		TcpalSemaphoreUnLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 
-	/*       */
+	/* remap */
 	Tcc353xSetRegRemap(&Tcc353xHandle[_moduleIndex][0], 0x00);
 
-	/*                                                 */
+	/* asm code download and roll-back current address */
 	if (_coldbootData == NULL) {
 		subret = TCC353X_RETURN_SUCCESS;
-#if !defined (_MODEL_TCC3535_)
-		if (Tcc353xCurrentDiversityCount[_moduleIndex] > 1) {
-			if (Tcc353xHandle[_moduleIndex][0].options.
-			    commandInterface == TCC353X_IF_I2C)
-				Tcc353xHandle[_moduleIndex]
-				    [0].currentAddress =
-				    Tcc353xHandle[_moduleIndex]
-				    [0].originalAddress;
-			else if (Tcc353xHandle[_moduleIndex][0].options.
-				 commandInterface == TCC353X_IF_TCCSPI)
-				Tcc353xHandle[_moduleIndex]
-				    [0].currentAddress =
-				    Tcc353xHandle[_moduleIndex]
-				    [0].originalAddress;
-			else
-				Tcc353xHandle[_moduleIndex]
-				    [0].currentAddress =
-				    Tcc353xHandle[_moduleIndex]
-				    [0].originalAddress;
-		}
-#endif
 	} else {
 		subret =
 		    Tcc353xCodeDownload(_moduleIndex, _coldbootData,
@@ -1945,7 +1910,7 @@ static I32S Tcc353xInitBroadcasting(I32S _moduleIndex,
 
 static void Tcc353xSetInterruptControl(Tcc353xHandle_t * _handle)
 {
-	/*                  */
+	/* init irq disable */
 	Tcc353xSetRegIrqMode(_handle,
 			     _handle->options.Config->irqMode_0x02);
 	Tcc353xSetRegIrqClear(_handle, TC3XREG_IRQ_STATCLR_ALL);
@@ -2022,7 +1987,7 @@ static void Tcc353xSetStreamControl(Tcc353xHandle_t * _handle)
 	Tcc353xSetRegPeripheralConfig(_handle, &data[0]);
 
 	if ((_handle->options.Config->periConfig_0x30 & 0x30) == 0x10) {
-		/*        */
+		/* spi ms */
 		I64U temp;
 		I64U temp2;
 		dlr =
@@ -2036,7 +2001,7 @@ static void Tcc353xSetStreamControl(Tcc353xHandle_t * _handle)
 			      streamClkSpeed, dlr);
 	} else if ((_handle->options.Config->periConfig_0x30 & 0x30) ==
 		   0x20) {
-		/*    */
+		/* ts */
 		I64U temp;
 		I64U temp2;
 		dlr = (_handle->options.Config->periConfig_0x31 & 0x07);
@@ -2047,7 +2012,7 @@ static void Tcc353xSetStreamControl(Tcc353xHandle_t * _handle)
 			      "[TCC353X] SET TS Clk : %d khz [DLR : %d]\n",
 			      streamClkSpeed, dlr);
 	} else {
-		;		/*     */
+		;		/*none */
 	}
 
 }
@@ -2139,7 +2104,7 @@ static I32S Tcc353xSetPll(I32S _moduleIndex, I32S _deviceIndex,
 	PLL6 = (h->options.pll >> 8) & 0x007f;
 	PLL7 = ((h->options.pll) & 0xFF);
 
-	/*                */
+	/* for stablility */
 	Tcc353xSetRegPll8(h, 0x28, lockFlag);
 	Tcc353xSetRegPll9(h, 0x64, lockFlag);
 
@@ -2147,7 +2112,7 @@ static I32S Tcc353xSetPll(I32S _moduleIndex, I32S _deviceIndex,
 	Tcc353xSetRegPll7(h, PLL7, lockFlag);
 	
 	Tcc353xSetRegPll6(h, PLL6 | 0x80, lockFlag);
-	TcpalmDelay(1);		/*                   */
+	TcpalmDelay(1);		/* 1ms (orig: 340us) */
 
 	pll_m = ((PLL6 & 0x40) >> 6);
 	pll_f = (PLL6 & 0x3f) + 1;
@@ -2173,31 +2138,31 @@ static I32S Tcc353xChangePll(I32S _moduleIndex, I16U _pllValue)
 {
 	I32S i;
 
-	/*                    */
+	/* lock all interface */
 	for (i = Tcc353xCurrentDiversityCount[_moduleIndex]-1; i >= 0 ; i--)
 		TcpalSemaphoreLock(&Tcc353xOpMailboxSema[_moduleIndex][i]);
 
-	/*            */
-	/*                           */
+	/* change pll */
+	/* slave first for stability */
 	for (i = Tcc353xCurrentDiversityCount[_moduleIndex]-1; i >= 0 ; i--) {
-		/*                   */
+		/* ALL Parts Disable */
 		Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][i], 
 				       TC3XREG_SYS_EN_OPCLK);
 		TcpalmDelay(1);
 
-		/*           */
+		/* dsp reset */
 		Tcc353xSetRegSysReset(
 			&Tcc353xHandle[_moduleIndex][i], 
 			TC3XREG_SYS_RESET_DSP, _UNLOCK_);
 		TcpalmDelay(1);
-		/*          */
+		/* ep reset */
 		Tcc353xSetRegSysReset(
 			&Tcc353xHandle[_moduleIndex][i], 
 			TC3XREG_SYS_RESET_EP, _UNLOCK_);
-		/*            */
+		/* change pll */
 		Tcc353xSetPll(_moduleIndex, i, 1, _pllValue);
 
-		/*            */
+		/* DSP Enable */
 		Tcc353xSetRegSysEnable(&Tcc353xHandle[_moduleIndex][i],
 				       TC3XREG_SYS_EN_EP |
 				       TC3XREG_SYS_EN_DSP |
@@ -2283,7 +2248,7 @@ static void Tcc353xConnectCommandInterface(I32S _moduleIndex,
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] Interface is I2C\n");
 		break;
-	
+#if 0
 	case TCC353X_IF_TCCSPI:
 		Tcc353xHandle[_moduleIndex][i].Read =
 		    Tcc353xTccspiRead;
@@ -2298,7 +2263,7 @@ static void Tcc353xConnectCommandInterface(I32S _moduleIndex,
 		TcpalPrintLog((I08S *)
 			      "[TCC353X] Interface is Tccspi\n");
 		break;
-	
+#endif
 	default:
 		TcpalPrintErr((I08S *)
 			      "[TCC353X] Driver Can't support your interface yet\n");
@@ -2320,18 +2285,18 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 	I32U BootSize[5];
 
 	/*
-                               
-                               
-                               
-                               
-                               
-                          
-                          
-  */
+	 * coldboot         0x00000001
+	 * dagu             0x00000002
+	 * dint             0x00000003
+	 * rand             0x00000004
+	 * col_order        0x00000005
+	 * sizebyte         4byte
+	 * data             nbyte
+	 */
 
 	TcpalMemset(BootSize, 0, sizeof(I32U) * 5);
 
-	/*           */
+	/* cold boot */
 	idx = 0;
 	if (pData[idx + 3] != 0x01) {
 		return TCC353X_RETURN_FAIL;
@@ -2347,7 +2312,7 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 	idx += length;
 	size -= (length + 8);
 
-	/*      */
+	/* dagu */
 	if (pData[idx + 3] != 0x02) {
 		return TCC353X_RETURN_FAIL;
 	}
@@ -2366,7 +2331,7 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 	}
 	size -= (length + 8);
 
-	/*      */
+	/* dint */
 	if (pData[idx + 3] != 0x03) {
 		return TCC353X_RETURN_FAIL;
 	}
@@ -2386,7 +2351,7 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 	}
 	size -= (length + 8);
 
-	/*      */
+	/* rand */
 	if (pData[idx + 3] != 0x04) {
 		return TCC353X_RETURN_FAIL;
 	}
@@ -2421,7 +2386,7 @@ static I32S Tcc353xColdbootParserUtil(I08U * pData, I32U size,
 		if (length) {
 			colOrderDataPtr = &pData[idx];
 			BootSize[4] = length;
-			idx += length;
+			/*idx += length;*/
 		} else {
 			colOrderDataPtr = NULL;
 			BootSize[4] = 0;
@@ -2451,7 +2416,8 @@ I32U Tcc353xGetCoreVersion()
 I32S Tcc353xMailboxWrite(I32S _moduleIndex, I32S _diversityIndex,
 			 I32U _command, I32U * dataArray, I32S wordSize)
 {
-	I32S ret = TCC353X_RETURN_SUCCESS;
+	/*I32S ret = TCC353X_RETURN_SUCCESS;*/
+	I32S ret;
 	ret = Tcc353xMailboxTxOnly(&Tcc353xHandle[_moduleIndex]
 				   [_diversityIndex], _command, dataArray,
 				   wordSize);
@@ -2461,7 +2427,8 @@ I32S Tcc353xMailboxWrite(I32S _moduleIndex, I32S _diversityIndex,
 I32S Tcc353xMailboxRead(I32S _moduleIndex, I32S _diversityIndex,
 			I32U _command, mailbox_t * _mailbox)
 {
-	I32S ret = TCC353X_RETURN_SUCCESS;
+	/*I32S ret = TCC353X_RETURN_SUCCESS;*/
+	I32S ret;
 	ret = Tcc353xMailboxTxRx(&Tcc353xHandle[_moduleIndex]
 				 [_diversityIndex], _mailbox, _command,
 				 NULL, 0);
@@ -2530,7 +2497,7 @@ static I32U Tcc353xSearchDpllTable (I32U _frequencyInfo, I32U *_tables,
 		index = (i*5);
 		
 		if(_tables[index] == 0) {
-			/*                                     */
+			/* last search, can't search frequency */
 			pll = _tables[index+1];
 			break;
 		}
@@ -2552,7 +2519,7 @@ static I32S Tcc353xApplySpurSuppression_38400 (I32S _moduleIndex,
 					 I32U *_icic, I32U _frequencyInfo)
 {
 	I32U pllValue;
-	/*                                                        */
+	/* 0 : not match, 1:partial 1seg match, 13:full seg match */
 	I64U changeRcStep = _rcStep[0];
 	I32U changeadcClkCfg = _adcClkCfg[0];
 
@@ -2573,8 +2540,8 @@ static I32S Tcc353xApplySpurSuppression_38400 (I32S _moduleIndex,
 					&changeRcStep, &changeadcClkCfg,
 					PLL_ISDB_T_FULLSEG);
 		
-		if (pllValue == PLL_ISDB_TMM_FULLSEG) /*                  */
-			_icic[0] = 0; /*                               */
+		if (pllValue == PLL_ISDB_TMM_FULLSEG) /* isdb-tmm 13 case */
+			_icic[0] = 0; /* icic value change for isdb-tmm*/
 		break;
 	case TCC353X_ISDBTMM:
 		if (_tuneOption->tmmSet == UserDefine_Tmm13Seg)
@@ -2624,7 +2591,7 @@ static I32S Tcc353xApplySpurSuppression_19200 (I32S _moduleIndex,
 					 I32U *_icic, I32U _frequencyInfo)
 {
 	I32U pllValue;
-	/*                                                        */
+	/* 0 : not match, 1:partial 1seg match, 13:full seg match */
 	I64U changeRcStep = _rcStep[0];
 	I32U changeadcClkCfg = _adcClkCfg[0];
 
@@ -2645,8 +2612,8 @@ static I32S Tcc353xApplySpurSuppression_19200 (I32S _moduleIndex,
 					&changeRcStep, &changeadcClkCfg,
 					OSC_192_PLL_ISDB_T_FULLSEG);
 		
-		if (pllValue == OSC_192_PLL_ISDB_TMM_FULLSEG) /*                  */
-			_icic[0] = 0; /*                               */
+		if (pllValue == OSC_192_PLL_ISDB_TMM_FULLSEG) /* isdb-tmm 13 case */
+			_icic[0] = 0; /* icic value change for isdb-tmm*/
 		break;
 	case TCC353X_ISDBTMM:
 		if (_tuneOption->tmmSet == UserDefine_Tmm13Seg)
@@ -2696,7 +2663,7 @@ static I32S Tcc353xApplySpurSuppression_tcc3535 (I32S _moduleIndex,
 					 I32U *_icic, I32U _frequencyInfo)
 {
 	I32U pllValue;
-	/*                                                        */
+	/* 0 : not match, 1:partial 1seg match, 13:full seg match */
 	I64U changeRcStep = _rcStep[0];
 	I32U changeadcClkCfg = _adcClkCfg[0];
 
@@ -2717,8 +2684,8 @@ static I32S Tcc353xApplySpurSuppression_tcc3535 (I32S _moduleIndex,
 					&changeRcStep, &changeadcClkCfg,
 					PLL_ISDB_T_FULLSEG);
 		
-		if (pllValue == PLL_ISDB_TMM_FULLSEG) /*                  */
-			_icic[0] = 0; /*                               */
+		if (pllValue == PLL_ISDB_TMM_FULLSEG) /* isdb-tmm 13 case */
+			_icic[0] = 0; /* icic value change for isdb-tmm*/
 		break;
 	case TCC353X_ISDBTMM:
 		if (_tuneOption->tmmSet == UserDefine_Tmm13Seg)
@@ -2767,7 +2734,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 				     Tcc353xTuneOptions * _tuneOption,
 				     I32U * _opConfig, I32U _frequencyInfo)
 {
-	/*                                     */
+	/* opconfig version higher than 0.0.15 */
 	I32U LSEL, TDF_SEL, OU, DIV_CFG, AH, GMODE, TMODE, CT_OM,
 	    START_SUB_CH, S_TYPE, S, ICIC, ASE;
 	I32U ADC_CLK_CFG, FP_CLK_CFG, DIV_CLK_CFG;
@@ -2784,7 +2751,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 
 	if(Tcc353xHandle[_moduleIndex][0].options.rfType == 
 	   TCC353X_TRIPLE_BAND_RF)
-		tripleBandRfFlag = 1;	/*                                              */
+		tripleBandRfFlag = 1;	/* only tcc3531,tcc3535 case, others don't care */
 	else
 		tripleBandRfFlag = 0;
 
@@ -2801,7 +2768,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 	TMODE = 0;
 	GMODE = 0;
 	AH = 1;
-	TDF_SEL = 2;	/*                    */
+	TDF_SEL = 2;	/* 1seg - low if -> 1 */
 	LSEL = 0;
 	OM_MODE = 0;
 	CFO_ER = 3;
@@ -2831,37 +2798,37 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 	case TCC353X_ISDBT_1_OF_13SEG:
 		S_TYPE = 0;
 		START_SUB_CH = 21;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 1;
 		break;
 	case TCC353X_ISDBT_13SEG:
 		S_TYPE = 2;
 		START_SUB_CH = 3;
-		ICIC = 1;	/*                 */
+		ICIC = 1;	/*ICI cancellation */
 		OU = 0;
 		break;
 	case TCC353X_ISDBTSB_1SEG:
 		S_TYPE = 0;
-		/*                 */
+		/*START_SUB_CH = 3;*/
 		START_SUB_CH = _tuneOption->tsbStartSubChannelNum;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 1;
 		break;
 	case TCC353X_ISDBTSB_3SEG:
 		S_TYPE = 1;
-		/*                 */
+		/*START_SUB_CH = 3;*/
 		if(_tuneOption->tsbStartSubChannelNum>=3)
 			START_SUB_CH = _tuneOption->tsbStartSubChannelNum-3;
 		else 
 			START_SUB_CH = 3;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 0;
 		break;
 	case TCC353X_ISDBTSB_1_OF_3SEG:
 		S_TYPE = 0;
-		/*                 */
+		/*START_SUB_CH = 3;*/
 		START_SUB_CH = _tuneOption->tsbStartSubChannelNum;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 1;
 		break;
 	case TCC353X_ISDBTMM:
@@ -2872,7 +2839,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 		    _tuneOption->tmmSet == C_1st_13Seg ||
 		    _tuneOption->tmmSet == C_2nd_13Seg ||
 		    _tuneOption->tmmSet == UserDefine_Tmm13Seg) {
-			/*      */
+			/*13seg */
 			OU = 0;
 			S_TYPE = 2;
 			START_SUB_CH = 3;
@@ -2891,25 +2858,25 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 				START_SUB_CH =
 				    (_tuneOption->tmmSet - C_1st_1Seg) * 3;
 		}
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		break;
 	default:
 		S_TYPE = 2;
 		START_SUB_CH = 3;
-		ICIC = 0;	/*                 */
+		ICIC = 0;	/*ICI cancellation */
 		OU = 0;
 		break;
 	}
 
 	if (S_TYPE == 0)
 		if(Tcc353xHandle[_moduleIndex][0].TuneOptions.BandwidthMHz == 8)
-			ADC_CLK_CFG = 0x27;	/*                    */
+			ADC_CLK_CFG = 0x27;	/* 1seg, partial 1seg */
 		else
 			ADC_CLK_CFG = 0x28;
 	else if (S_TYPE == 1)
-		ADC_CLK_CFG = 0x24;	/*      */
+		ADC_CLK_CFG = 0x24;	/* 3seg */
 	else
-		ADC_CLK_CFG = 0x21;	/*       */
+		ADC_CLK_CFG = 0x21;	/* 13seg */
 
 	if(Tcc353xHandle[_moduleIndex][0].options.streamInterface== 
 						TCC353X_STREAM_IO_MAINIO) {
@@ -2950,22 +2917,22 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 	DC_CFG = 0x0001969A;
 
 	if (S_TYPE == 0) {
-		/*                    */
+		/* 1seg, partial 1seg */
 		TMCC_SEG_FLAG = 0x01;
 		CFO_SEG_FLAG = 0x01;
 		TDF_SEL = 1;
 	} else if (S_TYPE == 1) {
-		/*      */
+		/* 3seg */
 		TMCC_SEG_FLAG = 0x02;
 		CFO_SEG_FLAG = 0x02;
 		TDF_SEL = 1;
 	} else {
-		/*       */
+		/* 13seg */
 		TMCC_SEG_FLAG = 0x1803;
 		CFO_SEG_FLAG = 0x404;
 	}
 
-	/*                          */
+	/* Spur - ADC Clock Control */
 	if(Tcc353xHandle[_moduleIndex][0].TuneOptions.BandwidthMHz == 8) {
 	} else {
 		if(Tcc353xHandle[_moduleIndex][0].options.basebandName 
@@ -2996,7 +2963,7 @@ static void Tcc353xGetOpconfigValues(I32S _moduleIndex,
 	    (OU << 25) | (DIV_CFG << 16) | (AH << 15) | (GMODE << 13) |
 	    (TMODE << 11) | (CT_OM << 9) | (START_SUB_CH << 3) | (S_TYPE <<
 								  1) | (S);
-	_opConfig[1] = 0x368285E5;	/*                                 */
+	_opConfig[1] = 0x368285E5;	/* layer - A only ts resync enable */
 	_opConfig[2] =
 	   (DIV_NUM_CFG<<31) | (AGC_TR_SPEED<<21) | (tripleBandRfFlag<<20) | 
 	   (CFO_ER<<18) | (ADC_CLK_CFG << 12) | 
@@ -3045,7 +3012,8 @@ I32S Tcc353xGetTMCCInfo(I32S _moduleIndex, I32S _diversityIndex,
 			tmccInfo_t * _tmccInfo)
 {
 	mailbox_t mailbox;
-	I32S ret = TCC353X_RETURN_SUCCESS;
+	/*I32S ret = TCC353X_RETURN_SUCCESS;*/
+	I32S ret;
 
 	ret = Tcc353xMailboxRead(_moduleIndex, _diversityIndex,
 				 MBPARA_TMCC_RESULT, &mailbox);
@@ -3311,7 +3279,7 @@ I32S Tcc353xUserCommand(I32S _moduleIndex, I32S _diversityIndex,
 	return ret;
 }
 
-/*                 */
+/* Dummy functions */
 
 I32S DummyFunction0(I32S _moduleIndex, I32S _chipAddress,
 		    I08U _inputData, I08U * _outData, I32S _size)

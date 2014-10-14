@@ -41,6 +41,9 @@ static DEFINE_SPINLOCK(sync_timeline_list_lock);
 
 static LIST_HEAD(sync_fence_list_head);
 static DEFINE_SPINLOCK(sync_fence_list_lock);
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL)
+extern int is_fboot;
+#endif
 
 struct sync_timeline *sync_timeline_create(const struct sync_timeline_ops *ops,
 					   int size, const char *name)
@@ -611,7 +614,12 @@ int sync_fence_wait(struct sync_fence *fence, long timeout)
 
 	if (fence->status < 0) {
 		pr_info("fence error %d on [%p]\n", fence->status, fence);
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL)
+	if(!is_fboot)
 		sync_dump(fence);
+#else
+		sync_dump(fence);
+#endif
 		return fence->status;
 	}
 
@@ -619,7 +627,12 @@ int sync_fence_wait(struct sync_fence *fence, long timeout)
 		if (timeout > 0) {
 			pr_info("fence timeout on [%p] after %dms\n", fence,
 				jiffies_to_msecs(timeout));
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL)
+		if(!is_fboot)
 			sync_dump(fence);
+#else
+			sync_dump(fence);
+#endif
 		}
 		return -ETIME;
 	}

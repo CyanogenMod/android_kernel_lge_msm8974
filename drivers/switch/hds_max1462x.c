@@ -223,8 +223,21 @@ static void button_pressed(struct work_struct *work)
 		HSD_ERR("button_pressed but 4 pole ear jack is plugged out already! just ignore the event.\n");
 		return;
 	}
-	rc = qpnp_vadc_read(P_MUX6_1_1,&result);
 
+/* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
+#ifdef CONFIG_ADC_READY_CHECK_JB
+	rc = qpnp_vadc_read_lge(P_MUX6_1_1,&result);
+#else
+	/* MUST BE IMPLEMENT :
+	 * After MSM8974 AC and later version(PMIC combination change),
+	 * ADC AMUX of PMICs are separated in each dual PMIC.
+	 *
+	 * Ref.
+	 * qpnp-adc-voltage.c : *qpnp_get_vadc(), qpnp_vadc_read().
+	 * qpnp-charger.c     : new implementation by QCT.
+	 */
+	return;
+#endif
 	if (rc < 0) {
 		if (rc == -ETIMEDOUT) {
 			pr_err("[DEBUG] button_pressed : adc read timeout \n");
@@ -276,7 +289,7 @@ static void button_released(struct work_struct *work)
 	int table_size = ARRAY_SIZE(max1462x_ear_3button_type_data);
 	int i;
 
-       //
+       // [AUDIO_BSP] 20130201, junday.lee, fix fake button_released return condition
        if (hi->gpio_get_value_func(hi->gpio_detect) && !atomic_read(&hi->btn_state)){
 		HSD_ERR("button_released but ear jack is plugged out already! just ignore the event.\n");
 		return;
@@ -322,7 +335,7 @@ static void insert_headset(struct hsd_info *hi)
 	irq_set_irq_wake(hi->irq_key, 1);
 	gpio_direction_output(hi->gpio_mic_en, 1);
 #ifdef CONFIG_SWITCH_MAX1462X_WA
-	#if defined (CONFIG_MACH_MSM8974_G2_TMO_US) || defined (CONFIG_MACH_MSM8974_G2_SPR) || defined (CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined (CONFIG_MACH_MSM8974_G2_CA)
+	#if defined (CONFIG_MACH_MSM8974_G2_TMO_US) || defined (CONFIG_MACH_MSM8974_G2_SPR) || defined (CONFIG_MACH_MSM8974_G2_OPEN_COM) || defined(CONFIG_MACH_MSM8974_G2_OPT_AU) || defined (CONFIG_MACH_MSM8974_G2_CA)
 		msleep(600);
 		HSD_DBG("insert delay 600\n");
 	#else
@@ -664,13 +677,24 @@ static int lge_hsd_probe(struct platform_device *pdev)
 	{
 		struct qpnp_vadc_result result;
 		int acc_read_value = 0;
-		int i, rc;
+		int i, rc = 0;
 		int count = 3;
 
 		for (i = 0; i < count; i++)
 		{
-			rc = qpnp_vadc_read(P_MUX6_1_1,&result);
-
+/* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
+#ifdef CONFIG_ADC_READY_CHECK_JB
+			rc = qpnp_vadc_read_lge(P_MUX6_1_1,&result);
+#else
+			/* MUST BE IMPLEMENT :
+			 * After MSM8974 AC and later version(PMIC combination change),
+			 * ADC AMUX of PMICs are separated in each dual PMIC.
+			 *
+			 * Ref.
+			 * qpnp-adc-voltage.c : *qpnp_get_vadc(), qpnp_vadc_read().
+			 * qpnp-charger.c     : new implementation by QCT.
+			 */
+#endif
 			if (rc < 0)
 			{
 				if (rc == -ETIMEDOUT) {
@@ -687,7 +711,6 @@ static int lge_hsd_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
 	set_bit(EV_SYN, hi->input->evbit);
 	set_bit(EV_KEY, hi->input->evbit);
 	set_bit(EV_SW, hi->input->evbit);
