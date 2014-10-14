@@ -121,12 +121,12 @@ int broadcast_drv_if_set_channel(unsigned int freq_num, unsigned int subch_id, u
 	int8 rc = ERROR;
 	boolean retval = FALSE;
 	s_opmode = op_mode;
-	gBBBuffer_ridx = gBBBuffer_widx = 0;
 
 	retval = tunerbb_drv_fc8050_set_channel(freq_num, subch_id, op_mode);
 
 	if(retval == TRUE)
 	{
+		gBBBuffer_ridx = gBBBuffer_widx = 0;
 		rc = OK;
 	}
 

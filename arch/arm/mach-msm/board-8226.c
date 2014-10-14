@@ -74,10 +74,16 @@ static struct of_dev_auxdata msm8226_auxdata_lookup[] __initdata = {
 			"msm_sdcc.1", NULL),
 	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF98A4000, \
 			"msm_sdcc.2", NULL),
+	OF_DEV_AUXDATA("qcom,msm-sdcc", 0xF9864000, \
+			"msm_sdcc.3", NULL),
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF9824900, \
 			"msm_sdcc.1", NULL),
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF98A4900, \
 			"msm_sdcc.2", NULL),
+	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF9864900, \
+			"msm_sdcc.3", NULL),
+	OF_DEV_AUXDATA("qcom,hsic-host", 0xF9A00000, "msm_hsic_host", NULL),
+
 	{}
 };
 
@@ -138,6 +144,7 @@ void __init msm8226_init(void)
 static const char *msm8226_dt_match[] __initconst = {
 	"qcom,msm8226",
 	"qcom,msm8926",
+	"qcom,apq8026",
 	NULL
 };
 

@@ -43,7 +43,7 @@ extern TcpalSemaphore_t Tcc353xInterfaceSema;
     (((I32U)(x) & (I32U)0x00ff0000UL) >>  8) | \
     (((I32U)(x) & (I32U)0xff000000UL) >> 24) ))
 
-/*                        */
+/* baseband memory control*/
 I32S Tcc353xMemoryRead(I32S _moduleIndex, I32S _diversityIndex,
 		       I32U _address, I08U * _data, I32U _size)
 {
@@ -180,9 +180,9 @@ I32S WriteProcess(Tcc353xHandle_t * _handle, I08U _registerAddr,
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                                   */
+/* communication with API Layer !!!! */
 
-/*                  */
+/* baseband register*/
 I32S Tcc353xRead(I32S _moduleIndex, I32S _diversityIndex, I08U _address,
 		 I08U * _data, I32U _size)
 {
@@ -207,7 +207,7 @@ I32S Tcc353xWrite(I32S _moduleIndex, I32S _diversityIndex, I08U _address,
 	return (Tcc353xSetRegManual(h, _address, &_data[0], _size));
 }
 
-/*             */
+/* RF register */
 I32S Tcc353xRfWrite(I32S _moduleIndex, I32S _diversityIndex, I08U _address,
 		    I32U _data)
 {
@@ -234,7 +234,7 @@ I32S Tcc353xRfRead(I32S _moduleIndex, I32S _diversityIndex, I08U _address,
 	return ret;
 }
 
-/*              */
+/* Misc Control */
 I32S Tcc353xMiscRead(I32S _moduleIndex, I32S _diversityIndex,
 		     I08U _miscConfig, I08U _address, I32U * _data)
 {
@@ -252,7 +252,7 @@ I32S Tcc353xMiscRead(I32S _moduleIndex, I32S _diversityIndex,
 	Tcc353xSetRegMiscAction(h, TC3XREG_MISC_ACTION, _UNLOCK_);
 	Tcc353xGetRegMiscData(h, (I08U *) (_data), _UNLOCK_);
 	_data[0] = SWAP32(_data[0]);
-	/*                                                 */
+	/* warning : please reset to opcontrol miscconfig0 */
 	Tcc353xSetRegMiscConfig(h, 0, _UNLOCK_);
 
 	TcpalSemaphoreUnLock(&Tcc353xInterfaceSema);
@@ -276,14 +276,14 @@ I32S Tcc353xMiscWrite(I32S _moduleIndex, I32S _diversityIndex,
 	_data = SWAP32(_data);
 	Tcc353xSetRegMiscData(h, (I08U *) (&_data), _UNLOCK_);
 	Tcc353xSetRegMiscAction(h, TC3XREG_MISC_ACTION, _UNLOCK_);
-	/*                                                 */
+	/* warning : please reset to opcontrol miscconfig0 */
 	Tcc353xSetRegMiscConfig(h, 0, _UNLOCK_);
 
 	TcpalSemaphoreUnLock(&Tcc353xInterfaceSema);
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                              */
+/* misc wite - increase address */
 I32S Tcc353xMiscWriteExIncrease(I32S _moduleIndex, I32S _diversityIndex,
 		      I08U _miscConfig, I08U _startAddress, 
 		      I32U *_data, I32U _size)
@@ -308,14 +308,14 @@ I32S Tcc353xMiscWriteExIncrease(I32S _moduleIndex, I32S _diversityIndex,
 		Tcc353xSetRegMiscData(h, (I08U *) (&temp), _UNLOCK_);
 		Tcc353xSetRegMiscAction(h, TC3XREG_MISC_ACTION, _UNLOCK_);
 	}
-	/*                                                 */
+	/* warning : please reset to opcontrol miscconfig0 */
 	Tcc353xSetRegMiscConfig(h, 0, _UNLOCK_);
 
 	TcpalSemaphoreUnLock(&Tcc353xInterfaceSema);
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                                  */
+/* misc wite - not increase address */
 I32S Tcc353xMiscWriteEx(I32S _moduleIndex, I32S _diversityIndex,
 		      I08U _miscConfig, I08U *_startAddress, 
 		      I32U *_data, I32U _size)
@@ -340,14 +340,14 @@ I32S Tcc353xMiscWriteEx(I32S _moduleIndex, I32S _diversityIndex,
 		Tcc353xSetRegMiscData(h, (I08U *) (&temp), _UNLOCK_);
 		Tcc353xSetRegMiscAction(h, TC3XREG_MISC_ACTION, _UNLOCK_);
 	}
-	/*                                                 */
+	/* warning : please reset to opcontrol miscconfig0 */
 	Tcc353xSetRegMiscConfig(h, 0, _UNLOCK_);
 
 	TcpalSemaphoreUnLock(&Tcc353xInterfaceSema);
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*                     */
+/* stream read control */
 I32S Tcc353xStreamRead(I32S _moduleIndex, I08U * _data, I32S _size)
 {
 	I32U address;
@@ -386,7 +386,7 @@ I32S Tcc353xStreamRead(I32S _moduleIndex, I08U * _data, I32S _size)
 }
 
 
-/*                     */
+/* IRQ releate register*/
 I32S Tcc353xReadIrqError(I32S _moduleIndex, I08U * _data)
 {
 	Tcc353xHandle_t *h;

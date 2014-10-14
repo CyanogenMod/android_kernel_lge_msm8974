@@ -257,10 +257,12 @@ int8 tunerbb_drv_t3a00_get_ber(struct broadcast_tdmb_sig_info *dmb_bb_info)
 	if((svc_type == 2) && (unRefAntLevel == 0) && (pInfo->uiCER < 1300) && (pInfo->ucVber >= 50))
 	 unRefAntLevel+=1;
 
-	if((svc_type == 2) && (unRefAntLevel == 1) && (pInfo->ucVber < 50))
+	//if((svc_type == 2) && (unRefAntLevel == 1) && (pInfo->ucVber < 50))
+	if((svc_type == 2) && (unRefAntLevel == 1) && (pInfo->ucVber < 35))
 		unRefAntLevel-=1;
 
-	if((svc_type == 2) &&(unRefAntLevel == 2) && (pInfo->ucVber <= 50))
+	//if((svc_type == 2) &&(unRefAntLevel == 2) && (pInfo->ucVber <= 50))
+	if((svc_type == 2) &&(unRefAntLevel == 2) && (pInfo->ucVber < 50))
 	  unRefAntLevel -=1;
 
 
@@ -515,7 +517,8 @@ int8 tunerbb_drv_t3a00_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8 
 					return INC_ERROR;
 			}
 			memcpy(&stSubInfo.astSubChInfo[i], &ChInfo[i], sizeof(INC_CHANNEL_INFO));
-		}
+		}
+
 
 		stSubInfo.nSetCnt = subch_cnt;
 		INC_MULTI_SORT_INIT();
@@ -531,7 +534,7 @@ int8 tunerbb_drv_t3a00_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8 
 			ErrorInfo = INTERFACE_ERROR_STATUS(TDMB_RFBB_DEV_ADDR);
 			printk("[INC] START INTERFACE_STATUS = (0x%04x)\n", ErrorInfo);
 			if(ErrorInfo == ERROR_SYNC_NULL || ErrorInfo == ERROR_FICDECODER || 
-				ErrorInfo == ERROR_SYNC_TIMEOUT) continue; // ¾àÀü°è½Ã ÇÑ¹ø´õ È£ÃâÇÔ. 
+				ErrorInfo == ERROR_SYNC_TIMEOUT) continue; // Â¾Ã Ã€Ã¼Â°Ã¨Â½Ãƒ Ã‡Ã‘Â¹Ã¸Â´Ãµ ÃˆÂ£ÃƒÃ¢Ã‡Ã”. 
 			else
 			{
 				return INC_ERROR;
@@ -572,7 +575,8 @@ int8 tunerbb_drv_t3a00_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8 
 				default:
 					return INC_ERROR;
 			}
-		}
+		}
+
 
 		g_stSubInfo.nSetCnt = subch_cnt;
 		INC_MULTI_SORT_INIT();
@@ -938,7 +942,7 @@ int8 tunerbb_drv_t3a00_multi_set_channel(int32 freq_num, uint8 subch_cnt, uint8 
 			ErrorInfo = INTERFACE_ERROR_STATUS(TDMB_RFBB_DEV_ADDR);
 			printk("[INC]^__^ INTERFACE_ERROR_STATUS = (0x%04x)", ErrorInfo);
 			if(ErrorInfo == ERROR_SYNC_NULL || ErrorInfo == ERROR_FICDECODER || 
-				ErrorInfo == ERROR_SYNC_TIMEOUT) continue; // ¾àÀü°è½Ã ÇÑ¹ø´õ È£ÃâÇÔ. 
+				ErrorInfo == ERROR_SYNC_TIMEOUT) continue; // Â¾Ã Ã€Ã¼Â°Ã¨Â½Ãƒ Ã‡Ã‘Â¹Ã¸Â´Ãµ ÃˆÂ£ÃƒÃ¢Ã‡Ã”. 
 			else
 			{
 				return INC_ERROR;
