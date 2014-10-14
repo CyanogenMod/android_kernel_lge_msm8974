@@ -12,23 +12,30 @@
  */
 
 #include <linux/slab.h>
-
+#include <mach/scm.h>
 #include "msm_vidc_internal.h"
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
 #include "msm_smem.h"
 #include "msm_vidc_debug.h"
-#include <mach/scm.h>
 
 #define MSM_VDEC_DVC_NAME "msm_vdec_8974"
 #define MIN_NUM_OUTPUT_BUFFERS 4
+#ifdef CONFIG_MACH_LGE
 #define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME
+#else
+#define MAX_NUM_OUTPUT_BUFFERS 6
+#endif
+
+//                                                                                                                    
+//#define DEFAULT_CONCEAL_COLOR 0x0
+#define DEFAULT_CONCEAL_COLOR 0x108080
+//                                                                                                                   
 
 #define TZ_INFO_GET_FEATURE_VERSION_ID 0x3
 #define TZ_DYNAMIC_BUFFER_FEATURE_ID 12
 #define TZ_FEATURE_VERSION(major, minor, patch) \
 	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
-
 struct tz_get_feature_version {
 	u32 feature_id;
 };
@@ -308,6 +315,22 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.qmenu = NULL,
 		.cluster = 0,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE,
+		.name = "Video decoder multi stream",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum =
+			V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY,
+		.maximum =
+			V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY,
+		.default_value =
+			V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.step = 1,
+		.qmenu = NULL,
+		.cluster = 0,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
@@ -321,7 +344,7 @@ static u32 get_frame_size_nv12(int plane,
 static u32 get_frame_size_compressed(int plane,
 					u32 height, u32 width)
 {
-	return (width * height * 3/2)/2;
+	return (width * height * 3/2)/4;
 }
 
 struct msm_vidc_format vdec_formats[] = {
@@ -385,6 +408,14 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "HEVC",
 		.description = "HEVC compressed format",
 		.fourcc = V4L2_PIX_FMT_HEVC,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_compressed,
+		.type = OUTPUT_PORT,
+	},
+	{
+		.name = "HEVC_HYBRID",
+		.description = "HEVC compressed format",
+		.fourcc = V4L2_PIX_FMT_HEVC_HYBRID,
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_compressed,
 		.type = OUTPUT_PORT,
@@ -489,7 +520,8 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 				b->m.planes[i].length);
 			}
 			buffer_info.buffer_size = b->m.planes[0].length;
-			buffer_info.buffer_type = HAL_BUFFER_OUTPUT;
+			buffer_info.buffer_type =
+				msm_comm_get_hal_output_buffer(inst);
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr =
 				b->m.planes[0].m.userptr;
@@ -573,7 +605,8 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 				b->m.planes[i].length);
 			}
 			buffer_info.buffer_size = b->m.planes[0].length;
-			buffer_info.buffer_type = HAL_BUFFER_OUTPUT;
+			buffer_info.buffer_type =
+				msm_comm_get_hal_output_buffer(inst);
 			buffer_info.num_buffers = 1;
 			buffer_info.align_device_addr =
 				 b->m.planes[0].m.userptr;
@@ -661,7 +694,7 @@ int msm_vdec_reqbufs(struct msm_vidc_inst *inst, struct v4l2_requestbuffers *b)
 int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	const struct msm_vidc_format *fmt = NULL;
-	struct hal_frame_size frame_sz;
+	unsigned int *plane_sizes = NULL;
 	struct hfi_device *hdev;
 	int stride, scanlines;
 	int extra_idx = 0;
@@ -683,8 +716,22 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		f->fmt.pix_mp.pixelformat = fmt->fourcc;
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		if (inst->in_reconfig == true) {
-			inst->prop.height = inst->reconfig_height;
-			inst->prop.width = inst->reconfig_width;
+			if (msm_comm_get_stream_output_mode(inst) ==
+				HAL_VIDEO_DECODER_PRIMARY) {
+				inst->prop.height[CAPTURE_PORT] =
+					inst->reconfig_height;
+				inst->prop.width[CAPTURE_PORT] =
+					inst->reconfig_width;
+				inst->prop.height[OUTPUT_PORT] =
+					inst->reconfig_height;
+				inst->prop.width[OUTPUT_PORT] =
+					inst->reconfig_width;
+			} else {
+				inst->prop.height[OUTPUT_PORT] =
+					inst->reconfig_height;
+				inst->prop.width[OUTPUT_PORT] =
+					inst->reconfig_width;
+			}
 			rc = msm_vidc_check_session_supported(inst);
 			if (rc) {
 				dprintk(VIDC_ERR,
@@ -692,15 +739,10 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				goto exit;
 			}
 		}
-		f->fmt.pix_mp.height = inst->prop.height;
-		f->fmt.pix_mp.width = inst->prop.width;
-		stride = inst->prop.width;
-		scanlines = inst->prop.height;
-		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
-		dprintk(VIDC_DBG, "width = %d, height = %d\n",
-				frame_sz.width, frame_sz.height);
+		f->fmt.pix_mp.height = inst->prop.height[CAPTURE_PORT];
+		f->fmt.pix_mp.width = inst->prop.width[CAPTURE_PORT];
+		stride = inst->prop.width[CAPTURE_PORT];
+		scanlines = inst->prop.height[CAPTURE_PORT];
 		rc = msm_comm_try_get_bufreqs(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -708,21 +750,27 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			plane_sizes =
+			&inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[0];
 			for (i = 0; i < fmt->num_planes; ++i) {
-				f->fmt.pix_mp.plane_fmt[i].sizeimage =
-					fmt->get_frame_size(i,
+				if (plane_sizes[i] == 0) {
+					f->fmt.pix_mp.plane_fmt[i].sizeimage =
+						fmt->get_frame_size(i,
 						inst->capability.height.max,
 						inst->capability.width.max);
-				inst->bufq[OUTPUT_PORT].
-					vb2_bufq.plane_sizes[i] =
+					plane_sizes[i] =
 					f->fmt.pix_mp.plane_fmt[i].sizeimage;
+				} else
+					f->fmt.pix_mp.plane_fmt[i].sizeimage =
+						plane_sizes[i];
 			}
 		} else {
 			switch (fmt->fourcc) {
 			case V4L2_PIX_FMT_NV12:
 				call_hfi_op(hdev, get_stride_scanline,
 					COLOR_FMT_NV12,
-					inst->prop.width, inst->prop.height,
+					inst->prop.width[CAPTURE_PORT],
+					inst->prop.height[CAPTURE_PORT],
 					&stride, &scanlines);
 				break;
 			default:
@@ -730,7 +778,8 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 					"Color format not recognized\n");
 			}
 			buff_req_buffer =
-				get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+				get_buff_req_buffer(inst,
+					msm_comm_get_hal_output_buffer(inst));
 			if (buff_req_buffer)
 				f->fmt.pix_mp.plane_fmt[0].sizeimage =
 				buff_req_buffer->buffer_size;
@@ -762,9 +811,9 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				(__u16)scanlines;
 		} else {
 			f->fmt.pix_mp.plane_fmt[0].bytesperline =
-				(__u16)inst->prop.width;
+				(__u16)inst->prop.width[CAPTURE_PORT];
 			f->fmt.pix_mp.plane_fmt[0].reserved[0] =
-				(__u16)inst->prop.height;
+				(__u16)inst->prop.height[CAPTURE_PORT];
 		}
 	} else {
 		dprintk(VIDC_ERR,
@@ -831,12 +880,15 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int ret = 0;
 	int i;
 	struct hal_buffer_requirements *buff_req_buffer;
+	int max_input_size = 0;
+
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
 			"Invalid input, inst = %p, format = %p\n", inst, f);
 		return -EINVAL;
 	}
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 			ARRAY_SIZE(vdec_formats), f->fmt.pix_mp.pixelformat,
 			CAPTURE_PORT);
@@ -847,7 +899,26 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto err_invalid_fmt;
 		}
+		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
+		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
+		if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_PRIMARY) {
+			inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
+			inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+		}
 		inst->fmts[fmt->type] = fmt;
+		if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+			frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
+			frame_sz.width = inst->prop.width[CAPTURE_PORT];
+			frame_sz.height = inst->prop.height[CAPTURE_PORT];
+			dprintk(VIDC_DBG,
+				"buffer type = %d width = %d, height = %d\n",
+				frame_sz.buffer_type, frame_sz.width,
+				frame_sz.height);
+			ret = msm_comm_try_set_prop(inst,
+				HAL_PARAM_FRAME_SIZE, &frame_sz);
+		}
 		ret = ret || msm_comm_try_get_bufreqs(inst);
 		if (ret) {
 			for (i = 0; i < fmt->num_planes; ++i) {
@@ -858,7 +929,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			}
 		} else {
 			buff_req_buffer =
-				get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+				get_buff_req_buffer(inst,
+					msm_comm_get_hal_output_buffer(inst));
 			if (buff_req_buffer)
 				f->fmt.pix_mp.plane_fmt[0].sizeimage =
 				buff_req_buffer->buffer_size;
@@ -883,8 +955,13 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		inst->prop.width = f->fmt.pix_mp.width;
-		inst->prop.height = f->fmt.pix_mp.height;
+		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
+		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+		if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_PRIMARY) {
+			inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
+			inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
+		}
 		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
@@ -902,6 +979,14 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto err_invalid_fmt;
 		}
+		if (!(get_hal_codec_type(fmt->fourcc) &
+			inst->core->dec_codec_supported)) {
+			dprintk(VIDC_ERR,
+				"Codec(0x%x) not supported\n",
+				get_hal_codec_type(fmt->fourcc));
+			rc = -EINVAL;
+			goto err_invalid_fmt;
+		}
 		inst->fmts[fmt->type] = fmt;
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
@@ -909,12 +994,23 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
-		frame_sz.width = inst->prop.width;
-		frame_sz.height = inst->prop.height;
+		frame_sz.width = inst->prop.width[OUTPUT_PORT];
+		frame_sz.height = inst->prop.height[OUTPUT_PORT];
+		dprintk(VIDC_DBG,
+			"buffer type = %d width = %d, height = %d\n",
+			frame_sz.buffer_type, frame_sz.width,
+			frame_sz.height);
 		msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
-		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			fmt->get_frame_size(0, inst->capability.height.max,
+
+		max_input_size = fmt->get_frame_size(0,
+					inst->capability.height.max,
 					inst->capability.width.max);
+
+		if (f->fmt.pix_mp.plane_fmt[0].sizeimage > max_input_size ||
+			f->fmt.pix_mp.plane_fmt[0].sizeimage == 0) {
+			f->fmt.pix_mp.plane_fmt[0].sizeimage = max_input_size;
+		}
+
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		for (i = 0; i < fmt->num_planes; ++i) {
 			inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[i] =
@@ -1022,6 +1118,18 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				"Failed to set new buffer count(%d) on FW, err: %d\n",
 				new_buf_count.buffer_count_actual, rc);
 		}
+		//                                                                                                           
+		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
+		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
+		new_buf_count.buffer_count_actual = *num_buffers;
+		rc = call_hfi_op(hdev, session_set_property,
+		inst->session, property_id, &new_buf_count);
+		if (rc) {
+			dprintk(VIDC_WARN,
+					"Failed to set new buffer count(%d) on FW, err: %d\n",
+			new_buf_count.buffer_count_actual, rc);
+		}
+		//                                                                                                           
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		dprintk(VIDC_DBG, "Getting bufreqs on capture plane\n");
@@ -1038,7 +1146,8 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			break;
 		}
 		mutex_lock(&inst->lock);
-		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+		bufreq = get_buff_req_buffer(inst,
+			msm_comm_get_hal_output_buffer(inst));
 		if (!bufreq) {
 			dprintk(VIDC_ERR,
 				"No buffer requirement for buffer type %x\n",
@@ -1050,7 +1159,8 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		*num_buffers = max(*num_buffers, bufreq->buffer_count_min);
 		if (*num_buffers != bufreq->buffer_count_actual) {
 			property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
-			new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
+			new_buf_count.buffer_type =
+				msm_comm_get_hal_output_buffer(inst);
 			new_buf_count.buffer_count_actual = *num_buffers;
 			rc = call_hfi_op(hdev, session_set_property,
 				inst->session, property_id, &new_buf_count);
@@ -1080,12 +1190,80 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	return rc;
 }
 
+static int msm_vdec_queue_output_buffers(struct msm_vidc_inst *inst)
+{
+	struct internal_buf *binfo;
+	struct hfi_device *hdev;
+	struct msm_smem *handle;
+	struct vidc_frame_data frame_data = {0};
+	struct hal_buffer_requirements *output_buf, *extradata_buf;
+	int rc = 0;
+	hdev = inst->core->device;
+
+	output_buf = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+	if (!output_buf) {
+		dprintk(VIDC_DBG,
+			"This output buffer not required, buffer_type: %x\n",
+			HAL_BUFFER_OUTPUT);
+		return 0;
+	}
+	dprintk(VIDC_DBG,
+		"output: num = %d, size = %d\n",
+		output_buf->buffer_count_actual,
+		output_buf->buffer_size);
+
+	extradata_buf = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_OUTPUT);
+	if (!extradata_buf) {
+		dprintk(VIDC_DBG,
+			"This extradata buffer not required, buffer_type: %x\n",
+			HAL_BUFFER_EXTRADATA_OUTPUT);
+		return 0;
+	}
+
+	hdev = inst->core->device;
+
+	mutex_lock(&inst->lock);
+	if (!list_empty(&inst->outputbufs)) {
+		list_for_each_entry(binfo, &inst->outputbufs, list) {
+			if (!binfo) {
+				dprintk(VIDC_ERR, "Invalid parameter\n");
+				mutex_unlock(&inst->lock);
+				return -EINVAL;
+			}
+			handle = binfo->handle;
+			frame_data.alloc_len = output_buf->buffer_size;
+			frame_data.filled_len = 0;
+			frame_data.offset = 0;
+			frame_data.device_addr = handle->device_addr;
+			frame_data.flags = 0;
+			frame_data.extradata_addr = handle->device_addr +
+				output_buf->buffer_size;
+			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
+			rc = call_hfi_op(hdev, session_ftb,
+					(void *) inst->session, &frame_data);
+			binfo->buffer_ownership = FIRMWARE;
+		}
+	}
+	mutex_unlock(&inst->lock);
+	return 0;
+}
+
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 	struct vb2_buf_entry *temp;
+	struct hfi_device *hdev;
 	struct list_head *ptr, *next;
+
+	hdev = inst->core->device;
 	inst->in_reconfig = false;
+	if (msm_comm_get_stream_output_mode(inst) ==
+		HAL_VIDEO_DECODER_SECONDARY)
+		rc = msm_comm_check_scaling_supported(inst);
+	if (rc) {
+		dprintk(VIDC_ERR, "H/w scaling is not in valid range");
+		return -EINVAL;
+	}
 	rc = msm_comm_set_scratch_buffers(inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1099,6 +1277,15 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	if (msm_comm_get_stream_output_mode(inst) ==
+		HAL_VIDEO_DECODER_SECONDARY) {
+		rc = msm_comm_set_output_buffers(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set output buffers: %d\n", rc);
+			goto fail_start;
+		}
+	}
 	mutex_lock(&inst->core->sync_lock);
 	msm_comm_scale_clocks_and_bus(inst);
 	mutex_unlock(&inst->core->sync_lock);
@@ -1109,7 +1296,15 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to move inst: %p to start done state\n", inst);
 		goto fail_start;
 	}
-
+	if (msm_comm_get_stream_output_mode(inst) ==
+		HAL_VIDEO_DECODER_SECONDARY) {
+		rc = msm_vdec_queue_output_buffers(inst);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to queue output buffers: %d\n", rc);
+			goto fail_start;
+		}
+	}
 	mutex_lock(&inst->sync_lock);
 	if (!list_empty(&inst->pendingq)) {
 		list_for_each_safe(ptr, next, &inst->pendingq) {
@@ -1144,17 +1339,28 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct msm_vidc_inst *inst;
 	int rc = 0;
+	int pdata = DEFAULT_CONCEAL_COLOR;
+	struct hfi_device *hdev;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
 		return -EINVAL;
 	}
 	inst = q->drv_priv;
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
 	dprintk(VIDC_DBG,
 		"Streamon called on: %d capability\n", q->type);
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (inst->bufq[CAPTURE_PORT].vb2_bufq.streaming)
 			rc = start_streaming(inst);
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *) inst->session,
+			HAL_PARAM_VDEC_CONCEAL_COLOR,
+			(void *) &pdata);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (inst->bufq[OUTPUT_PORT].vb2_bufq.streaming)
@@ -1292,16 +1498,35 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	}
 	inst->fmts[OUTPUT_PORT] = &vdec_formats[1];
 	inst->fmts[CAPTURE_PORT] = &vdec_formats[0];
-	inst->prop.height = DEFAULT_HEIGHT;
-	inst->prop.width = DEFAULT_WIDTH;
+	inst->prop.height[CAPTURE_PORT] = DEFAULT_HEIGHT;
+	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
+	inst->prop.height[OUTPUT_PORT] = DEFAULT_HEIGHT;
+	inst->prop.width[OUTPUT_PORT] = DEFAULT_WIDTH;
 	inst->capability.height.min = MIN_SUPPORTED_HEIGHT;
 	inst->capability.height.max = DEFAULT_HEIGHT;
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
 	inst->capability.width.max = DEFAULT_WIDTH;
+	inst->capability.buffer_mode[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->capability.buffer_mode[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->buffer_mode_set[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
 	inst->prop.fps = 30;
-	inst->fmts[CAPTURE_PORT]->buf_type = V4L2_MPEG_VIDC_VIDEO_STATIC;
-	inst->fmts[OUTPUT_PORT]->buf_type = V4L2_MPEG_VIDC_VIDEO_STATIC;
 	return rc;
+}
+
+static inline enum buffer_mode_type get_buf_type(int val)
+{
+	switch (val) {
+	case V4L2_MPEG_VIDC_VIDEO_STATIC:
+		return HAL_BUFFER_MODE_STATIC;
+	case V4L2_MPEG_VIDC_VIDEO_RING:
+		return HAL_BUFFER_MODE_RING;
+	case V4L2_MPEG_VIDC_VIDEO_DYNAMIC:
+		return HAL_BUFFER_MODE_DYNAMIC;
+	default:
+		dprintk(VIDC_ERR, "%s: invalid buf type: %d", __func__, val);
+	}
+	return 0;
 }
 
 static int check_tz_dynamic_buffer_support(void)
@@ -1312,9 +1537,8 @@ static int check_tz_dynamic_buffer_support(void)
 
 	tz_feature_id.feature_id = TZ_DYNAMIC_BUFFER_FEATURE_ID;
 	rc = scm_call(SCM_SVC_INFO,
-		TZ_INFO_GET_FEATURE_VERSION_ID, &tz_feature_id,
-		sizeof(tz_feature_id), &resp, sizeof(resp));
-
+		  TZ_INFO_GET_FEATURE_VERSION_ID, &tz_feature_id,
+		  sizeof(tz_feature_id), &resp, sizeof(resp));
 	if ((rc) || (resp != TZ_FEATURE_VERSION(1, 1, 0))) {
 		dprintk(VIDC_DBG,
 			"Dyamic buffer mode not supported, failed to get tz feature version id : %u, rc : %d, response : %u\n",
@@ -1336,6 +1560,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hfi_device *hdev;
 	struct hal_extradata_enable extra;
 	struct hal_buffer_alloc_mode alloc_mode;
+	struct hal_multi_stream multi_stream;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
@@ -1425,13 +1650,15 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_INPUT:
-		if (ctrl->val == V4L2_MPEG_VIDC_VIDEO_DYNAMIC)
+		if (ctrl->val == V4L2_MPEG_VIDC_VIDEO_DYNAMIC) {
 			rc = -ENOTSUPP;
+			break;
+		}
 		property_id = HAL_PARAM_BUFFER_ALLOC_MODE;
-		alloc_mode.buffer_mode = ctrl->val;
+		alloc_mode.buffer_mode = get_buf_type(ctrl->val);
 		alloc_mode.buffer_type = HAL_BUFFER_INPUT;
+		inst->buffer_mode_set[OUTPUT_PORT] = alloc_mode.buffer_mode;
 		pdata = &alloc_mode;
-		inst->fmts[OUTPUT_PORT]->buf_type = alloc_mode.buffer_mode;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_ASSEMBLY:
 	{
@@ -1442,27 +1669,87 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_OUTPUT:
 		property_id = HAL_PARAM_BUFFER_ALLOC_MODE;
-		if (ctrl->val == V4L2_MPEG_VIDC_VIDEO_RING)
+		alloc_mode.buffer_mode = get_buf_type(ctrl->val);
+		if (!(alloc_mode.buffer_mode &
+			inst->capability.buffer_mode[CAPTURE_PORT])) {
+			dprintk(VIDC_DBG,
+				"buffer mode[%d] not supported for Capture Port\n",
+				ctrl->val);
 			rc = -ENOTSUPP;
-		else if (ctrl->val == V4L2_MPEG_VIDC_VIDEO_DYNAMIC &&
-			!(inst->output_alloc_mode_supported &
-			HAL_BUFFER_MODE_DYNAMIC)) {
-				dprintk(VIDC_DBG,
-					"Dynamic buffer mode not supported for Capture Port\n");
+			break;
+		}
+		if ((alloc_mode.buffer_mode == HAL_BUFFER_MODE_DYNAMIC) &&
+			(inst->flags & VIDC_SECURE) &&
+			check_tz_dynamic_buffer_support()) {
 				rc = -ENOTSUPP;
-		} else {
-			if ((inst->flags & VIDC_SECURE) &&
-				check_tz_dynamic_buffer_support()) {
-				rc = -ENOTSUPP;
-			} else {
-				alloc_mode.buffer_mode = ctrl->val;
-				alloc_mode.buffer_type = HAL_BUFFER_OUTPUT;
-				pdata = &alloc_mode;
-				inst->output_alloc_mode =
-					alloc_mode.buffer_mode;
-				inst->fmts[CAPTURE_PORT]->buf_type =
-					alloc_mode.buffer_mode;
+				break;
+		}
+		alloc_mode.buffer_type = HAL_BUFFER_OUTPUT;
+		pdata = &alloc_mode;
+		inst->buffer_mode_set[CAPTURE_PORT] = alloc_mode.buffer_mode;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE:
+		if (ctrl->val && !(inst->capability.pixelprocess_capabilities &
+				HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY)) {
+			dprintk(VIDC_ERR, "Downscaling not supported: 0x%x",
+				ctrl->id);
+			rc = -ENOTSUPP;
+			break;
+		}
+		switch (ctrl->val) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY:
+			multi_stream.buffer_type = HAL_BUFFER_OUTPUT;
+			multi_stream.enable = true;
+			pdata = &multi_stream;
+			rc = call_hfi_op(hdev, session_set_property, (void *)
+				inst->session, HAL_PARAM_VDEC_MULTI_STREAM,
+				pdata);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed : Enabling OUTPUT port : %d\n",
+					rc);
+				break;
 			}
+			multi_stream.buffer_type = HAL_BUFFER_OUTPUT2;
+			multi_stream.enable = false;
+			pdata = &multi_stream;
+			rc = call_hfi_op(hdev, session_set_property, (void *)
+				inst->session, HAL_PARAM_VDEC_MULTI_STREAM,
+				pdata);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"Failed:Disabling OUTPUT2 port : %d\n",
+					rc);
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY:
+			multi_stream.buffer_type = HAL_BUFFER_OUTPUT2;
+			multi_stream.enable = true;
+			pdata = &multi_stream;
+			rc = call_hfi_op(hdev, session_set_property, (void *)
+				inst->session, HAL_PARAM_VDEC_MULTI_STREAM,
+				pdata);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed :Enabling OUTPUT2 port : %d\n",
+					rc);
+				break;
+			}
+			multi_stream.buffer_type = HAL_BUFFER_OUTPUT;
+			multi_stream.enable = false;
+			pdata = &multi_stream;
+			rc = call_hfi_op(hdev, session_set_property, (void *)
+				inst->session, HAL_PARAM_VDEC_MULTI_STREAM,
+				pdata);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"Failed :Disabling OUTPUT port : %d\n",
+					rc);
+			break;
+		default:
+			dprintk(VIDC_ERR,
+				"Failed : Unsupported multi stream setting\n");
+			rc = -ENOTSUPP;
+			break;
 		}
 		break;
 	default:
@@ -1485,6 +1772,10 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	int rc = 0, c = 0;
 	struct msm_vidc_inst *inst = container_of(ctrl->handler,
 				struct msm_vidc_inst, ctrl_handler);
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
+		return -EINVAL;
+	}
 	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1557,7 +1848,7 @@ static struct v4l2_ctrl **get_cluster(int type, int *size)
 int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 {
 	int idx = 0;
-	struct v4l2_ctrl_config ctrl_cfg;
+	struct v4l2_ctrl_config ctrl_cfg = {0};
 	int ret_val = 0;
 
 	ret_val = v4l2_ctrl_handler_init(&inst->ctrl_handler, NUM_CTRLS);

@@ -181,9 +181,9 @@ ifeq ($(DRIVER_TYPE),y)
 DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
 endif
 
-#ifeq ($(CONFIG_BCMDHD_COB),y)
+ifeq ($(CONFIG_BCMDHD_COB),y)
 DHDCFLAGS += -DGET_CUSTOM_MAC_ENABLE
-#endif
+endif
 
 #########################
 # Chip dependent feature
