@@ -139,7 +139,7 @@ struct hfi_extradata_header {
 	(HFI_PROPERTY_PARAM_OX_START + 0x008)
 #define HFI_PROPERTY_PARAM_S3D_FRAME_PACKING_EXTRADATA	\
 	(HFI_PROPERTY_PARAM_OX_START + 0x009)
-#define HFI_PROPERTY_PARAM_ERR_DETECTION_CODE_EXTRADATA	\
+#define HFI_PROPERTY_PARAM_ERR_DETECTION_CODE_EXTRADATA \
 	(HFI_PROPERTY_PARAM_OX_START + 0x00A)
 #define  HFI_PROPERTY_PARAM_BUFFER_ALLOC_MODE_SUPPORTED	\
 	(HFI_PROPERTY_PARAM_OX_START + 0x00B)
@@ -844,6 +844,7 @@ struct msm_vidc_fw {
 };
 
 u32 hfi_process_msg_packet(msm_vidc_callback callback,
-		u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr);
+		u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
+		struct list_head *sessions, struct mutex *session_lock);
 #endif
 

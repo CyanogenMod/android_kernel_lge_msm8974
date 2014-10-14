@@ -74,9 +74,9 @@ typedef enum {
 } lcd_maker_id;
 
 typedef struct {
-    lcd_maker_id maker_id;
-    int min_mvol;
-    int max_mvol;
+	lcd_maker_id maker_id;
+	int min_mvol;
+	int max_mvol;
 } lcd_vol_maker_tbl_type;
 
 lcd_maker_id lge_get_panel_maker(void);
@@ -97,10 +97,6 @@ int lge_get_factory_boot(void);
 int get_lge_frst_status(void);
 
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
-*/
 struct kcal_data {
 		int red;
 		int green;
@@ -112,7 +108,7 @@ struct kcal_platform_data {
 	int (*get_values) (int *r, int *g, int *b);
 	int (*refresh_display) (void);
 };
-#endif // CONFIG_LCD_KCAL
+#endif /* CONFIG_LCD_KCAL */
 
 enum lge_boot_mode_type lge_get_boot_mode(void);
 
@@ -168,9 +164,9 @@ void __init lge_add_lcd_misc_devices(void);
 #endif
 
 #if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
+/*             
+                          
+                                
 */
 void __init lge_add_lcd_kcal_devices(void);
 #endif
