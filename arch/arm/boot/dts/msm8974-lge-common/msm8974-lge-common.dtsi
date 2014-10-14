@@ -25,6 +25,19 @@
 
 &soc {
 
+	/* stubs for lge 4.2 bootloader */
+	qcom,mdss_dsi_lgit_video {
+	};
+
+	qcom,mdss_dsi_lgit_cmd {
+	};
+
+	qcom,mdss_dsi_jdi_cmd {
+	};
+
+	qcom,mdss_dsi_jdi_video {
+	};
+
 	/* common: core */
 	qcom,wdt@f9017000 {
 		qcom,bark-time = <16000>;
@@ -40,7 +53,6 @@
 
                 qcom,msm-bus,name = "serial_uart1";
                 qcom,msm-bus,num-cases = <2>;
-                qcom,msm-bus,active-only = <0>;
                 qcom,msm-bus,num-paths = <1>;
                 qcom,msm-bus,vectors-KBps =
                           <86 512 0 0>,
@@ -55,7 +67,6 @@
 
                 qcom,msm-bus,name = "serial_uart12";
                 qcom,msm-bus,num-cases = <2>;
-                qcom,msm-bus,active-only = <0>;
                 qcom,msm-bus,num-paths = <1>;
                 qcom,msm-bus,vectors-KBps =
                          <84 512 0 0>,
@@ -120,6 +131,12 @@
 		};
 	};
 
+        qcom,msm-rng@f9bff000 {
+		qcom,msm-bus,vectors-KBps =
+				<88 618 0 0>,
+				<88 618 0 800>;
+        };
+
 	/* wifi */
 	qcom,wcnss-wlan@fb000000 {
 		status = "disable";
@@ -128,8 +145,10 @@
 };
 
 &spi_epm {
+	lge,do-not-create-sysfs-file;
+	/* this is dummy node to register trivial hwmon0 node */
 	epm-adc@0 {
-		status = "disable";
+		lge,do-not-create-sysfs-file;
 		compatible = "cy,epm-adc-cy8c5568lti-114";
 		reg = <0>;
 		interrupt-parent = <&msmgpio>;

@@ -28,10 +28,10 @@ between Telechips and Company.
 #include "tcc353x_common.h"
 
 
-/*                                            */
+/* Telechips Android (Android Platform Layer) */
 I08S Tcc353xDebugStr[1024];
 
-/*                 */
+/* For Debug Print */
 I32S TcpalPrintLog(const I08S * _fmt, ...)
 {
 	va_list ap;
@@ -68,7 +68,7 @@ I32S TcpalPrintStatus(const I08S * _fmt, ...)
 	return TCC353X_RETURN_SUCCESS;
 }
 
-/*               */
+/* For TimeCheck */
 #define MAX_TIMECNT 0xFFFFFFFFFFFFFFFFLL
 TcpalTime_t TcpalGetCurrentTimeCount_ms(void)
 {
@@ -93,7 +93,7 @@ TcpalTime_t TcpalGetTimeIntervalCount_ms(TcpalTime_t _startTimeCount)
 	return count;
 }
 
-/*           */
+/* for sleep */
 void TcpalmSleep(I32S _ms)
 {
 	msleep(_ms);
@@ -108,36 +108,10 @@ void TcpalmDelay(I32S _ms)
 
 void TcpaluSleep(I32S _us)
 {
-	//            
+	//usleep(_us);
 }
 
-/*                                  */
-void *TcpalMalloc(I32U _size)
-{
-	void *ptr = NULL;
-
-	if (!_size)
-		ptr = NULL;
-	else
-		ptr = (void *)kmalloc(_size, GFP_KERNEL);
-
-	return ptr;
-}
-
-I32S TcpalFree(void *_ptr)
-{
-	I32S error;
-	error = TCC353X_RETURN_SUCCESS;
-
-	if (_ptr == NULL) {
-		error = TCC353X_RETURN_FAIL_NULL_ACCESS;
-	} else {
-		kfree(_ptr);
-		_ptr = NULL;
-	}
-	return TCC353X_RETURN_SUCCESS;
-}
-
+/* for memory allocation, free, set */
 void *TcpalMemset(void *_dest, I32U _data, I32U _cnt)
 {
 	void *ptr = NULL;
@@ -158,7 +132,7 @@ void *TcpalMemcpy(void *_dest, const void *_src, I32U _cnt)
 	return ptr;
 }
 
-/*               */
+/* For Semaphore */
 #define MAX_MUTEX_POOL 15
 static struct mutex MutexPool[MAX_MUTEX_POOL];
 static I32U MutexAssignd[MAX_MUTEX_POOL] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};

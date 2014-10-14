@@ -162,8 +162,9 @@
 			<37 71>;
 	};
 
-	qcom,pm-8x60 {
+	qcom,pm-8x60@fe805664 {
 		compatible = "qcom,pm-8x60";
+		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = "tz_l2_ext";
 		qcom,use-sync-timer;
 	};
@@ -184,5 +185,19 @@
 		reg = <0xfc19dba0 0x1000>;
 		reg-names = "phys_addr_base";
 		qcom,sleep-stats-version = <2>;
+	};
+
+	qcom,rpm-rbcpr-stats@fc000000 {
+		compatible = "qcom,rpmrbcpr-stats";
+		reg = <0xfc000000 0x1a0000>;
+		qcom,start-offset = <0x190010>;
+	};
+
+	qcom,rpm-master-stats@fc428150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0xfc428150 0x3200>;
+		qcom,masters = "APSS", "MPSS", "LPSS";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <2560>;
 	};
 };

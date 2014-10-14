@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,9 +27,6 @@
 
 #define KGSL_MAX_CLKS 6
 
-/* Only two supported levels, min & max */
-#define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
-
 struct platform_device;
 
 struct kgsl_clk_stats {
@@ -41,17 +38,6 @@ struct kgsl_clk_stats {
 	unsigned int no_nap_cnt;
 	unsigned int elapsed;
 	unsigned int elapsed_old;
-};
-
-struct kgsl_pwr_constraint {
-	unsigned int type;
-	unsigned int sub_type;
-	union {
-		struct {
-			unsigned int level;
-		} pwrlevel;
-	} hint;
-	unsigned long expires;
 };
 
 /**
@@ -81,7 +67,6 @@ struct kgsl_pwr_constraint {
  * @bus_control - true if the bus calculation is independent
  * @bus_index - default bus index into the bus_ib table
  * @bus_ib - the set of unique ib requests needed for the bus calculation
- * @constraint - currently active power constraint
  */
 
 struct kgsl_pwrctrl {
@@ -113,7 +98,6 @@ struct kgsl_pwrctrl {
 	int bus_mod;
 	unsigned int bus_index[KGSL_MAX_PWRLEVELS];
 	uint64_t bus_ib[KGSL_MAX_PWRLEVELS];
-	struct kgsl_pwr_constraint constraint;
 };
 
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);
