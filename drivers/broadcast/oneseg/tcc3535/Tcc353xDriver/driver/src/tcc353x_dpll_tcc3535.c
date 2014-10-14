@@ -30,9 +30,9 @@ between Telechips and Company.
 #include "tcc353x_common.h"
 
 I32U DpllTable_TSB_1SEG_tcc3535 [_MAX_TSB_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
-	/*                */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
+	/* isdb-tsb 1-seg */
 	91857,  PLL_ISDB_TSB_1_SEG_384,	0x27, 0x47C9D1F2, 0x08, 
 	95285,  PLL_ISDB_TSB_1_SEG_408,	0x01, 0x0929ABB3, 0x0A, 
 	99142,  PLL_ISDB_TSB_1_SEG_384,	0x27, 0x47C9D1F2, 0x08, 
@@ -48,9 +48,9 @@ I32U DpllTable_TSB_1SEG_tcc3535 [_MAX_TSB_1SEG_FREQ_NUM_ * 5] = {
 };
 
 I32U DpllTable_TSB_3SEG_tcc3535 [_MAX_TSB_3SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
-	/*                */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
+	/* isdb-tsb 3-seg */
 	91857,  PLL_ISDB_TSB_3_SEG_432,	0x0F, 0x335205B8, 0x05, 
 	95285,  PLL_ISDB_TSB_3_SEG_432,	0x0F, 0x335205B8, 0x05, 
 	99142,  PLL_ISDB_TSB_3_SEG_464,	0x1F, 0xCEAD7815, 0x05, 
@@ -66,9 +66,9 @@ I32U DpllTable_TSB_3SEG_tcc3535 [_MAX_TSB_3SEG_FREQ_NUM_ * 5] = {
 };
 
 I32U DpllTable_TMM_1SEG_tcc3535 [_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
-	/*           */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
+	/* Pattern-A */
 	207857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	208286, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	208714, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
@@ -77,7 +77,7 @@ I32U DpllTable_TMM_1SEG_tcc3535 [_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 	210000, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	210429, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 
-	/*           */
+	/* Pattern-B */
 	213429, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	213857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	214286, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
@@ -86,7 +86,7 @@ I32U DpllTable_TMM_1SEG_tcc3535 [_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 	215571, PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	216000, PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 
-	/*           */
+	/* Pattern-C */
 	219000, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	219429, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	219857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
@@ -99,9 +99,9 @@ I32U DpllTable_TMM_1SEG_tcc3535 [_MAX_TMM_1SEG_FREQ_NUM_ * 5] = {
 };
 
 I32U DpllTable_TMM_13SEG_tcc3535 [_MAX_TMM_13SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
-	/*               */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
+	/* Pattern A/B/C */
 	210429, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	213429, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	216000, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
@@ -110,8 +110,8 @@ I32U DpllTable_TMM_13SEG_tcc3535 [_MAX_TMM_13SEG_FREQ_NUM_ * 5] = {
 };
 
 I32U DpllTable_TMM_USER_1SEG_tcc3535 [_MAX_TMM_USER_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 	207857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	208286, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	208714, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
@@ -149,8 +149,8 @@ I32U DpllTable_TMM_USER_1SEG_tcc3535 [_MAX_TMM_USER_1SEG_FREQ_NUM_ * 5] = {
 };
 
 I32U DpllTable_TMM_USER_13SEG_tcc3535 [_MAX_TMM_USER_13SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 	207857, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	208286, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	208714, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
@@ -188,10 +188,10 @@ I32U DpllTable_TMM_USER_13SEG_tcc3535 [_MAX_TMM_USER_13SEG_FREQ_NUM_ * 5] = {
 };
 
 I32U DpllTable_Partial1Seg_tcc3535 [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 
-	/*               */
+	/* isdb-tmm 1seg */
 	207857, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	208286, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	208714, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
@@ -213,7 +213,7 @@ I32U DpllTable_Partial1Seg_tcc3535 [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
 	220714, PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	221143, PLL_ISDB_TMM_PARTIAL_1_SEG_456, 0x1B, 0xDFC6F7F1, 0x0A,
 	221571, PLL_ISDB_TMM_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
-	/*                              */
+	/* ISDB-T 1-seg, VHF japan only */
 	93143,  PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	99143,  PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	105143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
@@ -221,7 +221,7 @@ I32U DpllTable_Partial1Seg_tcc3535 [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
 	179143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	185143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	191143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
-	/*                               */
+	/* ISDB-T 1-seg, VHF brazil only */
 	57143,	PLL_ISDB_T_PARTIAL_1_SEG_416, 0x05, 0xF05F05F0, 0x0A, 
 	63143,	PLL_ISDB_T_PARTIAL_1_SEG_432, 0x0F, 0x335205B8, 0x0A, 
 	69143,	PLL_ISDB_T_PARTIAL_1_SEG_416, 0x05, 0xF05F05F0, 0x0A, 
@@ -231,13 +231,13 @@ I32U DpllTable_Partial1Seg_tcc3535 [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
 	177143, PLL_ISDB_T_PARTIAL_1_SEG_496, 0x2E, 0x4578FCB9, 0x0A,
 	183143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	189143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
-	/*                   */
+	/* ISDB-T 1-seg, VHF */
 	195143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	201143, PLL_ISDB_T_PARTIAL_1_SEG_464, 0x1F, 0xCEAD7815, 0x0A,
 	207143, PLL_ISDB_T_PARTIAL_1_SEG_408, 0x01, 0x0929ABB3, 0x0A,
 	213143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	219143, PLL_ISDB_T_PARTIAL_1_SEG_408, 0x01, 0x0929ABB3, 0x0A,
-	/*                   */
+	/* ISDB-T 1-seg, UHF */
 	473143, PLL_ISDB_T_PARTIAL_1_SEG_384, 0x27, 0x47C9D1F2, 0x28,
 	479143, PLL_ISDB_T_PARTIAL_1_SEG_464, 0x1F, 0xCEAD7815, 0x0A,
 	485143, PLL_ISDB_T_PARTIAL_1_SEG_464, 0x1F, 0xCEAD7815, 0x0A,
@@ -298,16 +298,16 @@ I32U DpllTable_Partial1Seg_tcc3535 [_MAX_PARTIAL_1SEG_FREQ_NUM_ * 5] = {
 };
 
 I32U DpllTable_FullSeg_tcc3535 [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
-	/*                                              */
-	/*                                                     */
+	/* please align low frequency to high frequency */
+	/* start frequency, Pll, RC STEP_H, RC_STEP_L, ADC Clk */
 
-	/*          */
+	/* isdb-tmm */
 	210429, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	213429, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	216000, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 	219000, PLL_ISDB_TMM_FULLSEG, 0x0E, 0x1499D87F, 0x02,
 
-	/*                                   */
+	/* isdbt full seg - VHF - Japan only */
 	93143,  PLL_ISDB_T_FULLSEG_30, 0x2B, 0xB4099EA4, 0x03,
 	99143,  PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03,
 	105143, PLL_ISDB_T_FULLSEG_31, 0x27, 0x47C9D1F2, 0x21,
@@ -315,7 +315,7 @@ I32U DpllTable_FullSeg_tcc3535 [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 	179143, PLL_ISDB_T_FULLSEG_2E, 0x22, 0xAB5BBB2E, 0x03,
 	185143, PLL_ISDB_T_FULLSEG_2C, 0x18, 0xD51B8A9C, 0x03,
 	191143, PLL_ISDB_T_FULLSEG_31, 0x2F, 0xF2FF2FF2, 0x03,
-	/*                                    */
+	/* isdbt full seg - VHF - Brazil only */
 	57143,	PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03, 
 	63143,	PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03, 
 	69143,	PLL_ISDB_T_FULLSEG_2D, 0x1D, 0xDB9AF156, 0x03, 
@@ -325,13 +325,13 @@ I32U DpllTable_FullSeg_tcc3535 [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 	177143, PLL_ISDB_T_FULLSEG_2D, 0x1D, 0xDB9AF156, 0x03,
 	183143, PLL_ISDB_T_FULLSEG_2D, 0x27, 0x47C9D1F2, 0x21,
 	189143, PLL_ISDB_T_FULLSEG_2D, 0x1D, 0xDB9AF156, 0x03,
-	/*                      */
+	/* isdbt full seg - VHF */
 	195143, PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03,
 	201143, PLL_ISDB_T_FULLSEG_31, 0x27, 0x47C9D1F2, 0x21,
 	207143, PLL_ISDB_T_FULLSEG_31, 0x27, 0x47C9D1F2, 0x21,
 	213143, PLL_ISDB_T_FULLSEG_31, 0x2F, 0xF2FF2FF2, 0x03,
 	219143, PLL_ISDB_T_FULLSEG_2A, 0x27, 0x47C9D1F2, 0x21,
-	/*                      */
+	/* JAPAN_BAND_MID_TABLE */
 	111143, PLL_ISDB_T_FULLSEG_2F, 0x27, 0x47C9D1F2, 0x03,
 	117143, PLL_ISDB_T_FULLSEG_2E, 0x22, 0xAB5BBB2E, 0x03,
 	123143, PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03,
@@ -342,7 +342,7 @@ I32U DpllTable_FullSeg_tcc3535 [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 	153143, PLL_ISDB_T_FULLSEG_2B, 0x13, 0x9421FC4E, 0x03,
 	159143, PLL_ISDB_T_FULLSEG_2A, 0x27, 0x47C9D1F2, 0x21,
 	167143, PLL_ISDB_T_FULLSEG_2A, 0x27, 0x47C9D1F2, 0x21,
-	/*                      */
+	/* JAPAN_BAND_SHB_TABLE */
 	225143, PLL_ISDB_T_FULLSEG_2C, 0x18, 0xD51B8A9C, 0x03,
 	231143, PLL_ISDB_T_FULLSEG_2D, 0x1D, 0xDB9AF156, 0x03,
 	237143, PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03,
@@ -384,7 +384,7 @@ I32U DpllTable_FullSeg_tcc3535 [_MAX_FULLSEG_FREQ_NUM_ * 5] = {
 	453143, PLL_ISDB_T_FULLSEG_2A, 0x27, 0x47C9D1F2, 0x21,
 	459143, PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03,
 	465143, PLL_ISDB_T_FULLSEG_2B, 0x27, 0x47C9D1F2, 0x21,
-	/*                      */
+	/* isdbt full seg - UHF */
 	473143, PLL_ISDB_T_FULLSEG_2A, 0x0E, 0x1499D87F, 0x03, 
 	479143, PLL_ISDB_T_FULLSEG_2C, 0x18, 0xD51B8A9C, 0x03,
 	485143, PLL_ISDB_T_FULLSEG_30, 0x27, 0x47C9D1F2, 0x21,

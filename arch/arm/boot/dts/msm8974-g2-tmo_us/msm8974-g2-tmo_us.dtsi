@@ -98,7 +98,7 @@
 
 	/* Below is SDCC2 */
 	sdcc2_rev_a: qcom,sdcc_rev_a@f98a4000 {
-		cell-index = <2>; /* SDC2 SD card slot */
+		cell-index = <2>; /* SDC2 WLAN slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x800>,
 			<0xf98a4800 0x100>,
@@ -156,7 +156,7 @@
 	};
 
 	sdcc2_rev_b: qcom,sdcc_rev_b@f98a4000 {
-		cell-index = <2>; /* SDC2 SD card slot */
+		cell-index = <2>; /* SDC2 WLAN slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x800>,
 			<0xf98a4800 0x100>,
@@ -214,7 +214,7 @@
 	};
 	
 	sdcc2_rev_c: qcom,sdcc_rev_c@f98a4000 {
-		cell-index = <2>; /* SDC2 SD card slot */
+		cell-index = <2>; /* SDC2 WLAN slot */
 		compatible = "qcom,msm-sdcc";
 		reg = <0xf98a4000 0x800>,
 			<0xf98a4800 0x100>,

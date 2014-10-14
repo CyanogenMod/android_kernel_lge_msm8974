@@ -27,36 +27,36 @@ between Telechips and Company.
 
 #include "tcc353x_defines.h"
 
-/*                       */
-#define OSC_192_PLL_ISDB_T_FULLSEG			0xAA86	/*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2A			0xAA86	/*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2B			0xAB86	/*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2C			0xAC86	/*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2D			0xAD86	/*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2E			0xAE86	/*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_2F			0xAF86	/*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_30			0xB086	/*          */
-#define OSC_192_PLL_ISDB_T_FULLSEG_31			0xB186	/*          */
+/* PLL SET for OSC 19200 */
+#define OSC_192_PLL_ISDB_T_FULLSEG			0xAA86	/* 103.2MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2A			0xAA86	/* 103.2MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2B			0xAB86	/* 105.6MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2C			0xAC86	/* 108.0MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2D			0xAD86	/* 110.4MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2E			0xAE86	/* 112.8MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_2F			0xAF86	/* 115.2MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_30			0xB086	/* 117.6MHz */
+#define OSC_192_PLL_ISDB_T_FULLSEG_31			0xB186	/* 120.0MHz */
 
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG		0x8F06	/*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384		0x8F06	/*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_408		0x9006	/*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_432		0x9106	/*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_456		0x9206	/*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_504		0x9406	/*          */
-#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_528		0x9506	/*          */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG		0x8F06	/*  38.4MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_384		0x8F06	/*  38.4MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_408		0x9006	/*  40.8MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_432		0x9106	/*  43.2MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_456		0x9206	/*  45.6MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_504		0x9406	/*  50.4MHz */
+#define OSC_192_PLL_ISDB_T_PARTIAL_1_SEG_528		0x9506	/*  52.8MHz */
 
-#define OSC_192_PLL_ISDB_TMM_FULLSEG			0x9C06	/*          */
-#define OSC_192_PLL_ISDB_TMM_FULLSEG_1C			0x9C06	/*          */
-#define OSC_192_PLL_ISDB_TMM_FULLSEG_1D			0x9D06	/*          */
+#define OSC_192_PLL_ISDB_TMM_FULLSEG			0x9C06	/*  69.6MHz */
+#define OSC_192_PLL_ISDB_TMM_FULLSEG_1C			0x9C06	/*  69.6MHz */
+#define OSC_192_PLL_ISDB_TMM_FULLSEG_1D			0x9D06	/*  72.0MHz */
 
-#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG		0x8F06	/*          */
-#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384		0x8F06	/*          */
-#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_456		0x9206	/*          */
+#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG		0x8F06	/*  38.4MHz */
+#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_384		0x8F06	/*  38.4MHz */
+#define OSC_192_PLL_ISDB_TMM_PARTIAL_1_SEG_456		0x9206	/*  45.6MHz */
 
-#define OSC_192_PLL_ISDB_TSB				0x8F06	/*          */
+#define OSC_192_PLL_ISDB_TSB				0x8F06	/*  38.4MHz */
 
-/*                      */
+/* MAX FREQUENCY NUMBER */
 #define _OSC_19200_MAX_TMM_1SEG_FREQ_NUM_		22
 #define _OSC_19200_MAX_TMM_13SEG_FREQ_NUM_		5
 #define _OSC_19200_MAX_TMM_USER_1SEG_FREQ_NUM_		34

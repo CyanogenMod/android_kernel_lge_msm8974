@@ -956,6 +956,13 @@ int ecryptfs_new_file_context(struct inode *ecryptfs_inode)
 
 	ecryptfs_set_default_crypt_stat_vals(crypt_stat, mount_crypt_stat);
 	crypt_stat->flags |= (ECRYPTFS_ENCRYPTED | ECRYPTFS_KEY_VALID);
+#if 1 // FEATURE_SDCARD_ENCRYPTION  DEBUG
+	if (mount_crypt_stat && (mount_crypt_stat->flags & ECRYPTFS_DECRYPTION_ONLY))
+	{
+		printk(KERN_ERR "%s:%d::CHECK decryption_only set, try encryption disable\n", __FUNCTION__,__LINE__);
+	//	crypt_stat->flags &= ~(ECRYPTFS_ENCRYPTED);
+	}
+#endif
 	ecryptfs_copy_mount_wide_flags_to_inode_flags(crypt_stat,
 						      mount_crypt_stat);
 	rc = ecryptfs_copy_mount_wide_sigs_to_inode_sigs(crypt_stat,
@@ -1314,12 +1321,23 @@ int ecryptfs_write_metadata(struct dentry *ecryptfs_dentry,
 {
 	struct ecryptfs_crypt_stat *crypt_stat =
 		&ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat;
+#if 1 // FEATURE_SDCARD_ENCRYPTION DEBUG
+	struct ecryptfs_mount_crypt_stat *mount_crypt_stat =
+                &ecryptfs_superblock_to_private(
+                        ecryptfs_dentry->d_sb)->mount_crypt_stat;
+#endif
 	unsigned int order;
 	char *virt;
 	size_t virt_len;
 	size_t size = 0;
 	int rc = 0;
 
+#if 1 // FEATURE_SDCARD_ENCRYPTION DEBUG
+if (mount_crypt_stat && (mount_crypt_stat->flags
+                        & ECRYPTFS_DECRYPTION_ONLY)) {
+ecryptfs_printk(KERN_ERR, "%s:%d:: Error decryption_only set \n", __FUNCTION__, __LINE__);
+}
+#endif
 	if (likely(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		if (!(crypt_stat->flags & ECRYPTFS_KEY_VALID)) {
 			printk(KERN_ERR "Key is invalid; bailing out\n");

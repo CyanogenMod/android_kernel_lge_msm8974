@@ -535,6 +535,7 @@ static int soc_compr_set_params_fe(struct snd_compr_stream *cstream,
 
 out:
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_NO;
+       kfree(hw_params);
 	mutex_unlock(&fe->card->mutex);
 	return ret;
 }

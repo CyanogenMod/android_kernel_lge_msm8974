@@ -28,6 +28,7 @@
 #include <mach/clk-provider.h>
 #include <mach/clock-generic.h>
 #include <mach/clk.h>
+#include <mach/cpufreq.h>
 #include "clock-krait.h"
 #include "clock.h"
 
@@ -677,6 +678,8 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	snprintf(prop_name, ARRAY_SIZE(prop_name),
 			"qcom,speed%d-pvs%d-bin-v%d", speed, pvs, ver);
 
+	set_speed_pvs_bin(speed, pvs);
+
 	rows = parse_tbl(dev, prop_name, 3,
 			(u32 **) &freq, (u32 **) &uv, (u32 **) &ua);
 	if (rows < 0) {
@@ -732,8 +735,8 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	 * that the clocks have already been prepared and enabled by the time
 	 * they take over.
 	 */
-	clk_prepare_enable(&l2_clk.c);
 	for_each_online_cpu(cpu) {
+		clk_prepare_enable(&l2_clk.c);
 		WARN(clk_prepare_enable(cpu_clk[cpu]),
 			"Unable to turn on CPU%d clock", cpu);
 	}

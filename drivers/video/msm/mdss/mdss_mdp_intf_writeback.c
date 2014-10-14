@@ -199,7 +199,6 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 		   (ctx->dst_planes.ystride[3] << 16);
 	outsize = (ctx->dst_rect.h << 16) | ctx->dst_rect.w;
 
-	mdp_wb_write(ctx, MDSS_MDP_REG_WB_ALPHA_X_VALUE, 0xFF);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_FORMAT, dst_format);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_OP_MODE, opmode);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_PACK_PATTERN, pattern);
@@ -249,7 +248,6 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	struct mdss_mdp_writeback_ctx *ctx;
 	struct mdss_mdp_writeback_arg *wb_args;
 	struct mdss_mdp_rotator_session *rot;
-	struct mdss_data_type *mdata;
 	u32 format;
 
 	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
@@ -262,11 +260,6 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	rot = (struct mdss_mdp_rotator_session *) wb_args->priv_data;
 	if (!rot) {
 		pr_err("unable to retrieve rot session ctl=%d\n", ctl->num);
-		return -ENODEV;
-	}
-	mdata = ctl->mdata;
-	if (!mdata) {
-		pr_err("no mdata attached to ctl=%d", ctl->num);
 		return -ENODEV;
 	}
 	pr_debug("rot setup wb_num=%d\n", ctx->wb_num);
