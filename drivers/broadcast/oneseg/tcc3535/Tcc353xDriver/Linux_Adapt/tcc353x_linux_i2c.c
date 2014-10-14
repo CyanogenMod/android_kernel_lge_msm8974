@@ -62,7 +62,7 @@ I32S Tcc353xI2cOpen(I32S _moduleIndex)
 	I32S ret;
 	ret = TCC353X_RETURN_FAIL;
 	
-	/*                    */
+	/* exception handling */
 	if (_moduleIndex == 0) {
 		if (gI2cHanleInit0 != 0 && gI2cHanleInit1 == 0)
 			Tcc353xI2cClose(_moduleIndex);
@@ -71,7 +71,7 @@ I32S Tcc353xI2cOpen(I32S _moduleIndex)
 			Tcc353xI2cClose(_moduleIndex);
 	}
 
-	/*                */
+	/* normal process */
 	if (_moduleIndex == 0)
 		gI2cHanleInit0 = 1;
 	else
@@ -86,7 +86,7 @@ I32S Tcc353xI2cOpen(I32S _moduleIndex)
 	TcpalMemset(&gI2cChipAddr[_moduleIndex], 0x00, 4);
 	ret = Tcc353xI2cSetup(_moduleIndex);
 
-	/*            */
+	/* need reset */
 
 	return ret;
 }

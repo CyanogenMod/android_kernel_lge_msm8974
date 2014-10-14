@@ -29,7 +29,6 @@
 #include <sound/asound.h>
 #include <sound/compress_params.h>
 
-
 #define SNDRV_COMPRESS_VERSION SNDRV_PROTOCOL_VERSION(0, 1, 1)
 /**
  * struct snd_compressed_buffer: compressed buffer
@@ -122,7 +121,7 @@ struct snd_compr_codec_caps {
 	struct snd_codec_desc descriptor[MAX_NUM_CODEC_DESCRIPTORS];
 };
 
-/**
+ /**
  * @SNDRV_COMPRESS_ENCODER_PADDING: no of samples appended by the encoder at the
  * end of the track
  * @SNDRV_COMPRESS_ENCODER_DELAY: no of samples inserted by the encoder at the
@@ -142,6 +141,7 @@ struct snd_compr_metadata {
 	 __u32 key;
 	 __u32 value[8];
 };
+
 
 /**
  * struct snd_compr_audio_info: compressed input audio information
@@ -198,4 +198,6 @@ struct snd_compr_audio_info {
 #define SND_COMPR_TRIGGER_DRAIN 7 /*FIXME move this to pcm.h */
 #define SND_COMPR_TRIGGER_NEXT_TRACK 8
 #define SND_COMPR_TRIGGER_PARTIAL_DRAIN 9
+
+#define SNDRV_COMPRESS_METADATA_MODE          _IOW('C', 0x99, bool)
 #endif

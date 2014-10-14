@@ -97,7 +97,7 @@ config MACH_MSM8974_G2_OPEN_COM
 config MACH_MSM8974_G2_OPT_AU
 	depends on ARCH_MSM8974
 	select MACH_LGE
-	bool "MSM8974 G2 OPT AU"
+	bool "MSM8974 G2 OPT_AU"
 	help
 	  Support for the Qualcomm MSM8974 G2 OPEN device.
 
@@ -247,6 +247,34 @@ config MACH_MSM8974_Z_KDDI
 	bool "MSM8974 Z KDDI"
 	help
 	  Support for the Qualcomm MSM8974 Z KDDI device.
+
+config MACH_MSM8974_B1_KR
+        depends on ARCH_MSM8974
+        select MACH_LGE
+        bool "MSM8974 B1 KR"
+        help
+          Support for the Qualcomm MSM8974 B1 Korea device.
+
+config MACH_MSM8974_B1_LGU
+        depends on ARCH_MSM8974
+        select MACH_LGE
+        bool "MSM8974 B1 LGU"
+        help
+          Support for the Qualcomm MSM8974 B1 LG Uplus device.
+
+config MACH_MSM8974_B1_SKT
+        depends on ARCH_MSM8974
+        select MACH_LGE
+        bool "MSM8974 B1 SKT"
+        help
+          Support for the Qualcomm MSM8974 B1 SKT device.
+
+config MACH_MSM8974_B1_KT
+        depends on ARCH_MSM8974
+        select MACH_LGE
+        bool "MSM8974 B1 KT"
+        help
+          Support for the Qualcomm MSM8974 B1 KT device.
 
 endmenu
 

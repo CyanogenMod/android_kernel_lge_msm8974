@@ -111,10 +111,6 @@ static int lge_gdsc_disable(struct gdsc *sc)
 	ret = readl_tight_poll_timeout(sc->gdscr, regval,
 				       !(regval & PWR_ON_MASK), TIMEOUT_US_LGE);
 
-	regval = readl_relaxed(sc->gdscr);
-	regval &= ~(HW_CONTROL_MASK | SW_OVERRIDE_MASK);
-	writel_relaxed(regval, sc->gdscr);
-
 	if (ret)
 		pr_err("%s: %s disable timed out\n", __func__, sc->rdesc.name);
 	return ret;
@@ -189,10 +185,6 @@ retry_enable:
 	 * are not enabled within 400ns of enabling power to the memories.
 	 */
 	udelay(1);
-
-	regval = readl_relaxed(sc->gdscr);
-	regval &= ~(HW_CONTROL_MASK | SW_OVERRIDE_MASK);
-	writel_relaxed(regval, sc->gdscr);
 
 	return 0;
 }
@@ -361,7 +353,8 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 #ifdef CONFIG_MACH_LGE
 	of_property_read_u32(pdev->dev.of_node, "lge,use_workaround",
 			&use_lge_workaround);
-	sc->use_lge_workaround = !(!use_lge_workaround);
+	sc->use_lge_workaround =
+		lge_get_board_revno() >= use_lge_workaround ? 0 : 1;
 #endif
 	sc->rdesc.id = atomic_inc_return(&gdsc_count);
 	sc->rdesc.ops = &gdsc_ops;
@@ -391,7 +384,7 @@ static int __devinit gdsc_probe(struct platform_device *pdev)
 						"qcom,skip-logic-collapse");
 	if (!sc->toggle_logic) {
 #ifdef CONFIG_MACH_LGE
-		/* LGE workaround is not used if a device is good pdn revision */
+		/*                                                             */
 		if (lge_get_board_revno() >= use_lge_workaround) {
 			regval &= ~SW_COLLAPSE_MASK;
 			writel_relaxed(regval, sc->gdscr);
