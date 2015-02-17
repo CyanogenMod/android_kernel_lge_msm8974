@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,13 +18,16 @@
 
 #define QSEECOM_KEY_ID_SIZE   32
 
-#define	QSEOS_RESULT_FAIL_LOAD_KS         -48
-#define	QSEOS_RESULT_FAIL_SAVE_KS         -49
-#define	QSEOS_RESULT_FAIL_MAX_KEYS        -50
-#define	QSEOS_RESULT_FAIL_KEY_ID_EXISTS   -51
-#define	QSEOS_RESULT_FAIL_KEY_ID_DNE      -52
-#define	QSEOS_RESULT_FAIL_KS_OP           -53
-#define	QSEOS_RESULT_FAIL_CE_PIPE_INVALID -54
+#define QSEOS_RESULT_FAIL_UNSUPPORTED_CE_PIPE -63
+#define QSEOS_RESULT_FAIL_KS_OP               -64
+#define QSEOS_RESULT_FAIL_KEY_ID_EXISTS       -65
+#define QSEOS_RESULT_FAIL_MAX_KEYS            -66
+#define QSEOS_RESULT_FAIL_SAVE_KS             -67
+#define QSEOS_RESULT_FAIL_LOAD_KS             -68
+#define QSEOS_RESULT_FAIL_KS_ALREADY_DONE     -69
+#define QSEOS_RESULT_FAIL_KEY_ID_DNE          -70
+#define QSEOS_RESULT_FAIL_INCORRECT_PSWD      -71
+#define QSEOS_RESULT_FAIL_MAX_ATTEMPT         -72
 
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
@@ -46,8 +49,13 @@ enum qseecom_qceos_cmd_id {
 	QSEOS_UNLOAD_SERV_IMAGE_COMMAND,
 	QSEOS_APP_REGION_NOTIFICATION,
 	QSEOS_REGISTER_LOG_BUF_COMMAND,
-	QSEE_RPMB_PROVISION_KEY_COMMAND,
-	QSEE_RPMB_ERASE_COMMAND,
+	QSEOS_RPMB_PROVISION_KEY_COMMAND,
+	QSEOS_RPMB_ERASE_COMMAND,
+	QSEOS_GENERATE_KEY  = 0x11,
+	QSEOS_DELETE_KEY,
+	QSEOS_MAX_KEY_COUNT,
+	QSEOS_SET_KEY,
+	QSEOS_UPDATE_KEY_USERINFO,
 	QSEOS_CMD_MAX     = 0xEFFFFFFF
 };
 
@@ -55,15 +63,6 @@ enum qseecom_qceos_cmd_status {
 	QSEOS_RESULT_SUCCESS = 0,
 	QSEOS_RESULT_INCOMPLETE,
 	QSEOS_RESULT_FAILURE  = 0xFFFFFFFF
-};
-
-/* Key Management requests */
-enum qseecom_qceos_key_gen_cmd_id {
-	QSEOS_GENERATE_KEY  = 0x11,
-	QSEOS_DELETE_KEY,
-	QSEOS_MAX_KEY_COUNT,
-	QSEOS_SET_KEY,
-	QSEOS_KEY_CMD_MAX   = 0xEFFFFFFF
 };
 
 enum qseecom_pipe_type {
@@ -171,6 +170,7 @@ __packed struct qseecom_key_generate_ireq {
 	uint32_t qsee_command_id;
 	uint32_t flags;
 	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
+	uint8_t hash32[QSEECOM_HASH_SIZE];
 };
 
 __packed struct qseecom_key_select_ireq {
@@ -180,13 +180,23 @@ __packed struct qseecom_key_select_ireq {
 	uint32_t pipe_type;
 	uint32_t flags;
 	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
-	unsigned char hash[QSEECOM_HASH_SIZE];
+	uint8_t hash32[QSEECOM_HASH_SIZE];
 };
 
 __packed struct qseecom_key_delete_ireq {
 	uint32_t qsee_command_id;
 	uint32_t flags;
 	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
+	uint8_t hash32[QSEECOM_HASH_SIZE];
+
+};
+
+__packed struct qseecom_key_userinfo_update_ireq {
+	uint32_t qsee_command_id;
+	uint32_t flags;
+	uint8_t key_id[QSEECOM_KEY_ID_SIZE];
+	uint8_t current_hash32[QSEECOM_HASH_SIZE];
+	uint8_t new_hash32[QSEECOM_HASH_SIZE];
 };
 
 __packed struct qseecom_key_max_count_query_ireq {
@@ -197,10 +207,5 @@ __packed struct qseecom_key_max_count_query_irsp {
 	uint32_t max_key_count;
 };
 
-struct key_id_info {
-	uint32_t	ce_hw;
-	uint32_t	pipe;
-	bool		flags;
-};
 
 #endif /* __QSEECOMI_H_ */
