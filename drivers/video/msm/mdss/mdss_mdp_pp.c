@@ -1507,12 +1507,9 @@ void mdss_mdp_pp_argc(void)
 }
 
 
-#define NUM_QLUT 256
-#define MAX_KCAL_V (NUM_QLUT-1)
-
 #define SCALED_BY_KCAL(rgb, kcal) \
 	(((((unsigned int)(rgb) * (unsigned int)(kcal)) << 10) / \
-						(unsigned int)MAX_KCAL_V) >> 10)
+						(unsigned int)DEF_PA) >> 10)
 
 void mdss_mdp_pp_argc_kcal(int kr, int kg, int kb)//struct mdss_mdp_ctl *ctl,
 {
