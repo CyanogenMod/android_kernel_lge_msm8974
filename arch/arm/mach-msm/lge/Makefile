@@ -36,6 +36,5 @@ obj-$(CONFIG_LGE_BLUETOOTH) += board-8974-g2-rfkill.o
 obj-$(CONFIG_LGE_QFPROM_INTERFACE) += lge_qfprom_access.o
 obj-$(CONFIG_LGE_PM) += lge_gpio_debug.o
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_I2C_VU3EVB) +=board-vu3evb-input.o
-obj-$(CONFIG_MACH_LGE) += lge_kcal_ctrl.o
 
 CFLAGS_devices_lge.o += -Idrivers/staging/android

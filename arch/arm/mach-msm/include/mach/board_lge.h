@@ -96,24 +96,6 @@ enum lge_boot_mode_type {
 int lge_get_factory_boot(void);
 int get_lge_frst_status(void);
 
-#if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
-*/
-struct kcal_data {
-		int red;
-		int green;
-		int blue;
-};
-
-struct kcal_platform_data {
-	int (*set_values) (int r, int g, int b);
-	int (*get_values) (int *r, int *g, int *b);
-	int (*refresh_display) (void);
-};
-#endif // CONFIG_LCD_KCAL
-
 enum lge_boot_mode_type lge_get_boot_mode(void);
 
 enum lge_laf_mode_type {
@@ -167,13 +149,6 @@ void __init lge_add_persist_ram_devices(void);
 void __init lge_add_lcd_misc_devices(void);
 #endif
 
-#if defined(CONFIG_LCD_KCAL)
-/* LGE_CHANGE_S
-* change code for LCD KCAL
-* 2013-05-08, seojin.lee@lge.com
-*/
-void __init lge_add_lcd_kcal_devices(void);
-#endif
 #ifdef CONFIG_LGE_QFPROM_INTERFACE
 void __init lge_add_qfprom_devices(void);
 #endif
