@@ -912,6 +912,9 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 		/* swap */
 		writel_relaxed(1, offset + 16);
 	}
+
+	mdata->nmax_concurrent_ad_hw = (mdata->mdp_rev <= MDSS_MDP_HW_REV_102) ?
+									1 : 2;
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	pr_debug("MDP hw init done\n");
 
@@ -935,6 +938,11 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 	rc = mdss_mdp_irq_clk_setup(mdata);
 	if (rc)
 		return rc;
+
+	mdata->hist_intr.req = 0;
+	mdata->hist_intr.curr = 0;
+	mdata->hist_intr.state = 0;
+	spin_lock_init(&mdata->hist_intr.lock);
 
 	mdata->iclient = msm_ion_client_create(-1, mdata->pdev->name);
 	if (IS_ERR_OR_NULL(mdata->iclient)) {
@@ -1748,6 +1756,7 @@ static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev)
 		mdata->ad_cfgs = NULL;
 		return 0;
 	}
+
 	if (mdata->nad_cfgs > mdata->nmixers_intf)
 		return -EINVAL;
 
