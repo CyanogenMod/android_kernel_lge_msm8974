@@ -10,6 +10,8 @@ obj-$(CONFIG_USE_OF) += board-dt.o
 obj-$(CONFIG_DEBUG_FS) += nohlt.o clock-debug.o
 obj-$(CONFIG_KEXEC) += msm_kexec.o
 
+obj-$(CONFIG_INTELLI_HOTPLUG) += intelli_hotplug.o
+
 obj-$(CONFIG_MSM_PROC_COMM) += proc_comm.o
 ifndef CONFIG_ARCH_MSM8X60
 	obj-$(CONFIG_MSM_PROC_COMM) += clock-pcom.o

@@ -3068,4 +3068,12 @@ config KRAIT_REGULATOR
 	 line from the PMIC. This supply line is powered by multiple
 	 regulators running in ganged mode inside the PMIC. Enable
 	 this option to support such configurations.
+
+config INTELLI_HOTPLUG
+	bool "Enable intelligent hotplugging"
+	depends on MSM_RUN_QUEUE_STATS
+	default y
+	help
+	 This enables kernel based intelligent multi core control.
+	 (up/down hotplug based on load)
 endif
