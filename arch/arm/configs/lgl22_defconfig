@@ -4,7 +4,7 @@
 #
 #
 
-CONFIG_LOCALVERSION="-Vanir"
+CONFIG_LOCALVERSION="-Vanir-CAFfinated"
 
 #### TCP Options ####
 CONFIG_TCP_CONG_ADVANCED=y
