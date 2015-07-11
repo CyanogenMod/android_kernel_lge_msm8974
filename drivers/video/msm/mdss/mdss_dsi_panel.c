@@ -23,6 +23,7 @@
 #include <linux/err.h>
 
 #include "mdss_dsi.h"
+
 #include <mach/board_lge.h>
 #ifdef CONFIG_MFD_TPS65132
 #include <linux/mfd/tps65132.h>
@@ -33,6 +34,8 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/err.h>
 #endif
+
+#include "mdss_livedisplay.h"
 
 #define DT_CMD_HDR 6
 
@@ -222,7 +225,7 @@ u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 	return 0;
 }
 
-static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_panel_cmds *pcmds)
 {
 	struct dcs_cmd_req cmdreq;
@@ -754,7 +757,9 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if (ctrl->on_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
 
-	pr_info("%s-:\n", __func__);
+	mdss_livedisplay_update(ctrl, MODE_UPDATE_ALL);
+
+	pr_debug("%s:-\n", __func__);
 	return 0;
 }
 
@@ -904,7 +909,7 @@ static void mdss_dsi_parse_trigger(struct device_node *np, char *trigger,
 }
 
 
-static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
+int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 		struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key)
 {
 	const char *data;
@@ -1667,6 +1672,8 @@ static int mdss_panel_parse_dt(struct device_node *np,
 #endif
 
 	mdss_dsi_parse_dfps_config(np, ctrl_pdata);
+
+	mdss_livedisplay_parse_dt(np, pinfo);
 
 	return 0;
 
