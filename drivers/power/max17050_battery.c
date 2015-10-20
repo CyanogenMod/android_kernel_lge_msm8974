@@ -1340,9 +1340,7 @@ static int __devinit max17050_probe(struct i2c_client *client,
 			} else if (rev == HW_REV_A) {
 				pr_debug("[MAX17050] HW_REV_A not used MAX17050.");
 				goto error;
-			} else {
-				ret = qpnp_charger_is_ready();
-			}
+			} 
 			if (ret)
 				goto error;
 #endif
@@ -1392,7 +1390,14 @@ static int __devinit max17050_probe(struct i2c_client *client,
 		ret = -ENODEV;
 		goto err_create_file_batl_failed;
 	}
-
+#if defined(CONFIG_MACH_MSM8974_G2_DCM)	
+	//batt_id_pullup_out_low();
+	gpio_tlmm_config(GPIO_CFG(BATT_ID, 0, GPIO_CFG_INPUT,
+			GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_DISABLE);
+	gpio_tlmm_config(GPIO_CFG(BATT_ID_PULLUP, 0, GPIO_CFG_INPUT,
+			GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA),GPIO_CFG_DISABLE);
+#endif
+	
 	F_bat("[MAX17050] %s()  End\n", __func__);
 
 	return 0;
