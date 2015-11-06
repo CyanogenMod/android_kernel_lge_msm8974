@@ -4006,6 +4006,30 @@ static ssize_t ic_register_ctrl(struct lge_touch_data *ts, const char *buf, size
 	return count;
 }
 
+/* Sysfs - tap_to_wake (Low Power Wake-up Gesture Compatibility device)
+ *
+ * write
+ * 0 : DISABLE
+ * 1 : ENABLE
+ */
+static ssize_t store_tap_to_wake(struct lge_touch_data *ts, const char *buf, size_t count)
+{
+	int status = 0;
+
+	sscanf(buf, "%d", &status);
+
+	if (touch_device_func->ic_ctrl) {
+		mutex_lock(&ts->irq_work_mutex);
+
+		TOUCH_INFO_MSG("%s : Tap2Wake %s\n", __func__, (status) ? "Enabled" : "Disabled");
+		touch_device_func->ic_ctrl(ts->client, IC_CTRL_DOUBLE_TAP_WAKEUP_MODE, status);
+
+		mutex_unlock(&ts->irq_work_mutex);
+	}
+
+	return count;
+}
+
 /* store_keyguard_info
  *
  * This function is related with Keyguard in framework.
@@ -4938,6 +4962,7 @@ static LGE_TOUCH_ATTR(fw_ver, S_IRUGO | S_IWUSR, show_fw_ver, NULL);
 static LGE_TOUCH_ATTR(section, S_IRUGO | S_IWUSR, show_section_info, NULL);
 static LGE_TOUCH_ATTR(reset, S_IRUGO | S_IWUSR, NULL, store_ts_reset);
 static LGE_TOUCH_ATTR(ic_rw, S_IRUGO | S_IWUSR, NULL, ic_register_ctrl);
+static LGE_TOUCH_ATTR(tap_to_wake, S_IRUGO | S_IWUSR, NULL, store_tap_to_wake);
 static LGE_TOUCH_ATTR(keyguard, S_IRUGO | S_IWUSR, NULL, store_keyguard_info);
 static LGE_TOUCH_ATTR(virtualkeys, S_IRUGO | S_IWUSR, show_virtual_key, NULL);
 static LGE_TOUCH_ATTR(jitter, S_IRUGO | S_IWUSR, NULL, store_jitter_solution);
@@ -4983,6 +5008,7 @@ static struct attribute *lge_touch_attribute_list[] = {
 	&lge_touch_attr_section.attr,
 	&lge_touch_attr_reset.attr,
 	&lge_touch_attr_ic_rw.attr,
+	&lge_touch_attr_tap_to_wake.attr,
 	&lge_touch_attr_keyguard.attr,
 	&lge_touch_attr_virtualkeys.attr,
 	&lge_touch_attr_jitter.attr,
