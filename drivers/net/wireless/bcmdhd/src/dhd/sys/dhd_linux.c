@@ -72,15 +72,15 @@
 #include <proto/802.3.h>
 
 #include <dngl_stats.h>
-#include <dhd_linux_wq.h>
-#include <dhd.h>
-#include <dhd_linux.h>
+#include "dhd_linux_wq.h"
+#include "dhd.h"
+#include "dhd_linux.h"
 #ifdef PCIE_FULL_DONGLE
-#include <dhd_flowring.h>
+#include "dhd_flowring.h"
 #endif
-#include <dhd_bus.h>
-#include <dhd_proto.h>
-#include <dhd_dbg.h>
+#include "dhd_bus.h"
+#include "dhd_proto.h"
+#include "dhd_dbg.h"
 #ifdef CONFIG_HAS_WAKELOCK
 #include <linux/wakelock.h>
 #endif
@@ -91,15 +91,15 @@
 #include <wl_cfgp2p.h>
 #endif
 #ifdef PNO_SUPPORT
-#include <dhd_pno.h>
+#include "dhd_pno.h"
 #endif
 #ifdef RTT_SUPPORT
-#include <dhd_rtt.h>
+#include "dhd_rtt.h"
 #endif
 #ifdef WLBTAMP
 #include <proto/802.11_bta.h>
 #include <proto/bt_amp_hci.h>
-#include <dhd_bta.h>
+#include "dhd_bta.h"
 #endif
 
 #ifdef CONFIG_COMPAT
@@ -114,7 +114,7 @@
 #include <proto/802.1d.h>
 #endif /* AMPDU_VO_ENABLE */
 #ifdef DHDTCPACK_SUPPRESS
-#include <dhd_ip.h>
+#include "dhd_ip.h"
 #endif /* DHDTCPACK_SUPPRESS */
 
 
