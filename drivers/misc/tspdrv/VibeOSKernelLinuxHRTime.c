@@ -32,10 +32,6 @@
 ** the 5ms required rate.
 */
 
-#ifndef CONFIG_HIGH_RES_TIMERS
-#warning "The Kernel does not have high resolution timers enabled. Either provide a non hr-timer implementation of VibeOSKernelLinuxTime.c or re-compile your kernel with CONFIG_HIGH_RES_TIMERS=y"
-#endif
-
 #include <linux/hrtimer.h>
 #include <linux/semaphore.h>
 
@@ -58,11 +54,7 @@ static void VibeOSKernelLinuxStopTimer(void);
 
 static inline int VibeSemIsLocked(struct semaphore *lock)
 {
-#if ((LINUX_VERSION_CODE & 0xFFFFFF) < KERNEL_VERSION(2,6,27))
-    return atomic_read(&lock->count) < 1;
-#else
     return (lock->count) < 1;
-#endif
 }
 
 static enum hrtimer_restart VibeOSKernelTimerProc(struct hrtimer *timer)

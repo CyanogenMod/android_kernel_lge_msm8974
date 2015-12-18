@@ -39,7 +39,7 @@
 #include <linux/platform_device.h>
 #include <asm/uaccess.h>
 #include <asm/atomic.h>
-#include <tspdrv.h>
+#include "tspdrv.h"
 
 static int g_nTimerPeriodMs = 5; /* 5ms timer by default. This variable could be used by the SPI.*/
 
@@ -49,12 +49,12 @@ static atomic_t g_bRuntimeRecord;
 #endif
 
 static char IMMR_DEB = false;
-#include <ImmVibeSPI.c>
+#include "ImmVibeSPI.c"
 #if (defined(VIBE_DEBUG) && defined(VIBE_RECORD)) || defined(VIBE_RUNTIME_RECORD)
 #include <tspdrvRecorder.c>
 #endif
 
-#include"imm_timed_output.h"
+#include "imm_timed_output.h"
 
 #include "touch_fops.c"
 /* Device name and version information */
@@ -77,12 +77,6 @@ static atomic_t g_nDebugLevel;
 
 static char g_cWriteBuffer[MAX_SPI_BUFFER_SIZE];
 
-
-
-#if ((LINUX_VERSION_CODE & 0xFFFF00) < KERNEL_VERSION(2,6,0))
-#error Unsupported Kernel version
-#endif
-
 #ifndef HAVE_UNLOCKED_IOCTL
 #define HAVE_UNLOCKED_IOCTL 0
 #endif
@@ -91,15 +85,9 @@ static char g_cWriteBuffer[MAX_SPI_BUFFER_SIZE];
 static int g_nMajor = 0;
 #endif
 
-
-
 /* Needs to be included after the global variables because they use them */
-#include <tspdrvOutputDataHandler.c>
-#ifdef CONFIG_HIGH_RES_TIMERS
-    #include <VibeOSKernelLinuxHRTime.c>
-#else
-    #include <VibeOSKernelLinuxTime.c>
-#endif
+#include "tspdrvOutputDataHandler.c"
+#include "VibeOSKernelLinuxHRTime.c"
 
 asmlinkage void _DbgOut(int level, const char *fmt,...)
 {
@@ -191,37 +179,31 @@ MODULE_LICENSE("GPL v2");
 extern VibeInt8 timedForce;
 
 static ssize_t nforce_val_show(struct device *dev, struct device_attribute *attr,
-               char *buf)
+		char *buf)
 {
-       return sprintf(buf, "%hu", timedForce);
+	return sprintf(buf, "%hu", timedForce);
 }
 
 static ssize_t nforce_val_store(struct device *dev, struct device_attribute *attr,
-               const char *buf, size_t size)
+		const char *buf, size_t size)
 {
-       unsigned short int strength_val = DEFAULT_TIMED_STRENGTH;
-       if (kstrtoul(buf, 0, (unsigned long int*)&strength_val))
-               pr_err("[VIB] %s: error on storing nforce\n", __func__);
+	unsigned short int strength_val = DEFAULT_TIMED_STRENGTH;
+	if (kstrtoul(buf, 0, (unsigned long int*)&strength_val))
+		pr_err("[VIB] %s: error on storing nforce\n", __func__);
 
+	/* make sure new pwm duty is in range */
+	if (strength_val > 127)
+		strength_val = 127;
+	else if (strength_val < 1)
+		strength_val = 1;
 
-       /* make sure new pwm duty is in range */
-       if (strength_val > 127)
-               strength_val = 127;
-       else if (strength_val < 1)
-               strength_val = 1;
+	timedForce = strength_val;
 
-       timedForce = strength_val;
-
-       return size;
+	return size;
 }
 
 static DEVICE_ATTR(nforce_timed, S_IRUGO | S_IWUSR, nforce_val_show, nforce_val_store);
 
-#if 1
-/* LGE_CHANGED_START
-  * Vibrator on/off device file is added(vib_enable)
-  * 2012.11.11, sehwan.lee@lge.com
-  */
 static int val = 0;
 
 static ssize_t
@@ -260,9 +242,6 @@ immersion_enable_show(struct device *dev, struct device_attribute *attr,   char 
 static struct device_attribute immersion_device_attrs[] = {
 	__ATTR(vib_enable,  S_IRUGO | S_IWUSR, immersion_enable_show, immersion_enable_store),
 };
-
-/* LGE_CHANGED_END 2012.11.11, sehwan.lee@lge.com */
-#endif
 
 static int __init tspdrv_init(void)
 {
@@ -303,19 +282,12 @@ static int __init tspdrv_init(void)
     {
         DbgOut((DBL_ERROR, "tspdrv: platform_driver_register failed.\n"));
     }
-#if 1
-/* LGE_CHANGED_START
-  * Vibrator on/off device file is added(vib_enable)
-  * 2012.11.11, sehwan.lee@lge.com
-  */
 	for (i = 0; i < ARRAY_SIZE(immersion_device_attrs); i++) {
 			nRet = device_create_file(miscdev.this_device, &immersion_device_attrs[i]);
 			if (nRet)
 				return nRet;
 	}
 
-/* LGE_CHANGED_END 2012.11.11, sehwan.lee@lge.com */
-#endif
     DbgRecorderInit(());
 
     ImmVibeSPI_ForceOut_Initialize();
@@ -335,9 +307,9 @@ static int __init tspdrv_init(void)
 
     }
 
+	device_create_file(&platdev.dev, &dev_attr_nforce_timed);
+	ImmVibe_timed_output();
 
-    device_create_file(&platdev.dev, &dev_attr_nforce_timed);
-    ImmVibe_timed_output();
     return 0;
 }
 
@@ -575,13 +547,8 @@ static int ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsig
                     case VIBE_KP_CFG_UPDATE_RATE_MS:
                         /* Update the timer period */
                         g_nTimerPeriodMs = deviceParam.nDeviceParamValue;
-
-
-
-#ifdef CONFIG_HIGH_RES_TIMERS
                         /* For devices using high resolution timer we need to update the ktime period value */
                         g_ktTimerPeriod = ktime_set(0, g_nTimerPeriodMs * 1000000);
-#endif
                         break;
 
                     case VIBE_KP_CFG_FREQUENCY_PARAM1:
@@ -590,13 +557,6 @@ static int ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsig
                     case VIBE_KP_CFG_FREQUENCY_PARAM4:
                     case VIBE_KP_CFG_FREQUENCY_PARAM5:
                     case VIBE_KP_CFG_FREQUENCY_PARAM6:
-#if 0
-                        if (0 > ImmVibeSPI_ForceOut_SetFrequency(deviceParam.nDeviceIndex, deviceParam.nDeviceParamID, deviceParam.nDeviceParamValue))
-                        {
-                            DbgOut((DBL_ERROR, "tspdrv: cannot set device frequency parameter.\n"));
-                            return -1;
-                        }
-#endif
                         break;
                 }
             }
