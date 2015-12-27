@@ -27,10 +27,13 @@
 #include "mdss_panel.h"
 #include "mdss_dsi.h"
 #include "mdss_debug.h"
+
 #ifdef CONFIG_MACH_LGE
 #define NUM_MAX_VREG 3
 extern struct mdss_panel_data *pdata_base;
 #endif
+
+#include "mdss_livedisplay.h"
 
 #if defined(CONFIG_LGE_MIPI_DZNY_JDI_INCELL_FHD_VIDEO_PANEL)
 extern int dw8768_mode_change(int mode);
@@ -1033,6 +1036,9 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	}
 #endif
 	pr_info("%s-:\n", __func__);
+
+	mdss_livedisplay_update(pdata->panel_info.livedisplay,
+			MODE_UPDATE_ALL);
 
 	return ret;
 }
