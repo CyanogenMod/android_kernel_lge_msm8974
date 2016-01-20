@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2012, LG Electronics Inc. All rights reserved.
+ * Copyright(c) 2012-2013, LG Electronics Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,56 +12,43 @@
  *
  */
 
-#ifndef _SLIMPORT_H
-#define _SLIMPORT_H
+#ifndef __SLIMPORT_H
+#define __SLIMPORT_H
 
+#include <linux/err.h>
+#include <linux/platform_device.h>
 
-#define SSC_EN
+struct anx7808_platform_data
+{
+	int gpio_p_dwn;
+	int gpio_reset;
+	int gpio_int;
+	int gpio_cbl_det;
+	const char *vdd10_name;
+	const char *avdd33_name;
+};
 
-#if 0
-#define SSC_1
-#define EYE_TEST
-#define EDID_DEBUG_PRINT
-#endif
+struct msm_hdmi_sp_ops {
+	int (*set_upstream_hpd)(struct platform_device *pdev, uint8_t on);
+};
 
-#define AUX_ERR  1
-#define AUX_OK   0
-
-#define CBL_910K 11
-
-#define LOG_TAG "[anx7812]"
-
-extern bool sp_tx_hw_lt_done;
-extern bool  sp_tx_hw_lt_enable;
-extern bool	sp_tx_link_config_done ;
-extern enum SP_TX_System_State sp_tx_system_state;
-extern enum RX_CBL_TYPE sp_tx_rx_type;
-extern enum RX_CBL_TYPE  sp_tx_rx_type_backup;
-extern unchar sp_tx_pd_mode;
-extern unchar sp_tx_hw_hdcp_en;
-
-extern unchar bedid_break;
-extern bool is_slimport_vga(void);
-extern bool is_slimport_dp(void);
-
-int sp_read_reg(uint8_t slave_addr, uint8_t offset, uint8_t *buf);
-int sp_write_reg(uint8_t slave_addr, uint8_t offset, uint8_t value);
-void sp_tx_hardware_poweron(void);
-void sp_tx_hardware_powerdown(void);
+#ifdef CONFIG_SLIMPORT_ANX7808
 int slimport_read_edid_block(int block, uint8_t *edid_buf);
+bool slimport_is_connected(void);
+bool is_slimport_dp(void);
 unchar sp_get_link_bw(void);
 void sp_set_link_bw(unchar link_bw);
-
-#ifdef CONFIG_SLIMPORT_DYNAMIC_HPD
-void slimport_set_hdmi_hpd(int on);
-#endif
-
-#if defined (CONFIG_SLIMPORT_ANX7816) || defined(CONFIG_SLIMPORT_ANX7808)
-bool slimport_is_connected(void);
+int msm_hdmi_register_sp(struct platform_device *pdev, struct msm_hdmi_sp_ops *ops);
+uint32_t slimport_get_chg_current(void);
 #else
-static inline bool slimport_is_connected(void)
-{
-	return false;
-}
+static inline int slimport_read_edid_block(int block, uint8_t *edid_buf) { return -ENOSYS; }
+static inline bool slimport_is_connected(void) { return false; }
+static inline bool is_slimport_dp(void) { return false; }
+static inline unchar sp_get_link_bw(void) { return 0; }
+static inline void sp_set_link_bw(unchar link_bw) {}
+static inline int msm_hdmi_register_sp(struct platform_device *pdev,
+		struct msm_hdmi_sp_ops *ops) { return 0; }
+static inline uint32_t slimport_get_chg_current(void) { return 0;}
 #endif
+
 #endif

@@ -12,48 +12,29 @@
  *
  */
 
-#ifndef _SP_TX_DRV_H
-#define _SP_TX_DRV_H
-
-#include <linux/slimport.h>
-#include "slimport_tx_reg.h"
-#include "../msm/mdss/mdss_hdmi_slimport.h"
+#ifndef __SP_TX_DRV_H
+#define __SP_TX_DRV_H
 
 #define FALSE 0
 #define TRUE 1
 
-
 #define MAX_BUF_CNT 16
 #define VID_DVI_MODE 0x00
 #define VID_HDMI_MODE 0x01
-#define VIDEO_STABLE_TH 3
+#define VIDEO_STABLE_TH 2
 #define AUDIO_STABLE_TH 1
 #define SCDT_EXPIRE_TH 10
 #define SP_TX_HDCP_FAIL_TH 10
 #define SP_TX_DS_VID_STB_TH 20
-/* #define SP_REGISTER_SET_TEST */
+#define GET_HDMI_CONNECTION_MAX_TRIES 6
+
+#define NORMAL_CHG_I_MA 500
+#define FAST_CHG_I_MA 1200
 
 extern unchar bedid_extblock[128];
 extern unchar bedid_firstblock[128];
-
 extern unchar slimport_link_bw;
-extern int external_block_en;
 
-#ifdef SP_REGISTER_SET_TEST
-/* For Slimport test */
-extern unchar val_SP_TX_LT_CTRL_REG0 ;
-extern unchar val_SP_TX_LT_CTRL_REG10 ;
-extern unchar val_SP_TX_LT_CTRL_REG11 ;
-extern unchar val_SP_TX_LT_CTRL_REG2 ;
-extern unchar val_SP_TX_LT_CTRL_REG12;
-extern unchar val_SP_TX_LT_CTRL_REG1;
-extern unchar val_SP_TX_LT_CTRL_REG6;
-extern unchar val_SP_TX_LT_CTRL_REG16;
-extern unchar val_SP_TX_LT_CTRL_REG5;
-extern unchar val_SP_TX_LT_CTRL_REG8;
-extern unchar val_SP_TX_LT_CTRL_REG15;
-extern unchar val_SP_TX_LT_CTRL_REG18;
-#endif
 enum SP_TX_System_State {
 	STATE_INIT = 1,
 	STATE_CABLE_PLUG,
@@ -148,7 +129,9 @@ enum RX_CBL_TYPE {
 void sp_tx_variable_init(void);
 void sp_tx_initialization(void);
 void sp_tx_show_infomation(void);
+void hdmi_rx_show_video_info(void);
 void sp_tx_power_down(enum SP_TX_POWER_BLOCK sp_tx_pd_block);
+void sp_tx_power_down_and_init(void);
 void sp_tx_power_on(enum SP_TX_POWER_BLOCK sp_tx_pd_block);
 void sp_tx_avi_setup(void);
 void sp_tx_clean_hdcp(void);
@@ -160,12 +143,13 @@ void sp_tx_config_packets(enum PACKETS_TYPE bType);
 unchar sp_tx_hw_link_training(void);
 unchar sp_tx_lt_pre_config(void);
 void sp_tx_video_mute(unchar enable);
+void sp_tx_aux_polling_enable(bool benable);
 void sp_tx_set_colorspace(void);
 void sp_tx_int_irq_handler(void);
 void sp_tx_send_message(enum SP_TX_SEND_MSG message);
 void sp_tx_hdcp_process(void);
 void sp_tx_set_sys_state(enum SP_TX_System_State ss);
-unchar sp_tx_get_cable_type(void);
+unchar sp_tx_get_cable_type(bool bdelay);
 bool sp_tx_get_dp_connection(void);
 bool sp_tx_get_hdmi_connection(void);
 bool sp_tx_get_vga_connection(void);
@@ -176,11 +160,16 @@ uint sp_tx_link_err_check(void);
 void sp_tx_eye_diagram_test(void);
 void sp_tx_phy_auto_test(void);
 void sp_tx_enable_video_input(unchar enable);
-void sp_tx_disable_slimport_hdcp(void);
-
+unchar sp_tx_aux_dpcdwrite_bytes(unchar addrh, unchar addrm,
+	unchar addrl, unchar cCount, unchar *pBuf);
+unchar sp_tx_aux_dpcdread_bytes(unchar addrh, unchar addrm,
+	unchar addrl, unchar cCount, unchar *pBuf);
+uint32_t sp_tx_get_chg_current(void);
 
 /* ***************************************************************** */
+
 /* Functions protoype for HDMI Input */
+
 /* ***************************************************************** */
 
 void sp_tx_config_hdmi_input(void);
@@ -188,13 +177,5 @@ void hdmi_rx_set_hpd(unchar enable);
 void hdmi_rx_initialization(void);
 void hdmi_rx_int_irq_handler(void);
 void hdmi_rx_set_termination(unchar enable);
-
-/* ***************************************************************** */
-/* Functions protoype for slimport_rx anx7730 */
-/* ***************************************************************** */
-bool source_aux_read_7730dpcd(long addr, unchar cCount, unchar *pBuf);
-bool source_aux_write_7730dpcd(long addr, unchar cCount, unchar *pBuf);
-bool i2c_master_read_reg(unchar Sink_device_sel, unchar offset, unchar *Buf);
-bool i2c_master_write_reg(unchar Sink_device_sel, unchar offset, unchar value);
 
 #endif
