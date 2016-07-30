@@ -6318,6 +6318,11 @@ static int touch_resume(struct device *device)
 static int touch_suspend(struct device *device)
 {
 	TOUCH_INFO_MSG("%s \n", __func__);
+	/* ZG Hack */
+	if(fb_blank_called == 1 && touch_gesture_enable == LPWG_DOUBLE_TAP) {
+		TOUCH_INFO_MSG("%s: Force suspend !!\n", __func__);
+		touch_lcd_suspend(device);
+	}
 	mutex_lock(&i2c_suspend_lock);
 	return 0;
 }
