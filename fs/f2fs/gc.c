@@ -96,7 +96,7 @@ int start_gc_thread(struct f2fs_sb_info *sbi)
 	dev_t dev = sbi->sb->s_bdev->bd_dev;
 	int err = 0;
 
-	gc_th = kmalloc(sizeof(struct f2fs_gc_kthread), GFP_KERNEL);
+	gc_th = f2fs_kmalloc(sizeof(struct f2fs_gc_kthread), GFP_KERNEL);
 	if (!gc_th) {
 		err = -ENOMEM;
 		goto out;
@@ -465,15 +465,7 @@ next_step:
 			continue;
 		}
 
-		/* set page dirty and write it */
-		if (gc_type == FG_GC) {
-			f2fs_wait_on_page_writeback(node_page, NODE, true);
-			set_page_dirty(node_page);
-		} else {
-			if (!PageWriteback(node_page))
-				set_page_dirty(node_page);
-		}
-		f2fs_put_page(node_page, 1);
+		move_node_page(node_page, gc_type);
 		stat_inc_node_blk_count(sbi, 1, gc_type);
 	}
 
@@ -601,11 +593,11 @@ static void move_encrypted_block(struct inode *inode, block_t bidx)
 	/* write page */
 	lock_page(fio.encrypted_page);
 
-	if (unlikely(!PageUptodate(fio.encrypted_page))) {
+	if (unlikely(fio.encrypted_page->mapping != META_MAPPING(fio.sbi))) {
 		err = -EIO;
 		goto put_page_out;
 	}
-	if (unlikely(fio.encrypted_page->mapping != META_MAPPING(fio.sbi))) {
+	if (unlikely(!PageUptodate(fio.encrypted_page))) {
 		err = -EIO;
 		goto put_page_out;
 	}
@@ -625,9 +617,9 @@ static void move_encrypted_block(struct inode *inode, block_t bidx)
 	f2fs_submit_page_mbio(&fio);
 
 	f2fs_update_data_blkaddr(&dn, newaddr);
-	set_inode_flag(F2FS_I(inode), FI_APPEND_WRITE);
+	set_inode_flag(inode, FI_APPEND_WRITE);
 	if (page->index == 0)
-		set_inode_flag(F2FS_I(inode), FI_FIRST_BLOCK_WRITTEN);
+		set_inode_flag(inode, FI_FIRST_BLOCK_WRITTEN);
 put_page_out:
 	f2fs_put_page(fio.encrypted_page, 1);
 recover_block:
@@ -661,12 +653,23 @@ static void move_data_page(struct inode *inode, block_t bidx, int gc_type)
 			.page = page,
 			.encrypted_page = NULL,
 		};
+		bool is_dirty = PageDirty(page);
+		int err;
+
+retry:
 		set_page_dirty(page);
 		f2fs_wait_on_page_writeback(page, DATA, true);
 		if (clear_page_dirty_for_io(page))
 			inode_dec_dirty_pages(inode);
+
 		set_cold_data(page);
-		do_write_data_page(&fio);
+
+		err = do_write_data_page(&fio);
+		if (err == -ENOMEM && is_dirty) {
+			congestion_wait(BLK_RW_ASYNC, HZ/50);
+			goto retry;
+		}
+
 		clear_cold_data(page);
 	}
 out:
@@ -752,12 +755,32 @@ next_step:
 		/* phase 3 */
 		inode = find_gc_inode(gc_list, dni.ino);
 		if (inode) {
+			struct f2fs_inode_info *fi = F2FS_I(inode);
+			bool locked = false;
+
+			if (S_ISREG(inode->i_mode)) {
+				if (!down_write_trylock(&fi->dio_rwsem[READ]))
+					continue;
+				if (!down_write_trylock(
+						&fi->dio_rwsem[WRITE])) {
+					up_write(&fi->dio_rwsem[READ]);
+					continue;
+				}
+				locked = true;
+			}
+
 			start_bidx = start_bidx_of_node(nofs, inode)
 								+ ofs_in_node;
 			if (f2fs_encrypted_inode(inode) && S_ISREG(inode->i_mode))
 				move_encrypted_block(inode, start_bidx);
 			else
 				move_data_page(inode, start_bidx, gc_type);
+
+			if (locked) {
+				up_write(&fi->dio_rwsem[WRITE]);
+				up_write(&fi->dio_rwsem[READ]);
+			}
+
 			stat_inc_data_blk_count(sbi, 1, gc_type);
 		}
 	}
@@ -806,6 +829,10 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 	blk_start_plug(&plug);
 
 	for (segno = start_segno; segno < end_segno; segno++) {
+
+		if (get_valid_blocks(sbi, segno, 1) == 0)
+			continue;
+
 		/* find segment summary of victim */
 		sum_page = find_get_page(META_MAPPING(sbi),
 					GET_SUM_BLOCK(sbi, segno));
@@ -834,18 +861,9 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 		f2fs_put_page(sum_page, 0);
 	}
 
-	if (gc_type == FG_GC) {
-		if (type == SUM_TYPE_NODE) {
-			struct writeback_control wbc = {
-				.sync_mode = WB_SYNC_ALL,
-				.nr_to_write = LONG_MAX,
-				.for_reclaim = 0,
-			};
-			sync_node_pages(sbi, 0, &wbc);
-		} else {
-			f2fs_submit_merged_bio(sbi, DATA, WRITE);
-		}
-	}
+	if (gc_type == FG_GC)
+		f2fs_submit_merged_bio(sbi,
+				(type == SUM_TYPE_NODE) ? NODE : DATA, WRITE);
 
 	blk_finish_plug(&plug);
 
@@ -890,10 +908,13 @@ gc_more:
 		 * enough free sections, we should flush dent/node blocks and do
 		 * garbage collections.
 		 */
-		if (__get_victim(sbi, &segno, gc_type) || prefree_segments(sbi))
+		if (__get_victim(sbi, &segno, gc_type) ||
+						prefree_segments(sbi)) {
 			write_checkpoint(sbi, &cpc);
-		else if (has_not_enough_free_secs(sbi, 0))
+			segno = NULL_SEGNO;
+		} else if (has_not_enough_free_secs(sbi, 0)) {
 			write_checkpoint(sbi, &cpc);
+		}
 	}
 
 	if (segno == NULL_SEGNO && !__get_victim(sbi, &segno, gc_type))
