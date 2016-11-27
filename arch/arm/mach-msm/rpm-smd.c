@@ -1375,10 +1375,8 @@ static int __devinit msm_rpm_dev_probe(struct platform_device *pdev)
 
 	key = "rpm-standalone";
 	standalone = of_property_read_bool(pdev->dev.of_node, key);
-	if (standalone) {
-		probe_status = 0;
+	if (standalone)
 		goto skip_smd_init;
-	}
 
 	msm_rpm_smd_remote_driver.driver.name = msm_rpm_data.ch_name;
 	init_completion(&msm_rpm_data.remote_open);
